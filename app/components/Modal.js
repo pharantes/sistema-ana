@@ -13,48 +13,48 @@ const ModalOverlay = styled.div`
 `;
 
 const ModalContent = styled.div`
-  background: white;
-  color: black;
-  padding: 20px;
+  background: var(--color-surface, white);
+  color: var(--color-text-primary, black);
+  padding: var(--space-md, 20px);
   min-width: 420px;
   max-height: 90vh;
   overflow: auto;
 
   input, select, textarea {
     width: 100%;
-    padding: 8px 10px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    background: #fff;
-    color: #111;
-    font-size: 14px;
+    padding: var(--space-sm, 8px) var(--space-md, 10px);
+    border: 1px solid rgba(0,0,0,0.1);
+    border-radius: var(--radius-sm, 4px);
+    background: var(--color-surface, #fff);
+    color: var(--color-text-primary, #111);
+    font-size: var(--font-size-base, 14px);
     box-sizing: border-box;
-    margin-bottom: 6px;
+    margin-bottom: var(--space-xs, 6px);
   }
 
   input[readonly] {
-    background: #f5f5f5;
+    background: var(--color-muted-surface, #f5f5f5);
   }
 
   label {
     display: block;
-    margin-bottom: 6px;
-    font-size: 12px;
-    color: #333;
+    margin-bottom: var(--space-xs, 6px);
+    font-size: var(--font-size-sm, 12px);
+    color: var(--color-text-muted, #333);
   }
 
   button {
-    padding: 8px 12px;
-    border-radius: 4px;
+    padding: var(--space-sm, 8px) var(--space-md, 12px);
+    border-radius: var(--radius-sm, 4px);
     border: 1px solid transparent;
-    background: #1976d2;
-    color: white;
+    background: var(--color-primary, #1976d2);
+    color: var(--color-surface, white);
     cursor: pointer;
   }
 
   button[type="button"] {
-    background: #ccc;
-    color: #111;
+    background: var(--color-muted-surface, #ccc);
+    color: var(--color-text-primary, #111);
   }
 `;
 

@@ -7,33 +7,64 @@ import * as FE from './FormElements';
 
 const FormGrid = styled.div`
   display: grid;
-  gap: 10px;
+  gap: var(--space-md, 16px);
 `;
 
 const Row = styled.div`
   display: flex;
-  gap: 8px;
+  gap: var(--space-sm, 12px);
   align-items: center;
+  justify-content: space-between;
+  padding: var(--space-xs, 8px) var(--space-sm, 12px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  background-color: ${({ index }) => (index % 2 === 0 ? "#f9f9f9" : "#fff")};
+
+  .valor {
+    white-space: nowrap;
+    font-weight: bold;
+  }
+
+  button {
+    padding: var(--space-xs, 6px) var(--space-sm, 10px);
+    font-size: var(--font-size-sm, 0.875rem);
+    border-radius: var(--radius-sm, 4px);
+    background-color: var(--color-primary, #6C2BB0);
+    color: var(--color-surface, #fff);
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.3s;
+
+    &:hover {
+      background-color: var(--color-primary-700, #5a2390);
+    }
+  }
 `;
 
 const SelectedList = styled.ul`
   list-style: none;
-  padding: 0;
+  padding: var(--space-sm, 12px);
   margin: 0;
+  font-size: var(--font-size-sm, 0.875rem);
+  line-height: 1.5;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: var(--radius-sm, 4px);
+  overflow-x: hidden;
 `;
 
 const CalendarButton = styled.button`
-  padding: var(--space-sm, 8px);
-  border-radius: var(--radius-sm, 4px);
-  background: var(--color-primary, #1976d2);
+  padding: var(--space-xs, 8px);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--color-primary, #6C2BB0);
   color: var(--color-surface, #fff);
   border: none;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  font-size: var(--font-size-base);
+  box-shadow: 0 2px 8px rgba(108,43,176,0.08);
   &:hover { opacity: 0.95; }
-  &:focus { outline: 2px solid #005bb5; }
+  &:focus { outline: 2px solid var(--color-primary-700, #5a2390); }
 `;
 
 export default function ActionModal({ editing, form, setForm, staffRows, setStaffRows, onClose, onSubmit, loading }) {
@@ -384,20 +415,31 @@ export default function ActionModal({ editing, form, setForm, staffRows, setStaf
 // Styled additions
 const Title = styled.h3`
   margin-top: 0;
+  font-size: var(--font-size-lg, 1.125rem);
+  color: var(--color-primary);
 `;
 const DateInput = styled.input`
   flex: 1;
-  margin-bottom: var(--space-xs, 6px);
+  margin-bottom: var(--space-xs, 8px);
   cursor: pointer;
+  border-radius: var(--radius-sm, 6px);
+  border: 1px solid rgba(0,0,0,0.08);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
 `;
 const DueDateInput = styled.input`
   width: 100%;
-  background: #f5f5f5;
-  margin-bottom: var(--space-xs, 6px);
+  background: var(--color-muted-surface, #f5f5f5);
+  margin-bottom: var(--space-xs, 8px);
+  border-radius: var(--radius-sm, 6px);
+  border: 1px solid rgba(0,0,0,0.08);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-base);
 `;
 const SelectedTitle = styled.div`
   font-weight: 600;
-  margin-bottom: var(--space-xs, 6px);
+  margin-bottom: var(--space-xs, 8px);
 `;
 const SelectedItem = styled.li`
   display: flex;

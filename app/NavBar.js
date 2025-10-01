@@ -1,31 +1,37 @@
 "use client";
 
-// ...existing code...
-
-"use client";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import styled from "styled-components";
 
 const Navbar = styled.nav`
-  background: #222;
-  padding: 1rem;
+  background: var(--color-primary, #6c2bb0);
+  padding: var(--space-md, 16px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 `;
 const NavList = styled.ul`
   display: flex;
-  gap: 2rem;
+  gap: var(--space-lg, 24px);
   list-style: none;
   margin: 0;
   padding: 0;
 `;
-const NavItem = styled.li``;
+const NavItem = styled.li`
+  display: flex;
+  align-items: center;
+`;
 const NavLink = styled(Link)`
-  color: #fff;
+  color: var(--color-surface, #fff);
   text-decoration: none;
-  font-weight: bold;
-  font-size: 1.1rem;
+  font-weight: 600;
+  font-size: var(--font-size-sm, 0.875rem);
+  padding: var(--space-xs, 8px) var(--space-sm, 12px);
+  border-radius: var(--radius-sm, 4px);
+  transition: background-color 0.3s, color 0.3s;
+
   &:hover {
-    color: #00bcd4;
+    background-color: var(--color-primary-700, #5a2390);
+    color: var(--color-surface, #fff);
   }
 `;
 

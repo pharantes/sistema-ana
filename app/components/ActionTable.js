@@ -1,5 +1,6 @@
 "use client";
 import styled from "styled-components";
+import * as FE from './FormElements';
 
 const Table = styled.table`
   width: 100%;
@@ -50,7 +51,7 @@ export default function ActionTable({ actions, session, onEdit, onDelete }) {
                   <>
                     <button onClick={() => onEdit(a)}>Editar</button>
                     {session.user.role === "admin" && (
-                      <button style={{ marginLeft: 8 }} onClick={() => onDelete(a)}>Excluir</button>
+                      <FE.InlineButton onClick={() => onDelete(a)}>Excluir</FE.InlineButton>
                     )}
                   </>
                 ) : null}

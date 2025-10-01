@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-primary: #6f42c1;
+  --color-secondary: #00a6a6;
+  --color-accent: #ff6b6b;
+  --color-surface: #ffffff;
+  --color-text-primary: #111827;
+  --color-text-muted: #6b7280;
+}
+
+html,
+body {
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+}
+
+.modal-overlay {
+  @apply fixed inset-0 bg-black/50 flex items-center justify-center z-50
+}
+
+.modal-content {
+  @apply bg-white text-black rounded-lg p-5 min-w-[420px] max-h-[90vh] overflow-auto
+}

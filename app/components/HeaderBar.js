@@ -1,5 +1,6 @@
 "use client";
 import styled from "styled-components";
+import * as FE from './FormElements';
 
 const Main = styled.main`
   padding: 24px;
@@ -17,7 +18,7 @@ export default function HeaderBar({ username, role, onNewAction, onSignOut }) {
         <b>Bem-vindo, {username} ({role})</b>
       </div>
       <div>
-        <button onClick={onNewAction} style={{ marginRight: 8 }}>Nova Ação</button>
+        <FE.InlineButton onClick={onNewAction}>Nova Ação</FE.InlineButton>
         <button onClick={onSignOut}>Sair</button>
       </div>
     </Welcome>

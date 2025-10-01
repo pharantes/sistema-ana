@@ -2,7 +2,9 @@
 import styled from "styled-components";
 import { useSession } from "next-auth/react";
 import DeleteModal from "../components/DeleteModal";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import * as FE from "../components/FormElements";
+import { Note } from "../components/FormLayout";
 import ServidorModal from "../components/ServidorModal";
 
 const Wrapper = styled.div`
@@ -37,7 +39,7 @@ function useServidorApi() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  async function fetchServidores() {
+  const fetchServidores = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
@@ -48,7 +50,7 @@ function useServidorApi() {
       setError("Erro ao carregar servidores.");
     }
     setLoading(false);
-  }
+  }, []);
 
   return { servidores, fetchServidores, loading, error };
 }
@@ -66,7 +68,7 @@ export default function ServidoresPage() {
 
   useEffect(() => {
     fetchServidores();
-  }, []);
+  }, [fetchServidores]);
 
   async function handleCreate(servidor) {
     setFormError("");
@@ -137,8 +139,8 @@ export default function ServidoresPage() {
   return (
     <Wrapper>
       <Title>Servidores</Title>
-      <button style={{ marginBottom: 16 }} onClick={() => setModalOpen(true)}>Novo Servidor</button>
-      {error && <p style={{ color: "red" }}>{error}</p>}
+      <FE.TopButton onClick={() => setModalOpen(true)}>Novo Servidor</FE.TopButton>
+      {error && <Note $error>{error}</Note>}
       {loading ? <p>Carregando...</p> : (
         <Table>
           <thead>
@@ -170,7 +172,7 @@ export default function ServidoresPage() {
                 <Td>
                   <button onClick={() => handleEdit(servidor)}>Editar</button>
                   {session?.user?.role === "admin" && (
-                    <button onClick={() => openDeleteModal(servidor)} style={{ marginLeft: 8 }}>Excluir</button>
+                    <FE.InlineButton onClick={() => openDeleteModal(servidor)}>Excluir</FE.InlineButton>
                   )}
                 </Td>
               </tr>

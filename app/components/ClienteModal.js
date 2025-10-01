@@ -1,42 +1,12 @@
 import React, { useState } from "react";
 import styled from "styled-components";
-
-const ModalOverlay = styled.div`
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-`;
-const ModalContent = styled.div`
-  background: #fff;
-  padding: 32px;
-  border-radius: 8px;
-  min-width: 320px;
-  box-shadow: 0 2px 16px rgba(0,0,0,0.15);
-`;
+import Modal from './Modal';
+import * as FE from './FormElements';
+import * as FL from './FormLayout';
 const Title = styled.h2`
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 `;
-const Form = styled.form`
-  display: grid;
-  gap: 12px;
-`;
-const Input = styled.input`
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-`;
-const Button = styled.button`
-  padding: 8px 16px;
-  background: #1976d2;
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-`;
+const Input = styled.input``;
 
 export default function ClienteModal({ open, onClose, onSubmit, initial }) {
   const [form, setForm] = useState(() => {
@@ -102,24 +72,54 @@ export default function ClienteModal({ open, onClose, onSubmit, initial }) {
 
   if (!open) return null;
   return (
-    <ModalOverlay>
-      <ModalContent>
-        <Title>{initial ? "Editar Cliente" : "Novo Cliente"}</Title>
-        <Form onSubmit={handleSubmit}>
+    <Modal onClose={onClose} ariaLabel={initial ? 'Editar Cliente' : 'Novo Cliente'}>
+      <Title>{initial ? "Editar Cliente" : "Novo Cliente"}</Title>
+      <FL.FormGrid as="form" onSubmit={handleSubmit}>
+        <div>
+          <FL.Label>Código</FL.Label>
           <Input name="codigo" placeholder="Código" value={form.codigo} onChange={handleChange} required type="text" maxLength={4} pattern="\d{1,4}" />
+        </div>
+        <div>
+          <FL.Label>Nome do Cliente</FL.Label>
           <Input name="nome" placeholder="Nome do Cliente" value={form.nome} onChange={handleChange} required />
+        </div>
+        <div>
+          <FL.Label>Endereço</FL.Label>
           <Input name="endereco" placeholder="Endereço" value={form.endereco} onChange={handleChange} required />
+        </div>
+        <div>
+          <FL.Label>Cidade</FL.Label>
           <Input name="cidade" placeholder="Cidade" value={form.cidade} onChange={handleChange} required />
+        </div>
+        <div>
+          <FL.Label>UF</FL.Label>
           <Input name="uf" placeholder="UF" value={form.uf} onChange={handleChange} required />
+        </div>
+        <div>
+          <FL.Label>Telefone</FL.Label>
           <Input name="telefone" placeholder="Telefone" value={form.telefone} onChange={handleChange} required />
+        </div>
+        <div>
+          <FL.Label>Email</FL.Label>
           <Input name="email" placeholder="Email" value={form.email} onChange={handleChange} required />
+        </div>
+        <div>
+          <FL.Label>Nome do contato</FL.Label>
           <Input name="nomeContato" placeholder="Nome do contato" value={form.nomeContato} onChange={handleChange} required />
+        </div>
+        <div>
+          <FL.Label>Tipo</FL.Label>
           <Input name="tipo" placeholder="Tipo" value={form.tipo} onChange={handleChange} required />
+        </div>
+        <div>
+          <FL.Label>CNPJ/CPF</FL.Label>
           <Input name="cnpjCpf" placeholder="CNPJ/CPF" value={form.cnpjCpf} onChange={handleChange} required />
-          <Button type="submit">{initial ? "Salvar" : "Criar"}</Button>
-          <Button type="button" style={{ background: '#aaa', marginLeft: 8 }} onClick={onClose}>Cancelar</Button>
-        </Form>
-      </ModalContent>
-    </ModalOverlay>
+        </div>
+        <FL.Actions>
+          <FE.SecondaryButton type="button" onClick={onClose}>Cancelar</FE.SecondaryButton>
+          <FE.Button type="submit">{initial ? "Salvar" : "Criar"}</FE.Button>
+        </FL.Actions>
+      </FL.FormGrid>
+    </Modal>
   );
 }

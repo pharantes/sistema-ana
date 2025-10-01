@@ -1,6 +1,7 @@
 "use client";
 import styled from "styled-components";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import * as FE from "../components/FormElements";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 
 const Title = styled.h1`
@@ -62,11 +63,7 @@ export default function AcoesPage() {
   const [search, setSearch] = useState("");
   const [filtered, setFiltered] = useState([]);
 
-  useEffect(() => {
-    fetchAcoes();
-  }, []);
-
-  async function fetchAcoes(q = "") {
+  const fetchAcoes = useCallback(async (q = "") => {
     setLoading(true);
     const url = q ? `/api/action?q=${encodeURIComponent(q)}` : "/api/action";
     const res = await fetch(url);
@@ -74,7 +71,11 @@ export default function AcoesPage() {
     setAcoes(data);
     setFiltered(flattenAcoes(data));
     setLoading(false);
-  }
+  }, []);
+
+  useEffect(() => {
+    fetchAcoes();
+  }, [fetchAcoes]);
 
   useEffect(() => {
     if (search) {
@@ -82,7 +83,7 @@ export default function AcoesPage() {
     } else {
       fetchAcoes();
     }
-  }, [search]);
+  }, [search, fetchAcoes]);
 
   function flattenAcoes(acoesList) {
     const rows = [];
@@ -188,16 +189,15 @@ export default function AcoesPage() {
     <Wrapper>
       <Title>Ações</Title>
       <SearchBarWrapper>
-        <input
+        <FE.Input
           type="text"
           placeholder="Buscar por cliente, ação, data ou vencimento..."
           value={search}
           onChange={handleSearchChange}
-          style={{ width: "100%", padding: "8px", fontSize: "1rem" }}
         />
       </SearchBarWrapper>
       <PDFButton onClick={gerarPDF}>Gerar PDF</PDFButton>
-      <button style={{ marginBottom: 16 }} onClick={() => setActionModalOpen(true)}>Nova Ação</button>
+      <FE.TopButton onClick={() => setActionModalOpen(true)}>Nova Ação</FE.TopButton>
       {actionModalOpen && (
         <ActionModal
           editing={editingAction}
@@ -206,8 +206,28 @@ export default function AcoesPage() {
           staffRows={[]}
           setStaffRows={() => { }}
           onClose={() => setActionModalOpen(false)}
-          onSubmit={() => { }}
-          loading={false}
+          onSubmit={async (payload) => {
+            try {
+              setLoading(true);
+              const res = await fetch('/api/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+              if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                alert('Erro ao salvar: ' + (err.error || res.statusText));
+                setLoading(false);
+                return;
+              }
+              // success: close modal and refresh
+              setActionModalOpen(false);
+              setEditingAction(null);
+              await fetchAcoes();
+            } catch (err) {
+              console.error(err);
+              alert('Erro ao salvar a ação');
+            } finally {
+              setLoading(false);
+            }
+          }}
+          loading={loading}
         />
       )}
       {loading ? (

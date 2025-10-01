@@ -2,6 +2,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "../auth/[...nextauth]/route";
 import dbConnect from "../../../lib/db/connect.js";
 import Action from "../../../lib/db/models/Action.js";
+import Cliente from "../../../lib/db/models/Cliente.js";
+import Servidor from "../../../lib/db/models/Servidor.js";
 
 function buildFilterFromQuery(url) {
   const { searchParams } = new URL(url);
@@ -71,8 +73,30 @@ export async function POST(request) {
     return new Response(JSON.stringify({ error: "At least one staff entry is required" }), { status: 400 });
   }
 
-  const normalizedStaff = staff
+  // If staff entries reference servidores by _id, fetch them and combine stored pix/bank
+  const staffInput = Array.isArray(staff) ? staff : [];
+  const servidorIds = staffInput.filter(s => s && s._id).map(s => s._id);
+  let servidoresMap = {};
+  if (servidorIds.length) {
+    const servs = await Servidor.find({ _id: { $in: servidorIds } }).lean();
+    servidoresMap = servs.reduce((acc, cur) => { acc[String(cur._id)] = cur; return acc; }, {});
+  }
+
+  function parseCurrencyServer(v) {
+    if (v == null) return 0;
+    if (typeof v === 'number') return v;
+    const cleaned = String(v).replace(/[^0-9,.-]/g, '').replace(/\./g, '').replace(',', '.');
+    const n = parseFloat(cleaned);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  const normalizedStaff = staffInput
     .map((s) => {
+      if (s && s._id && servidoresMap[String(s._id)]) {
+        const serv = servidoresMap[String(s._id)];
+        const value = parseCurrencyServer(s.value);
+        return { name: serv.nome || serv.name || '', value, pix: serv.pix || '', bank: serv.banco || '' };
+      }
       if (typeof s === "string") {
         const parts = s.split("-");
         const name = (parts[0] || "").trim();
@@ -81,7 +105,7 @@ export async function POST(request) {
         return { name, value };
       }
       const name = (s.name || "").trim();
-      const value = Number(s.value) || 0;
+      const value = parseCurrencyServer(s.value);
       const pix = (s.pix || "").trim();
       const bank = (s.bank || "").trim();
       return { name, value, pix, bank };
@@ -92,10 +116,22 @@ export async function POST(request) {
     return new Response(JSON.stringify({ error: "At least one valid staff entry is required" }), { status: 400 });
   }
 
+  // resolve client id to client name when possible
+  let clientName = client;
+  try {
+    // if client looks like an ObjectId, attempt to fetch
+    if (client && /^[0-9a-fA-F]{24}$/.test(String(client))) {
+      const cli = await Cliente.findById(client).lean();
+      if (cli) clientName = cli.nome || cli.name || String(client);
+    }
+  } catch (err) {
+    // ignore and keep provided client
+  }
+
   const action = await Action.create({
     name,
     event,
-    client,
+    client: clientName,
     date: date ? new Date(date) : undefined,
     paymentMethod,
     dueDate: dueDate ? new Date(dueDate) : undefined,

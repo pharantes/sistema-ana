@@ -1,5 +1,19 @@
 import NextAuth from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
+import _CredentialsProvider from "next-auth/providers/credentials";
+
+// normalize provider import shape across different bundlers/packagers
+let CredentialsProvider;
+if (typeof _CredentialsProvider === 'function') {
+  CredentialsProvider = _CredentialsProvider;
+} else if (_CredentialsProvider && typeof _CredentialsProvider.default === 'function') {
+  CredentialsProvider = _CredentialsProvider.default;
+} else if (_CredentialsProvider && typeof _CredentialsProvider.Credentials === 'function') {
+  CredentialsProvider = _CredentialsProvider.Credentials;
+} else if (_CredentialsProvider && _CredentialsProvider.default && typeof _CredentialsProvider.default.default === 'function') {
+  CredentialsProvider = _CredentialsProvider.default.default;
+} else {
+  throw new Error('Unable to resolve CredentialsProvider from next-auth/providers/credentials import');
+}
 import bcrypt from "bcryptjs";
 import dbConnect from "../../../../lib/db/connect.js";
 import User from "../../../../lib/db/models/User.js";

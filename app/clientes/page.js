@@ -2,6 +2,7 @@
 import styled from "styled-components";
 import { useEffect, useState } from "react";
 import ClienteModal from "../components/ClienteModal";
+import * as FE from "../components/FormElements";
 import DeleteModal from "../components/DeleteModal";
 
 const Wrapper = styled.div`
@@ -113,7 +114,7 @@ export default function ClientesPage() {
   return (
     <Wrapper>
       <Title>Clientes</Title>
-      <button style={{ marginBottom: 16 }} onClick={() => setModalOpen(true)}>Novo Cliente</button>
+      <FE.TopButton onClick={() => setModalOpen(true)}>Novo Cliente</FE.TopButton>
       {loading ? <p>Carregando...</p> : (
         <Table>
           <thead>
@@ -147,7 +148,7 @@ export default function ClientesPage() {
                 <Td>
                   <button onClick={() => handleEdit(cliente)}>Editar</button>
                   {isAdmin && (
-                    <button onClick={() => openDeleteModal(cliente)} style={{ marginLeft: 8 }}>Excluir</button>
+                    <FE.InlineButton onClick={() => openDeleteModal(cliente)}>Excluir</FE.InlineButton>
                   )}
                 </Td>
               </tr>

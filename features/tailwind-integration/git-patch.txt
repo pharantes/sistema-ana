@@ -1,0 +1,10 @@
+# Example changes you can apply manually (package.json changes and add files)
+
+1) Add devDeps:
+   npm install -D tailwindcss@^3 postcss autoprefixer
+
+2) Add postcss.config.cjs and tailwind.config.cjs (see features/tailwind-integration)
+
+3) Add app.globals.tailwind.css and swap it with app/globals.css when testing.
+
+4) Migrate components incrementally using examples in features/tailwind-integration/examples/

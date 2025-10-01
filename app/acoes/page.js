@@ -52,7 +52,11 @@ function formatDate(date) {
   }
 }
 
+import ActionModal from "../components/ActionModal";
+
 export default function AcoesPage() {
+  const [actionModalOpen, setActionModalOpen] = useState(false);
+  const [editingAction, setEditingAction] = useState(null);
   const [acoes, setAcoes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -193,6 +197,19 @@ export default function AcoesPage() {
         />
       </SearchBarWrapper>
       <PDFButton onClick={gerarPDF}>Gerar PDF</PDFButton>
+      <button style={{ marginBottom: 16 }} onClick={() => setActionModalOpen(true)}>Nova Ação</button>
+      {actionModalOpen && (
+        <ActionModal
+          editing={editingAction}
+          form={{}}
+          setForm={() => { }}
+          staffRows={[]}
+          setStaffRows={() => { }}
+          onClose={() => setActionModalOpen(false)}
+          onSubmit={() => { }}
+          loading={false}
+        />
+      )}
       {loading ? (
         <p>Carregando...</p>
       ) : (

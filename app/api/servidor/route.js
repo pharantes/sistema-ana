@@ -1,15 +1,7 @@
-import Servidor from '@/lib/db/models/Servidor';
-import connect from '@/lib/db/connect';
+import { getServerSession } from "next-auth";
+import { servidorController } from "@/lib/controllers/servidorController";
 
-export async function GET() {
-  await connect();
-  const servidores = await Servidor.find();
-  return Response.json(servidores);
-}
-
-export async function POST(request) {
-  await connect();
-  const data = await request.json();
-  const servidor = await Servidor.create(data);
-  return Response.json(servidor);
-}
+export const GET = servidorController.get;
+export const POST = servidorController.post;
+export const PATCH = servidorController.patch;
+export const DELETE = servidorController.delete;

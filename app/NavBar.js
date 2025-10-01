@@ -49,6 +49,9 @@ export default function NavBar() {
         <NavItem>
           <NavLink href="/clientes">Clientes</NavLink>
         </NavItem>
+        <NavItem>
+          <NavLink href="/servidores">Servidores</NavLink>
+        </NavItem>
       </NavList>
     </Navbar>
   );

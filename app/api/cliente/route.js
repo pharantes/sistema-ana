@@ -1,15 +1,25 @@
-import Cliente from '@/lib/db/models/Cliente';
-import connect from '@/lib/db/connect';
+import { getClientes, createCliente, updateCliente, deleteCliente } from "@/lib/controllers/clienteController";
 
 export async function GET() {
-  await connect();
-  const clientes = await Cliente.find();
+  const clientes = await getClientes();
   return Response.json(clientes);
 }
 
 export async function POST(request) {
-  await connect();
   const data = await request.json();
-  const cliente = await Cliente.create(data);
+  const cliente = await createCliente(data);
   return Response.json(cliente);
+}
+
+export async function PATCH(request) {
+  const data = await request.json();
+  const { _id, ...update } = data;
+  const cliente = await updateCliente(_id, update);
+  return Response.json(cliente);
+}
+
+export async function DELETE(request) {
+  const { id } = await request.json();
+  const deleted = await deleteCliente(id);
+  return Response.json(deleted);
 }

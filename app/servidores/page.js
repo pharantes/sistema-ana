@@ -1,7 +1,9 @@
 "use client";
 import styled from "styled-components";
 import { useSession } from "next-auth/react";
+import DeleteModal from "../components/DeleteModal";
 import { useEffect, useState } from "react";
+import ServidorModal from "../components/ServidorModal";
 
 const Wrapper = styled.div`
   padding: 24px;
@@ -27,102 +29,170 @@ const Form = styled.form`
   margin-top: 24px;
   display: grid;
   gap: 8px;
-  max-width: 500px;
+  max-width: 400px;
 `;
 
-export default function ServidoresPage() {
-  const { data: session, status } = useSession();
+function useServidorApi() {
   const [servidores, setServidores] = useState([]);
-  const [form, setForm] = useState({ name: "", address: "", telefon: "", bank: "", account: "", pix: "" });
-  const [editing, setEditing] = useState(null);
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => { fetchServidores(); }, []);
+  const [error, setError] = useState("");
 
   async function fetchServidores() {
     setLoading(true);
-    const res = await fetch("/api/servidor");
-    const data = await res.json();
-    setServidores(data);
+    setError("");
+    try {
+      const res = await fetch("/api/servidor");
+      const data = await res.json();
+      setServidores(data);
+    } catch (err) {
+      setError("Erro ao carregar servidores.");
+    }
     setLoading(false);
   }
 
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setLoading(true);
-    const url = editing ? "/api/servidor" : "/api/servidor";
-    const method = editing ? "PATCH" : "POST";
-    const body = editing ? { ...form, _id: editing } : form;
-    await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    setForm({ name: "", address: "", telefon: "", bank: "", account: "", pix: "" });
-    setEditing(null);
+  return { servidores, fetchServidores, loading, error };
+}
+
+export default function ServidoresPage() {
+  const { data: session } = useSession();
+  const { servidores, fetchServidores, loading, error } = useServidorApi();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [formError, setFormError] = useState("");
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [confirmCodigo, setConfirmCodigo] = useState("");
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  useEffect(() => {
     fetchServidores();
-    setLoading(false);
+  }, []);
+
+  async function handleCreate(servidor) {
+    setFormError("");
+    const res = await fetch("/api/servidor", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(servidor),
+    });
+    const result = await res.json();
+    if (result.error) {
+      setFormError(result.error);
+      return;
+    }
+    await fetchServidores();
+    setModalOpen(false);
+  }
+
+  async function handleEdit(servidor) {
+    setEditing({ ...servidor });
+    setModalOpen(true);
+  }
+
+  async function handleUpdate(servidor) {
+    setFormError("");
+    const res = await fetch("/api/servidor", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...servidor, _id: editing._id }),
+    });
+    const result = await res.json();
+    if (result.error) {
+      setFormError(result.error);
+      return;
+    }
+    await fetchServidores();
+    setEditing(null);
+    setModalOpen(false);
+  }
+
+  function handleModalClose() {
+    setEditing(null);
+    setModalOpen(false);
   }
 
   function startEdit(servidor) {
-    setEditing(servidor._id);
-    setForm({ name: servidor.name, address: servidor.address, telefon: servidor.telefon, bank: servidor.bank, account: servidor.account, pix: servidor.pix });
+    handleEdit(servidor);
   }
 
-  async function handleDelete(id) {
-    setLoading(true);
-    await fetch("/api/servidor", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ _id: id }) });
-    fetchServidores();
-    setLoading(false);
+  function openDeleteModal(servidor) {
+    setDeleteTarget(servidor);
+    setConfirmCodigo("");
+    setDeleteModalOpen(true);
   }
 
-  if (status === "loading") return <div>Loading...</div>;
-  if (!session) return <Wrapper><Title>Acesso restrito</Title><p>Faça login para acessar.</p></Wrapper>;
+  async function handleDeleteConfirm(e) {
+    e.preventDefault();
+    if (!session || session.user.role !== "admin") return;
+    if (confirmCodigo !== deleteTarget.codigo) return;
+    setDeleteLoading(true);
+    await fetch(`/api/servidor?id=${deleteTarget._id}`, { method: "DELETE" });
+    setDeleteModalOpen(false);
+    setDeleteTarget(null);
+    setConfirmCodigo("");
+    await fetchServidores();
+    setDeleteLoading(false);
+  }
 
   return (
     <Wrapper>
       <Title>Servidores</Title>
-      <Table>
-        <thead>
-          <tr>
-            <Th>Nome</Th>
-            <Th>Endereço</Th>
-            <Th>Telefone</Th>
-            <Th>Banco</Th>
-            <Th>Conta</Th>
-            <Th>PIX</Th>
-            <Th>Ações</Th>
-          </tr>
-        </thead>
-        <tbody>
-          {servidores.map(servidor => (
-            <tr key={servidor._id}>
-              <Td>{servidor.name}</Td>
-              <Td>{servidor.address}</Td>
-              <Td>{servidor.telefon}</Td>
-              <Td>{servidor.bank}</Td>
-              <Td>{servidor.account}</Td>
-              <Td>{servidor.pix}</Td>
-              <Td>
-                <button onClick={() => startEdit(servidor)}>Editar</button>
-                <button onClick={() => handleDelete(servidor._id)} style={{ marginLeft: 8 }}>Excluir</button>
-              </Td>
+      <button style={{ marginBottom: 16 }} onClick={() => setModalOpen(true)}>Novo Servidor</button>
+      {error && <p style={{ color: "red" }}>{error}</p>}
+      {loading ? <p>Carregando...</p> : (
+        <Table>
+          <thead>
+            <tr>
+              <Th>Código</Th>
+              <Th>Nome do Fornecedor</Th>
+              <Th>PIX</Th>
+              <Th>Banco</Th>
+              <Th>UF</Th>
+              <Th>Telefone</Th>
+              <Th>Email</Th>
+              <Th>Tipo</Th>
+              <Th>CNPJ/CPF</Th>
+              <Th>Ações</Th>
             </tr>
-          ))}
-        </tbody>
-      </Table>
-      <Form onSubmit={handleSubmit}>
-        <input placeholder="Nome" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required />
-        <input placeholder="Endereço" value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} required />
-        <input placeholder="Telefone" value={form.telefon} onChange={e => setForm(f => ({ ...f, telefon: e.target.value }))} required />
-        <input placeholder="Banco" value={form.bank} onChange={e => setForm(f => ({ ...f, bank: e.target.value }))} required />
-        <input placeholder="Conta" value={form.account} onChange={e => setForm(f => ({ ...f, account: e.target.value }))} required />
-        <input placeholder="PIX" value={form.pix} onChange={e => setForm(f => ({ ...f, pix: e.target.value }))} required />
-        <button type="submit" disabled={loading}>{editing ? "Salvar" : "Adicionar"}</button>
-        {editing ? (
-          <button type="button" onClick={() => { setEditing(null); setForm({ name: "", address: "", telefon: "", bank: "", account: "", pix: "" }); }}>Cancelar</button>
-        ) : null}
-      </Form>
+          </thead>
+          <tbody>
+            {servidores.map(servidor => (
+              <tr key={servidor._id}>
+                <Td>{servidor.codigo}</Td>
+                <Td>{servidor.nome}</Td>
+                <Td>{servidor.pix}</Td>
+                <Td>{servidor.banco}</Td>
+                <Td>{servidor.uf}</Td>
+                <Td>{servidor.telefone}</Td>
+                <Td>{servidor.email}</Td>
+                <Td>{servidor.tipo}</Td>
+                <Td>{servidor.cnpjCpf}</Td>
+                <Td>
+                  <button onClick={() => handleEdit(servidor)}>Editar</button>
+                  {session?.user?.role === "admin" && (
+                    <button onClick={() => openDeleteModal(servidor)} style={{ marginLeft: 8 }}>Excluir</button>
+                  )}
+                </Td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      )}
+      <ServidorModal
+        open={modalOpen}
+        onClose={handleModalClose}
+        onSubmit={editing ? handleUpdate : handleCreate}
+        initial={editing}
+      />
+      <DeleteModal
+        action={deleteTarget ? { ...deleteTarget, entityType: "Servidor" } : null}
+        confirmName={confirmCodigo}
+        setConfirmName={setConfirmCodigo}
+        onCancel={() => { setDeleteModalOpen(false); setDeleteTarget(null); setConfirmCodigo(""); }}
+        onConfirm={handleDeleteConfirm}
+        loading={deleteLoading}
+        label="Digite o código do servidor para confirmar a exclusão:"
+      />
     </Wrapper>
   );
 }

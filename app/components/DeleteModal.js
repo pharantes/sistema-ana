@@ -16,17 +16,31 @@ const ModalContent = styled.div`
   min-width: 400px;
 `;
 
-export default function DeleteModal({ action, confirmName, setConfirmName, onCancel, onConfirm, loading }) {
+export default function DeleteModal({ action, confirmName, setConfirmName, onCancel, onConfirm, loading, label }) {
   if (!action) return null;
+  // Determine entity type and label
+  let entity = "Ação";
+  let confirmField = "nome";
+  let confirmLabel = label || "Digite o nome da ação para confirmar a exclusão:";
+  let placeholder = "Nome da ação";
+  let value = action.name;
+  if (action.codigo && action.nome) {
+    // Cliente or Servidor
+    entity = action.entityType || "Cliente";
+    confirmField = "codigo";
+    confirmLabel = label || `Digite o código do ${entity.toLowerCase()} para confirmar a exclusão:`;
+    placeholder = `Código do ${entity.toLowerCase()}`;
+    value = action.codigo;
+  }
   return (
     <ModalOverlay>
       <ModalContent>
-        <h3>Excluir Ação</h3>
-        <p>Digite o nome da ação para confirmar a exclusão:</p>
-        <p style={{ fontStyle: "italic", marginBottom: 8 }}>{action.name}</p>
+        <h3>Excluir {entity}</h3>
+        <p>{confirmLabel}</p>
+        <p style={{ fontStyle: "italic", marginBottom: 8 }}>{value}</p>
         <form onSubmit={onConfirm}>
           <input
-            placeholder="Nome da ação"
+            placeholder={placeholder}
             value={confirmName}
             onChange={e => setConfirmName(e.target.value)}
             autoFocus

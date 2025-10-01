@@ -1,4 +1,6 @@
+
 "use client";
+import { useEffect, useState } from "react";
 import styled from "styled-components";
 
 const ModalOverlay = styled.div`
@@ -23,6 +25,12 @@ const StaffRow = styled.div`
 `;
 
 export default function ActionModal({ editing, form, setForm, staffRows, setStaffRows, onClose, onSubmit, loading }) {
+  const [servidores, setServidores] = useState([]);
+  useEffect(() => {
+    fetch("/api/servidor")
+      .then(res => res.json())
+      .then(data => setServidores(data));
+  }, []);
   return (
     <ModalOverlay>
       <ModalContent>
@@ -41,6 +49,20 @@ export default function ActionModal({ editing, form, setForm, staffRows, setStaf
               onChange={e => setForm(f => ({ ...f, client: e.target.value }))}
               required
             />
+            <div>
+              <label htmlFor="servidor">Servidor</label>
+              <select
+                id="servidor"
+                value={form.servidor || ""}
+                onChange={e => setForm(f => ({ ...f, servidor: e.target.value }))}
+                required
+              >
+                <option value="">Selecione um servidor</option>
+                {servidores.map(s => (
+                  <option key={s._id} value={s._id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
               <input placeholder="Forma de pagamento" value={form.paymentMethod} onChange={e => setForm(f => ({ ...f, paymentMethod: e.target.value }))} />
             </div>

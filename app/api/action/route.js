@@ -1,5 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "../auth/[...nextauth]/route";
+import { cookies } from "next/headers";
+import User from "../../../lib/db/models/User.js";
 import dbConnect from "../../../lib/db/connect.js";
 import Action from "../../../lib/db/models/Action.js";
 import Cliente from "../../../lib/db/models/Cliente.js";
@@ -32,8 +34,25 @@ function buildFilterFromQuery(url) {
   return filter;
 }
 
-export async function GET(request) {
+async function getSessionOrCookieUser() {
   const session = await getServerSession(authOptions);
+  if (session && session.user) return session;
+
+  try {
+    const jar = cookies();
+    const auth = jar.get("auth");
+    if (!auth || !auth.value) return null;
+    await dbConnect();
+    const user = await User.findById(auth.value).lean();
+    if (!user) return null;
+    return { user: { id: String(user._id), username: user.username, role: user.role } };
+  } catch {
+    return null;
+  }
+}
+
+export async function GET(request) {
+  const session = await getSessionOrCookieUser();
   if (!session || !session.user) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
   }
@@ -61,7 +80,7 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-  const session = await getServerSession(authOptions);
+  const session = await getSessionOrCookieUser();
   if (!session || !session.user) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
   }
@@ -142,7 +161,7 @@ export async function POST(request) {
 }
 
 export async function DELETE(request) {
-  const session = await getServerSession(authOptions);
+  const session = await getSessionOrCookieUser();
   if (!session || !session.user || session.user.role !== "admin") {
     return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 });
   }

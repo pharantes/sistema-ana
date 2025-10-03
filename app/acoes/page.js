@@ -66,10 +66,20 @@ export default function AcoesPage() {
   const fetchAcoes = useCallback(async (q = "") => {
     setLoading(true);
     const url = q ? `/api/action?q=${encodeURIComponent(q)}` : "/api/action";
-    const res = await fetch(url);
+    const res = await fetch(url, {
+      credentials: "include",
+      headers: { "Accept": "application/json" },
+    });
+    if (!res.ok) {
+      setAcoes([]);
+      setFiltered([]);
+      setLoading(false);
+      return;
+    }
     const data = await res.json();
-    setAcoes(data);
-    setFiltered(flattenAcoes(data));
+    const safeData = Array.isArray(data) ? data : [];
+    setAcoes(safeData);
+    setFiltered(flattenAcoes(safeData));
     setLoading(false);
   }, []);
 

@@ -1,4 +1,4 @@
-import NextAuth from "next-auth";
+import _NextAuth from "next-auth";
 import _CredentialsProvider from "next-auth/providers/credentials";
 
 // normalize provider import shape across different bundlers/packagers
@@ -61,6 +61,19 @@ export const authOptions = {
     },
   },
 };
+
+const NextAuth =
+  typeof _NextAuth === 'function'
+    ? _NextAuth
+    : (_NextAuth && typeof _NextAuth.default === 'function'
+      ? _NextAuth.default
+      : (_NextAuth && _NextAuth.default && typeof _NextAuth.default.default === 'function'
+        ? _NextAuth.default.default
+        : null));
+
+if (!NextAuth) {
+  throw new Error('Unable to resolve NextAuth function from next-auth import');
+}
 
 const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };

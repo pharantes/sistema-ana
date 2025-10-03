@@ -52,9 +52,11 @@ export const authOptions = {
       return token;
     },
     async session({ session, token }) {
-      session.user.id = token.id;
-      session.user.username = token.username;
-      session.user.role = token.role;
+      const user = session.user || {};
+      user.id = token.id;
+      user.username = token.username;
+      user.role = token.role;
+      session.user = user;
       return session;
     },
   },

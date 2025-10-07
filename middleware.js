@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
 
 export async function middleware(req) {
   const { pathname } = req.nextUrl;
@@ -14,17 +15,9 @@ export async function middleware(req) {
     return NextResponse.next();
   }
 
-  // Simple cookie-based auth check: look for 'auth' cookie
-  // In middleware (Edge runtime) use req.cookies.get(name)
-  let authenticated = false;
-  try {
-    const cookie = req.cookies.get("auth");
-    if (cookie && cookie.value) {
-      authenticated = true;
-    }
-  } catch (e) {
-    // ignore
-  }
+  // Check NextAuth JWT; relies on NEXTAUTH_SECRET
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  const authenticated = Boolean(token);
 
   if (!authenticated) {
     // redirect unauthenticated users to the login page

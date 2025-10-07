@@ -1,5 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 import LoginForm from "../components/LoginForm";
 
 export default function LoginPage() {
@@ -8,24 +9,21 @@ export default function LoginPage() {
   async function handleSubmit(e) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
-    const payload = {
-      username: form.get("username"),
-      password: form.get("password"),
-    };
+    const username = form.get("username");
+    const password = form.get("password");
 
-    const res = await fetch("/api/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+    const result = await signIn("credentials", {
+      redirect: false,
+      username,
+      password,
     });
 
-    if (res.ok) {
-      // successful login — redirect to home
-      router.push("/");
-    } else {
-      const err = await res.json().catch(() => ({}));
-      alert(err.error || "Erro ao fazer login");
+    if (!result || result.error) {
+      alert(result?.error || "Erro ao fazer login");
+      return;
     }
+
+    router.push("/");
   }
 
   return (

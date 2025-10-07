@@ -42,11 +42,30 @@ export default function ContasAPagarPage() {
     setLoading(false);
   }
 
-  async function handleDelete(id) {
-    setLoading(true);
-    await fetch("/api/contasapagar", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
-    fetchReports();
-    setLoading(false);
+  // Removed delete functionality per new requirements
+
+  async function handleStatusChange(id, next, current) {
+    if (!session || session.user.role !== "admin") return;
+    // Optimistically set to selected value
+    setReports(prev => prev.map(r => (r._id === id ? { ...r, status: next } : r)));
+    try {
+      const res = await fetch("/api/contasapagar", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ id, status: next })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Erro ao atualizar status");
+      }
+      const updated = await res.json();
+      setReports(prev => prev.map(r => (r._id === id ? { ...r, status: updated.status } : r)));
+    } catch (e) {
+      alert(e.message || "Erro ao atualizar status");
+      // revert on error
+      setReports(prev => prev.map(r => (r._id === id ? { ...r, status: current } : r)));
+    }
   }
 
   if (status === "loading") return <div>Loading...</div>;
@@ -58,23 +77,51 @@ export default function ContasAPagarPage() {
       <Table>
         <thead>
           <tr>
-            <Th>Data do Relatório</Th>
+            <Th>Data</Th>
+            <Th>Cliente</Th>
             <Th>Ação</Th>
+            <Th>Vencimento</Th>
+            <Th>Servidores</Th>
+            <Th>PIX</Th>
             <Th>PDF</Th>
-            {session.user.role === "admin" && <Th>Ações</Th>}
+            <Th>Status</Th>
           </tr>
         </thead>
         <tbody>
           {reports.map(report => (
             <tr key={report._id}>
               <Td>{report.reportDate ? new Date(report.reportDate).toLocaleDateString("pt-BR") : ""}</Td>
+              <Td>{report.actionId?.client || ""}</Td>
               <Td>{report.actionId?.name || ""}</Td>
+              <Td>{report.actionId?.dueDate ? new Date(report.actionId.dueDate).toLocaleDateString("pt-BR") : ""}</Td>
+              <Td>
+                {Array.isArray(report.actionId?.staff)
+                  ? report.actionId.staff.map((s, idx) => (
+                    <div key={report._id + "-staff-" + idx}>{s?.name || ""}</div>
+                  ))
+                  : ""}
+              </Td>
+              <Td>
+                {Array.isArray(report.actionId?.staff)
+                  ? report.actionId.staff.map((s, idx) => (
+                    <div key={report._id + "-pix-" + idx}>{s?.pix || ""}</div>
+                  ))
+                  : ""}
+              </Td>
               <Td>{report.pdfUrl ? <a href={report.pdfUrl} target="_blank" rel="noopener noreferrer">Download</a> : ""}</Td>
-              {session.user.role === "admin" && (
-                <Td>
-                  <button onClick={() => handleDelete(report._id)}>Excluir</button>
-                </Td>
-              )}
+              <Td>
+                {session.user.role === "admin" ? (
+                  <select
+                    value={(report.status || "ABERTO").toUpperCase()}
+                    onChange={(e) => handleStatusChange(report._id, e.target.value, report.status || "ABERTO")}
+                  >
+                    <option value="ABERTO">ABERTO</option>
+                    <option value="PAGO">PAGO</option>
+                  </select>
+                ) : (
+                  (report.status || "ABERTO").toUpperCase()
+                )}
+              </Td>
             </tr>
           ))}
         </tbody>

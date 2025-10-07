@@ -193,6 +193,20 @@ export default function AcoesPage() {
     a.download = `relatorio-acoes.pdf`;
     a.click();
     URL.revokeObjectURL(url);
+
+    // After generating the PDF for the user, also create contas a pagar entries
+    try {
+      const uniqueActionIds = Array.from(new Set(filtered.map((row) => row._id))).filter(Boolean);
+      for (const actionId of uniqueActionIds) {
+        const res = await fetch(`/api/action/report/${actionId}`, { method: 'POST' });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          console.error('Erro ao criar conta para ação', actionId, err);
+        }
+      }
+    } catch (e) {
+      console.error('Falha ao criar contas após gerar PDF', e);
+    }
   }
 
   return (

@@ -12,18 +12,18 @@ export default function LoginPage() {
     const username = form.get("username");
     const password = form.get("password");
 
+    // Use NextAuth redirect so cookies/session are set before middleware runs
     const result = await signIn("credentials", {
-      redirect: false,
+      redirect: true,
+      callbackUrl: "/",
       username,
       password,
     });
 
-    if (!result || result.error) {
-      alert(result?.error || "Erro ao fazer login");
-      return;
+    // If redirect is blocked or result returns error
+    if (result?.error) {
+      alert(result.error || "Erro ao fazer login");
     }
-
-    router.push("/");
   }
 
   return (

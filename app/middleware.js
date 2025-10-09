@@ -1,32 +1,26 @@
 import { NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 
+const publicRoutes = [
+  "/login",
+  "/api/auth",
+  "/_next",
+  "/favicon.ico"
+];
+
 export async function middleware(req) {
-  const token = await getToken({ req });
+  const token = await getToken({
+    req,
+    secret: process.env.NEXTAUTH_SECRET
+  });
   const pathname = req.nextUrl.pathname;
 
-  // DEBUG: Log the pathname and token status
-  console.log('Middleware - Path:', pathname, 'Has Token:', !!token);
+  // Check if the route is public
+  const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
 
-  // Allow ALL NextAuth.js routes without any restrictions
-  if (pathname.startsWith("/api/auth/")) {
-    console.log('Middleware - Allowing NextAuth route:', pathname);
-    return NextResponse.next();
-  }
-
-  // Allow public assets
-  if (
-    pathname.includes("/_next/") ||
-    pathname.includes("/favicon.ico") ||
-    pathname === "/login"
-  ) {
-    return NextResponse.next();
-  }
-
-  // Protect API routes (except auth) and the acoes page
-  if ((pathname.startsWith("/api/") || pathname.startsWith("/acoes")) && !token) {
-    console.log('Middleware - Blocking unauthorized access to:', pathname);
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // If not authenticated and trying to access protected route, redirect to login
+  if (!token && !isPublicRoute) {
+    return NextResponse.redirect(new URL("/login", req.url));
   }
 
   return NextResponse.next();
@@ -34,7 +28,6 @@ export async function middleware(req) {
 
 export const config = {
   matcher: [
-    "/api/:path*",
-    "/acoes/:path*"
+    '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 };

@@ -1,0 +1,624 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Auth Fix <auth@fix.com>
+Date: $(date)
+Subject: [PATCH] Fix authentication system
+
+---
+ middleware.js                             |  34 +++++++-
+ app/api/auth/[...nextauth]/route.js      |  73 +++++++++++++++++
+ app/sessionProvider.js                   |   6 +-
+ app/login/page.js                        |  85 +++++++++++++++++++++
+ app/layout.js                            |  18 +++--
+ app/page.js                              |  56 ++++++++++++++
+ app/acoes/page.js                        |  71 ++++++++++++++++++
+ app/api/action/route.js                  |  35 +++++++++
+ lib/mongodb.js                           |  32 ++++++++
+ lib/db/seedReset.mjs                     |  51 +++++++++++++
+ 10 files changed, 454 insertions(+), 7 deletions(-)
+ create mode 100644 app/api/auth/[...nextauth]/route.js
+ create mode 100644 app/login/page.js
+ create mode 100644 app/api/action/route.js
+ create mode 100644 lib/mongodb.js
+ create mode 100644 lib/db/seedReset.mjs
+
+diff --git a/middleware.js b/middleware.js
+index 1234567..abcdefg 100644
+--- a/middleware.js
++++ b/middleware.js
+@@ -1,11 +1,41 @@
+ import { NextResponse } from "next/server";
+ import { getToken } from "next-auth/jwt";
+ 
++const publicRoutes = [
++  "/login",
++  "/api/auth",
++  "/_next",
++  "/favicon.ico"
++];
++
+ export async function middleware(req) {
+-  const token = await getToken({ req });
++  const token = await getToken({
++    req,
++    secret: process.env.NEXTAUTH_SECRET
++  });
+   const pathname = req.nextUrl.pathname;
+ 
+-  if (pathname.startsWith("/api") && !token) {
+-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
++  // Check if the route is public
++  const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
++
++  // If not authenticated and trying to access protected route, redirect to login
++  if (!token && !isPublicRoute) {
++    return NextResponse.redirect(new URL("/login", req.url));
+   }
+ 
+   return NextResponse.next();
+ }
++
++export const config = {
++  matcher: [
++    '/((?!_next/static|_next/image|favicon.ico).*)',
++  ],
++};
+diff --git a/app/api/auth/[...nextauth]/route.js b/app/api/auth/[...nextauth]/route.js
+new file mode 100644
+index 0000000..1234567
+--- /dev/null
++++ b/app/api/auth/[...nextauth]/route.js
+@@ -0,0 +1,73 @@
++import NextAuth from "next-auth";
++import CredentialsProvider from "next-auth/providers/credentials";
++import { MongoDBAdapter } from "@next-auth/mongodb-adapter";
++import clientPromise from "../../../../lib/mongodb";
++import bcrypt from "bcryptjs";
++
++export const authOptions = {
++  adapter: MongoDBAdapter(clientPromise),
++  providers: [
++    CredentialsProvider({
++      name: "credentials",
++      credentials: {
++        email: { label: "Email", type: "email" },
++        password: { label: "Password", type: "password" }
++      },
++      async authorize(credentials) {
++        if (!credentials?.email || !credentials?.password) {
++          return null;
++        }
++
++        const client = await clientPromise;
++        const db = client.db();
++        const user = await db.collection("users").findOne({
++          email: credentials.email
++        });
++
++        if (!user) {
++          return null;
++        }
++
++        const isPasswordValid = await bcrypt.compare(
++          credentials.password,
++          user.password
++        );
++
++        if (!isPasswordValid) {
++          return null;
++        }
++
++        return {
++          id: user._id.toString(),
++          email: user.email,
++          name: user.name,
++        };
++      }
++    })
++  ],
++  session: {
++    strategy: "jwt",
++  },
++  callbacks: {
++    async jwt({ token, user }) {
++      if (user) {
++        token.id = user.id;
++      }
++      return token;
++    },
++    async session({ session, token }) {
++      if (token) {
++        session.user.id = token.id;
++      }
++      return session;
++    },
++  },
++  pages: {
++    signIn: "/login",
++  },
++  secret: process.env.NEXTAUTH_SECRET,
++};
++
++const handler = NextAuth(authOptions);
++export { handler as GET, handler as POST };
+diff --git a/app/sessionProvider.js b/app/sessionProvider.js
+index 1234567..abcdefg 100644
+--- a/app/sessionProvider.js
++++ b/app/sessionProvider.js
+@@ -1,3 +1,7 @@
+-"use client"
++"use client";
+ 
+-export { SessionProvider as default } from "next-auth/react"
++import { SessionProvider } from "next-auth/react";
++
++export default function NextAuthProvider({ children }) {
++  return <SessionProvider>{children}</SessionProvider>;
++}
+diff --git a/app/login/page.js b/app/login/page.js
+new file mode 100644
+index 0000000..1234567
+--- /dev/null
++++ b/app/login/page.js
+@@ -0,0 +1,85 @@
++"use client";
++
++import { useState } from "react";
++import { signIn, getSession } from "next-auth/react";
++import { useRouter } from "next/navigation";
++
++export default function LoginPage() {
++  const [email, setEmail] = useState("");
++  const [password, setPassword] = useState("");
++  const [loading, setLoading] = useState(false);
++  const [error, setError] = useState("");
++  const router = useRouter();
++
++  const handleSubmit = async (e) => {
++    e.preventDefault();
++    setLoading(true);
++    setError("");
++
++    try {
++      const result = await signIn("credentials", {
++        email,
++        password,
++        redirect: false,
++      });
++
++      if (result?.error) {
++        setError("Credenciais inválidas");
++      } else {
++        // Check if session was created successfully
++        const session = await getSession();
++        if (session) {
++          router.push("/");
++          router.refresh();
++        } else {
++          setError("Erro ao criar sessão");
++        }
++      }
++    } catch (error) {
++      setError("Erro ao fazer login");
++      console.error("Login error:", error);
++    } finally {
++      setLoading(false);
++    }
++  };
++
++  return (
++    <div style={{
++      display: "flex",
++      justifyContent: "center",
++      alignItems: "center",
++      height: "100vh",
++      background: "#f5f5f5"
++    }}>
++      <form onSubmit={handleSubmit} style={{
++        background: "white",
++        padding: "2rem",
++        borderRadius: "8px",
++        boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
++        width: "300px"
++      }}>
++        <h2 style={{ textAlign: "center", marginBottom: "1.5rem" }}>Login</h2>
++
++        {error && (
++          <div style={{
++            background: "#fee",
++            color: "#c33",
++            padding: "0.5rem",
++            borderRadius: "4px",
++            marginBottom: "1rem",
++            textAlign: "center"
++          }}>
++            {error}
++          </div>
++        )}
++
++        <div style={{ marginBottom: "1rem" }}>
++          <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "bold" }}>
++            Email:
++          </label>
++          <input
++            type="email"
++            value={email}
++            onChange={(e) => setEmail(e.target.value)}
++            required
++            style={{
++              width: "100%",
++              padding: "0.5rem",
++              border: "1px solid #ddd",
++              borderRadius: "4px"
++            }}
++          />
++        </div>
++
++        <div style={{ marginBottom: "1.5rem" }}>
++          <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "bold" }}>
++            Senha:
++          </label>
++          <input
++            type="password"
++            value={password}
++            onChange={(e) => setPassword(e.target.value)}
++            required
++            style={{
++              width: "100%",
++              padding: "0.5rem",
++              border: "1px solid #ddd",
++              borderRadius: "4px"
++            }}
++          />
++        </div>
++
++        <button
++          type="submit"
++          disabled={loading}
++          style={{
++            width: "100%",
++            padding: "0.75rem",
++            background: loading ? "#ccc" : "#0070f3",
++            color: "white",
++            border: "none",
++            borderRadius: "4px",
++            cursor: loading ? "not-allowed" : "pointer",
++            fontSize: "1rem"
++          }}
++        >
++          {loading ? "Entrando..." : "Entrar"}
++        </button>
++      </form>
++    </div>
++  );
++}
+diff --git a/app/layout.js b/app/layout.js
+index 1234567..abcdefg 100644
+--- a/app/layout.js
++++ b/app/layout.js
+@@ -1,3 +1,4 @@
++import NextAuthProvider from "./sessionProvider";
+ import { Geist, Geist_Mono } from "next/font/google";
+ import "./globals.css";
+ 
+@@ -12,5 +13,16 @@ export const metadata = {
+ 
+ export default function RootLayout({ children }) {
+-  return <html lang="en">
+-    <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>{children}</body>
+-  </html>
++  return (
++    <html lang="pt-BR">
++      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
++        <NextAuthProvider>
++          {children}
++        </NextAuthProvider>
++      </body>
++    </html>
++  );
+ }
+diff --git a/app/page.js b/app/page.js
+index 1234567..abcdefg 100644
+--- a/app/page.js
++++ b/app/page.js
+@@ -1 +1,57 @@
+-// Your home page content
++"use client";
++
++import { useSession, signOut } from "next-auth/react";
++import { useRouter } from "next/navigation";
++import { useEffect } from "react";
++
++export default function Home() {
++  const { data: session, status } = useSession();
++  const router = useRouter();
++
++  useEffect(() => {
++    if (status === "loading") return; // Still loading
++
++    if (!session) {
++      router.push("/login");
++    }
++  }, [session, status, router]);
++
++  if (status === "loading") {
++    return (
++      <div style={{
++        display: "flex",
++        justifyContent: "center",
++        alignItems: "center",
++        height: "100vh"
++      }}>
++        <div>Carregando...</div>
++      </div>
++    );
++  }
++
++  if (!session) {
++    return null; // Will redirect in useEffect
++  }
++
++  return (
++    <div style={{ padding: "2rem" }}>
++      <h1>Bem-vindo ao Sistema Ana</h1>
++      <p>Você está logado como: {session.user?.email}</p>
++
++      <div style={{ marginTop: "2rem" }}>
++        <button
++          onClick={() => router.push("/acoes")}
++          style={{
++            padding: "0.5rem 1rem",
++            marginRight: "1rem",
++            background: "#0070f3",
++            color: "white",
++            border: "none",
++            borderRadius: "4px",
++            cursor: "pointer"
++          }}
++        >
++          Ir para Ações
++        </button>
++
++        <button
++          onClick={() => signOut({ callbackUrl: "/login" })}
++          style={{
++            padding: "0.5rem 1rem",
++            background: "#f56565",
++            color: "white",
++            border: "none",
++            borderRadius: "4px",
++            cursor: "pointer"
++          }}
++        >
++          Sair
++        </button>
++      </div>
++    </div>
++  );
++}
+diff --git a/app/acoes/page.js b/app/acoes/page.js
+index 1234567..abcdefg 100644
+--- a/app/acoes/page.js
++++ b/app/acoes/page.js
+@@ -1 +1,70 @@
+-// Your acoes page content
++"use client";
++
++import { useSession } from "next-auth/react";
++import { useRouter } from "next/navigation";
++import { useEffect, useState } from "react";
++
++export default function AcoesPage() {
++  const { data: session, status } = useSession();
++  const router = useRouter();
++  const [acoes, setAcoes] = useState([]);
++  const [loading, setLoading] = useState(true);
++
++  useEffect(() => {
++    if (status === "loading") return;
++
++    if (!session) {
++      router.push("/login");
++      return;
++    }
++
++    fetchAcoes();
++  }, [session, status, router]);
++
++  const fetchAcoes = async () => {
++    try {
++      setLoading(true);
++      const response = await fetch("/api/action");
++
++      if (response.status === 401) {
++        // Unauthorized - redirect to login
++        router.push("/login");
++        return;
++      }
++
++      if (!response.ok) {
++        throw new Error("Failed to fetch actions");
++      }
++
++      const data = await response.json();
++      setAcoes(data);
++    } catch (error) {
++      console.error("Error fetching actions:", error);
++    } finally {
++      setLoading(false);
++    }
++  };
++
++  if (status === "loading" || loading) {
++    return (
++      <div style={{ padding: "2rem" }}>
++        <div>Carregando...</div>
++      </div>
++    );
++  }
++
++  if (!session) {
++    return null; // Will redirect in useEffect
++  }
++
++  return (
++    <div style={{ padding: "2rem" }}>
++      <h1>Ações</h1>
++      <p>Bem-vindo, {session.user?.email}</p>
++
++      <div style={{ marginTop: "2rem" }}>
++        <h2>Lista de Ações</h2>
++        {acoes.length === 0 ? (
++          <p>Nenhuma ação encontrada.</p>
++        ) : (
++          <ul>
++            {acoes.map((acao) => (
++              <li key={acao._id} style={{ marginBottom: "1rem", padding: "1rem", border: "1px solid #ddd" }}>
++                <strong>{acao.name}</strong>
++                <p>{acao.description}</p>
++              </li>
++            ))}
++          </ul>
++        )}
++      </div>
++    </div>
++  );
++}
+diff --git a/app/api/action/route.js b/app/api/action/route.js
+new file mode 100644
+index 0000000..1234567
+--- /dev/null
++++ b/app/api/action/route.js
+@@ -0,0 +1,35 @@
++import { getServerSession } from "next-auth/next";
++import { authOptions } from "../../auth/[...nextauth]/route";
++import clientPromise from "../../../../lib/mongodb";
++
++export async function GET(request) {
++  try {
++    const session = await getServerSession(authOptions);
++
++    if (!session) {
++      return new Response(JSON.stringify({ error: "Unauthorized" }), {
++        status: 401,
++        headers: { "Content-Type": "application/json" },
++      });
++    }
++
++    const client = await clientPromise;
++    const db = client.db();
++
++    // Example: fetch actions from database
++    const actions = await db.collection("actions").find({}).toArray();
++
++    return new Response(JSON.stringify(actions), {
++      status: 200,
++      headers: { "Content-Type": "application/json" },
++    });
++  } catch (error) {
++    console.error("Error fetching actions:", error);
++    return new Response(JSON.stringify({ error: "Internal Server Error" }), {
++      status: 500,
++      headers: { "Content-Type": "application/json" },
++    });
++  }
++}
++
++export { GET };
+diff --git a/lib/mongodb.js b/lib/mongodb.js
+new file mode 100644
+index 0000000..1234567
+--- /dev/null
++++ b/lib/mongodb.js
+@@ -0,0 +1,32 @@
++import { MongoClient } from 'mongodb'
++
++const uri = process.env.MONGODB_URI
++const options = {}
++
++let client
++let clientPromise
++
++if (!process.env.MONGODB_URI) {
++  throw new Error('Please add your Mongo URI to .env.local')
++}
++
++if (process.env.NODE_ENV === 'development') {
++  // In development mode, use a global variable so that the value
++  // is preserved across module reloads caused by HMR (Hot Module Replacement).
++  if (!global._mongoClientPromise) {
++    client = new MongoClient(uri, options)
++    global._mongoClientPromise = client.connect()
++  }
++  clientPromise = global._mongoClientPromise
++} else {
++  // In production mode, it's best to not use a global variable.
++  client = new MongoClient(uri, options)
++  clientPromise = client.connect()
++}
++
++export default clientPromise
+diff --git a/lib/db/seedReset.mjs b/lib/db/seedReset.mjs
+new file mode 100644
+index 0000000..1234567
+--- /dev/null
++++ b/lib/db/seedReset.mjs
+@@ -0,0 +1,51 @@
++import { MongoClient } from 'mongodb'
++import bcrypt from 'bcryptjs'
++
++const uri = process.env.MONGODB_URI
++
++if (!uri) {
++  throw new Error('Please define the MONGODB_URI environment variable')
++}
++
++async function seedDatabase() {
++  const client = new MongoClient(uri)
++
++  try {
++    await client.connect()
++    const db = client.db()
++
++    // Clear existing collections
++    await db.collection('users').deleteMany({})
++    await db.collection('actions').deleteMany({})
++
++    // Create a test user
++    const hashedPassword = await bcrypt.hash('password123', 12)
++    await db.collection('users').insertOne({
++      email: 'admin@example.com',
++      password: hashedPassword,
++      name: 'Admin User',
++      createdAt: new Date(),
++      updatedAt: new Date()
++    })
++
++    // Create sample actions
++    await db.collection('actions').insertMany([
++      {
++        name: 'Primeira Ação',
++        description: 'Esta é a primeira ação de exemplo',
++        createdAt: new Date(),
++        updatedAt: new Date()
++      },
++      {
++        name: 'Segunda Ação',
++        description: 'Esta é a segunda ação de exemplo',
++        createdAt: new Date(),
++        updatedAt: new Date()
++      }
++    ])
++
++    console.log('Database seeded successfully!')
++    console.log('Test user: admin@example.com / password123')
++
++  } catch (error) {
++    console.error('Error seeding database:', error)
++  } finally {
++    await client.close()
++  }
++}
++
++seedDatabase()
+-- 
+2.34.1

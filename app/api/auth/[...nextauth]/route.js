@@ -1,79 +1,77 @@
-import _NextAuth from "next-auth";
-import _CredentialsProvider from "next-auth/providers/credentials";
-
-// normalize provider import shape across different bundlers/packagers
-let CredentialsProvider;
-if (typeof _CredentialsProvider === 'function') {
-  CredentialsProvider = _CredentialsProvider;
-} else if (_CredentialsProvider && typeof _CredentialsProvider.default === 'function') {
-  CredentialsProvider = _CredentialsProvider.default;
-} else if (_CredentialsProvider && typeof _CredentialsProvider.Credentials === 'function') {
-  CredentialsProvider = _CredentialsProvider.Credentials;
-} else if (_CredentialsProvider && _CredentialsProvider.default && typeof _CredentialsProvider.default.default === 'function') {
-  CredentialsProvider = _CredentialsProvider.default.default;
-} else {
-  throw new Error('Unable to resolve CredentialsProvider from next-auth/providers/credentials import');
-}
+import NextAuth from "next-auth";
+import CredentialsProvider from "next-auth/providers/credentials";
+import { MongoDBAdapter } from "@next-auth/mongodb-adapter";
+import clientPromise from "../../../../lib/mongodb";
 import bcrypt from "bcryptjs";
-import dbConnect from "../../../../lib/db/connect.js";
-import User from "../../../../lib/db/models/User.js";
 
 export const authOptions = {
+  adapter: MongoDBAdapter(clientPromise),
   providers: [
     CredentialsProvider({
-      name: "Credentials",
+      name: "credentials",
       credentials: {
         username: { label: "Username", type: "text" },
-        password: { label: "Password", type: "password" },
+        password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        await dbConnect();
-        const user = await User.findOne({ username: credentials.username });
-        if (!user) throw new Error("No user found with the username");
-        const isValidPassword = await bcrypt.compare(credentials.password, user.password);
-        if (!isValidPassword) throw new Error("Invalid password");
+        if (!credentials?.username || !credentials?.password) {
+          return null;
+        }
+
+        const client = await clientPromise;
+        const db = client.db();
+
+        // Look for user by username instead of email
+        const user = await db.collection("users").findOne({
+          username: credentials.username
+        });
+
+        if (!user) {
+          return null;
+        }
+
+        const isPasswordValid = await bcrypt.compare(
+          credentials.password,
+          user.password
+        );
+
+        if (!isPasswordValid) {
+          return null;
+        }
+
         return {
           id: user._id.toString(),
           username: user.username,
-          role: user.role,
+          name: user.name,
+          email: user.email || `${user.username}@sistemaana.com` // fallback email
         };
-      },
-    }),
+      }
+    })
   ],
-  secret: process.env.NEXTAUTH_SECRET,
-  session: { strategy: "jwt" },
+  session: {
+    strategy: "jwt",
+  },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
         token.username = user.username;
-        token.role = user.role;
       }
       return token;
     },
     async session({ session, token }) {
-      const user = session.user || {};
-      user.id = token.id;
-      user.username = token.username;
-      user.role = token.role;
-      session.user = user;
+      if (token) {
+        session.user.id = token.id;
+        session.user.username = token.username;
+      }
       return session;
     },
   },
+  pages: {
+    signIn: "/login",
+  },
+  secret: process.env.NEXTAUTH_SECRET,
 };
-
-const NextAuth =
-  typeof _NextAuth === 'function'
-    ? _NextAuth
-    : (_NextAuth && typeof _NextAuth.default === 'function'
-      ? _NextAuth.default
-      : (_NextAuth && _NextAuth.default && typeof _NextAuth.default.default === 'function'
-        ? _NextAuth.default.default
-        : null));
-
-if (!NextAuth) {
-  throw new Error('Unable to resolve NextAuth function from next-auth import');
-}
 
 const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };

@@ -23,6 +23,7 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import * as FE from "../components/FormElements";
 import { formatBRL, parseCurrency } from "../utils/currency";
+import { formatDateBR } from "@/lib/utils/dates";
 
 // Date preset UI moved to Filters component
 
@@ -119,18 +120,7 @@ export default function ContasAPagarPage() {
   }
 
   // Fixed bills helpers
-  const formatDateBR = (val) => {
-    if (!val) return '';
-    try {
-      if (val instanceof Date) return val.toLocaleDateString('pt-BR');
-      const s = String(val);
-      const ymd = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-      if (ymd) return `${ymd[3]}/${ymd[2]}/${ymd[1]}`;
-      const d = new Date(s);
-      if (!isNaN(d)) return d.toLocaleDateString('pt-BR');
-    } catch { /* ignore */ }
-    return '';
-  };
+  // Use shared utils/formatDateBR imported at top
   const getCycleDays = (tipo) => (String(tipo) === 'quizenal' ? 15 : 30);
   const getNextDueDate = (c) => {
     const base = c?.lastPaidAt ? new Date(c.lastPaidAt) : (c?.createdAt ? new Date(c.createdAt) : null);
@@ -317,13 +307,13 @@ export default function ContasAPagarPage() {
     // Title
     drawText("Custos ações", margin, 16);
     y += 22;
-    const range = `${firstDate ? firstDate.toLocaleDateString('pt-BR') : ''} - ${lastDate ? lastDate.toLocaleDateString('pt-BR') : ''}`;
+    const range = `${formatDateBR(firstDate)} - ${formatDateBR(lastDate)}`;
     drawText(`Período: ${range}`, margin, 10);
     y += 16;
     // Totals
-    drawText(`Total a pagar: R$ ${totalApagar.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, margin, 11);
+    drawText(`Total a pagar: R$ ${formatBRL(totalApagar)}`, margin, 11);
     y += 16;
-    drawText(`Total pago: R$ ${totalPago.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, margin, 11);
+    drawText(`Total pago: R$ ${formatBRL(totalPago)}`, margin, 11);
     y += 20;
 
     // Headers
@@ -336,7 +326,7 @@ export default function ContasAPagarPage() {
     y += rowHeight;
 
     rows.forEach((r) => {
-      const data = r?.actionId?.date ? new Date(r.actionId.date).toLocaleDateString('pt-BR') : (r?.reportDate ? new Date(r.reportDate).toLocaleDateString('pt-BR') : '');
+      const data = r?.actionId?.date ? formatDateBR(r.actionId.date) : formatDateBR(r?.reportDate);
       const cliente = r?.actionId?.clientName || r?.actionId?.client || '';
       const acao = r?.actionId?.name || '';
       const staff = Array.isArray(r?.actionId?.staff) ? r.actionId.staff : [];
@@ -353,9 +343,9 @@ export default function ContasAPagarPage() {
       }
       drawText(sName, cx, 8.5); cx += colWidths[3];
       const st = staff.find(s => s.name === r?.staffName);
-      const venci = st?.vencimento ? new Date(st.vencimento).toLocaleDateString('pt-BR') : '';
+      const venci = formatDateBR(st?.vencimento);
       drawText(venci, cx, 8.5); cx += colWidths[4];
-      const sVal = (st && typeof st.value !== 'undefined') ? Number(st.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '';
+      const sVal = (st && typeof st.value !== 'undefined') ? formatBRL(Number(st.value)) : '';
       drawText(sVal, cx, 8.5); cx += colWidths[5];
       const sPgt = st?.pgt || '';
       drawText(sPgt, cx, 8.5); cx += colWidths[6];
@@ -511,18 +501,18 @@ export default function ContasAPagarPage() {
     // Title and overall summary
     drawText("Contas a pagar", margin, 16);
     y += 22;
-    const range = `${firstDate ? firstDate.toLocaleDateString('pt-BR') : ''} - ${lastDate ? lastDate.toLocaleDateString('pt-BR') : ''}`;
+    const range = `${formatDateBR(firstDate)} - ${formatDateBR(lastDate)}`;
     drawText(`Período: ${range}`, margin, 10);
     y += 16;
-    drawText(`Total geral (ações${includeFixas ? ' + fixas' : ''}): R$ ${totalGeralApagar.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, margin, 12);
+    drawText(`Total geral (ações${includeFixas ? ' + fixas' : ''}): R$ ${formatBRL(totalGeralApagar)}`, margin, 12);
     y += 20;
 
     // Section: Custos ações
     drawText('Custos ações', margin, 14);
     y += 18;
-    drawText(`Total a pagar (ações): R$ ${totalAcoesApagar.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, margin, 11);
+    drawText(`Total a pagar (ações): R$ ${formatBRL(totalAcoesApagar)}`, margin, 11);
     y += 16;
-    drawText(`Total pago (ações): R$ ${totalAcoesPago.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, margin, 11);
+    drawText(`Total pago (ações): R$ ${formatBRL(totalAcoesPago)}`, margin, 11);
     y += 20;
 
     // Header aligned with Custos ações table
@@ -540,7 +530,7 @@ export default function ContasAPagarPage() {
 
     // Rows: one line per colaborador entry
     rows.forEach((r) => {
-      const data = r?.actionId?.date ? new Date(r.actionId.date).toLocaleDateString('pt-BR') : (r?.reportDate ? new Date(r.reportDate).toLocaleDateString('pt-BR') : '');
+      const data = r?.actionId?.date ? formatDateBR(r.actionId.date) : formatDateBR(r?.reportDate);
       const cliente = r?.actionId?.clientName || r?.actionId?.client || '';
       const acao = r?.actionId?.name || '';
       const staff = Array.isArray(r?.actionId?.staff) ? r.actionId.staff : [];
@@ -554,10 +544,10 @@ export default function ContasAPagarPage() {
       const ct = (!r?.staffName && r?.costId) ? costs.find(c => String(c._id) === String(r.costId)) : null;
       const sName = r?.staffName ? (r?.staffName || '') : (ct?.description || '');
       drawText(sName, cx, 8.5); cx += colWidths[3];
-      const venci = st?.vencimento ? new Date(st.vencimento).toLocaleDateString('pt-BR') : (ct?.vencimento ? new Date(ct.vencimento).toLocaleDateString('pt-BR') : '');
+      const venci = st?.vencimento ? formatDateBR(st.vencimento) : formatDateBR(ct?.vencimento);
       drawText(venci, cx, 8.5); cx += colWidths[4];
       const valNumber = (st && typeof st.value !== 'undefined') ? Number(st.value) : (ct && typeof ct.value !== 'undefined') ? Number(ct.value) : NaN;
-      const sVal = Number.isFinite(valNumber) ? valNumber.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '';
+      const sVal = Number.isFinite(valNumber) ? formatBRL(valNumber) : '';
       drawText(sVal, cx, 8.5); cx += colWidths[5];
       const sPgt = (st?.pgt || ct?.pgt || '');
       drawText(sPgt, cx, 8.5); cx += colWidths[6];
@@ -573,9 +563,9 @@ export default function ContasAPagarPage() {
       y += 8;
       drawText('Contas Fixas', margin, 14);
       y += 18;
-      drawText(`Total a pagar (fixas): R$ ${totalFixasApagar.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, margin, 11);
+      drawText(`Total a pagar (fixas): R$ ${formatBRL(totalFixasApagar)}`, margin, 11);
       y += 16;
-      drawText(`Total pago (fixas): R$ ${totalFixasPago.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, margin, 11);
+      drawText(`Total pago (fixas): R$ ${formatBRL(totalFixasPago)}`, margin, 11);
       y += 20;
 
       // Headers for fixas table: Nome, Empresa, Tipo, Valor, Vencimento, Status
@@ -592,9 +582,9 @@ export default function ContasAPagarPage() {
         drawText(c.name || '', cx, 8.5); cx += fColWidths[0];
         drawText(c.empresa || '', cx, 8.5); cx += fColWidths[1];
         drawText(String(c.tipo || ''), cx, 8.5); cx += fColWidths[2];
-        const fVal = (c.valor != null) ? Number(c.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '';
+        const fVal = (c.valor != null) ? formatBRL(Number(c.valor)) : '';
         drawText(fVal, cx, 8.5); cx += fColWidths[3];
-        const fVenc = c.vencimento ? new Date(c.vencimento).toLocaleDateString('pt-BR') : '';
+        const fVenc = formatDateBR(c.vencimento);
         drawText(fVenc, cx, 8.5); cx += fColWidths[4];
         drawText(getDisplayStatus(c), cx, 8.5);
         page.drawLine({ start: { x: margin, y: page.getHeight() - y - 2 }, end: { x: pageWidth - margin, y: page.getHeight() - y - 2 }, thickness: 0.5, color: rgb(0.85, 0.85, 0.85) });
@@ -685,7 +675,7 @@ export default function ContasAPagarPage() {
       name: c.name || '',
       empresa: c.empresa || '',
       tipo: c.tipo || 'mensal',
-      valor: c.valor != null ? Number(c.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '',
+      valor: c.valor != null ? formatBRL(Number(c.valor)) : '',
       status: (c.status || 'ABERTO').toUpperCase(),
       vencimento: c.vencimento ? new Date(c.vencimento).toISOString().slice(0, 10) : '',
     });
@@ -782,7 +772,7 @@ export default function ContasAPagarPage() {
         <tbody>
           {pageDataAcoes.map(report => (
             <tr key={report._id}>
-              <Td>{report.actionId?.date ? new Date(report.actionId.date).toLocaleDateString("pt-BR") : (report.reportDate ? new Date(report.reportDate).toLocaleDateString("pt-BR") : "")}</Td>
+              <Td>{report.actionId?.date ? formatDateBR(report.actionId.date) : formatDateBR(report.reportDate)}</Td>
               <Td>
                 {report?.actionId?._id ? (
                   <button
@@ -806,7 +796,7 @@ export default function ContasAPagarPage() {
                 const st = report.staffName ? staff.find(s => s.name === report.staffName) : null;
                 const ct = (!report.staffName && report.costId) ? costs.find(c => String(c._id) === String(report.costId)) : null;
                 const d = st?.vencimento || ct?.vencimento;
-                return d ? new Date(d).toLocaleDateString('pt-BR') : '';
+                return formatDateBR(d);
               })()}</Td>
               <Td>{(() => {
                 const staff = Array.isArray(report.actionId?.staff) ? report.actionId.staff : [];
@@ -814,7 +804,7 @@ export default function ContasAPagarPage() {
                 const st = report.staffName ? staff.find(s => s.name === report.staffName) : null;
                 const ct = (!report.staffName && report.costId) ? costs.find(c => String(c._id) === String(report.costId)) : null;
                 const val = (st && typeof st.value !== 'undefined') ? Number(st.value) : (ct && typeof ct.value !== 'undefined') ? Number(ct.value) : null;
-                return (val != null) ? val.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '';
+                return (val != null) ? formatBRL(val) : '';
               })()}</Td>
               <Td>{(() => {
                 const staff = Array.isArray(report.actionId?.staff) ? report.actionId.staff : [];

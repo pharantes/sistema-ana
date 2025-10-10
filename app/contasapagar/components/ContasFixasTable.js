@@ -3,6 +3,8 @@ import { useMemo } from "react";
 import { Table, Th, Td } from "../../components/ui/Table";
 import Pager from "../../components/ui/Pager";
 import * as FE from "../../components/FormElements";
+import { formatMonthYearBR } from "@/lib/utils/dates";
+import { formatBRL } from "../../utils/currency";
 
 // Small, reusable Contas Fixas table with sorting and pagination
 // Props:
@@ -66,7 +68,7 @@ export default function ContasFixasTable({
               <Td>{c.name}</Td>
               <Td>{c.empresa}</Td>
               <Td style={{ textTransform: 'capitalize' }}>{c.tipo}</Td>
-              <Td>{(c.valor != null && c.valor !== '') ? Number(c.valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '-'}</Td>
+              <Td>{(c.valor != null && c.valor !== '') ? formatBRL(Number(c.valor || 0)) : '-'}</Td>
               <Td>{formatDateBR?.(c.vencimento)}</Td>
               <Td>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -76,7 +78,7 @@ export default function ContasFixasTable({
                   </FE.Select>
                   {getDisplayStatus?.(c) === 'PAGO' && c.lastPaidAt && (
                     <span style={{ fontSize: '0.8rem', color: '#555', border: '1px solid #ddd', padding: '2px 6px', borderRadius: 6 }}>
-                      {new Date(c.lastPaidAt).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })}
+                      {formatMonthYearBR(c.lastPaidAt)}
                     </span>
                   )}
                 </div>

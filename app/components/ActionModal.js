@@ -10,6 +10,7 @@ import * as FE from './FormElements';
 import ClienteDropdown from './ClienteDropdown';
 import ColaboradorDropdown from './ColaboradorDropdown';
 import CostModal from './CostModal';
+import { formatBRL, parseCurrency } from '../utils/currency';
 
 const FormGrid = styled.div`
   display: grid;
@@ -201,7 +202,7 @@ export default function ActionModal({ editing, form, onClose, onSubmit, loading 
     // payload comes numeric for value; keep editing UX consistent by formatting on insert
     const formatted = {
       ...payload,
-      value: Number(payload.value).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      value: formatBRL(Number(payload.value))
     };
     setSelectedCosts(prev => [...prev, formatted]);
     setCostModalOpen(false);
@@ -212,21 +213,7 @@ export default function ActionModal({ editing, form, onClose, onSubmit, loading 
   }
 
   // currency helpers: format on blur to pt-BR style (R$ 1.234,56) and keep raw on change
-  function formatBRL(value) {
-    if (value == null || value === '') return '';
-    // attempt to parse numbers from value then format
-    const n = Number(String(value).replace(/[^0-9.,-]/g, '').replace(/\./g, '').replace(',', '.'));
-    if (!Number.isFinite(n)) return '';
-    return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  }
-
-  function parseCurrency(value) {
-    if (value == null || value === '') return 0;
-    if (typeof value === 'number') return value;
-    const cleaned = String(value).replace(/[^0-9,.-]/g, '').replace(/\./g, '').replace(',', '.');
-    const n = parseFloat(cleaned);
-    return Number.isFinite(n) ? n : 0;
-  }
+  // formatBRL / parseCurrency imported from centralized utils
 
 
   function handleSubmit(e) {

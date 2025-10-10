@@ -9,6 +9,7 @@ import dbConnect from "../../../../lib/db/connect.js";
 import Action from "../../../../lib/db/models/Action.js";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { actionReportColumns, actionReportWidths } from "../../../utils/columns.js";
+import { formatDateBR, formatDateTimeBR } from "@/lib/utils/dates";
 import Cliente from "../../../../lib/db/models/Cliente.js";
 import { forbidden, serverError, badRequest } from "../../../../lib/api/responses";
 import { rateLimit } from "../../../../lib/utils/rateLimit";
@@ -199,7 +200,7 @@ export async function GET(request) {
     drawText("Relatório de Ações", pageMargin, cursorY - 16, 16);
     moveDown(1.5);
     drawText(
-      `Gerado em: ${new Date().toLocaleString("pt-BR")}`,
+      `Gerado em: ${formatDateTimeBR(new Date())}`,
       pageMargin,
       cursorY - 10,
       8.5,
@@ -224,10 +225,10 @@ export async function GET(request) {
 
     // Draw rows
     for (const r of rows) {
-      const dateStr = r.date ? r.date.toLocaleDateString("pt-BR") : "";
-      const startStr = r.startDate ? r.startDate.toLocaleDateString("pt-BR") : "";
-      const endStr = r.endDate ? r.endDate.toLocaleDateString("pt-BR") : "";
-      const dueStr = r.dueDate ? r.dueDate.toLocaleDateString("pt-BR") : "";
+      const dateStr = formatDateBR(r.date);
+      const startStr = formatDateBR(r.startDate);
+      const endStr = formatDateBR(r.endDate);
+      const dueStr = formatDateBR(r.dueDate);
 
       const clientLines = wrapByWidth(r.client, widths.client);
       const staffLines = wrapByWidth(r.staffName, widths.staff);

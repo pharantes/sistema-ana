@@ -3,6 +3,7 @@
 import styled from "styled-components";
 import { useRouter } from 'next/navigation';
 import Pager from "../components/ui/Pager";
+import { SearchBar } from "../components/ui";
 import DeleteModal from "../components/DeleteModal";
 import { useEffect, useState, useCallback } from "react";
 import * as FE from "../components/FormElements";
@@ -20,14 +21,22 @@ const Table = styled.table`
   width: 100%;
   border-collapse: collapse;
   margin-top: 8px;
+  font-size: 0.92rem;
+  /* Allow wrapping to avoid horizontal scroll */
+  table-layout: auto;
 `;
 const Th = styled.th`
   text-align: left;
   border-bottom: 1px solid #ccc;
   padding: 6px;
+  font-weight: 600;
+  vertical-align: top;
 `;
 const Td = styled.td`
   padding: 6px;
+  vertical-align: top;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 `;
 
 function useColaboradorApi(initial = []) {
@@ -70,6 +79,9 @@ export default function ColaboradoresClient({ initialColaboradores = [], isAdmin
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [sortKey, setSortKey] = useState('createdAt'); // 'codigo' | 'nome' | 'empresa' | 'uf' | 'tipo' | 'createdAt'
   const [sortDir, setSortDir] = useState('desc'); // 'asc' | 'desc'
+  const [q, setQ] = useState('');
+  const [query, setQuery] = useState('');
+  useEffect(() => { const t = setTimeout(() => setQuery(q.trim().toLowerCase()), 250); return () => clearTimeout(t); }, [q]);
   const toggleSort = (key) => {
     if (sortKey === key) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
     else { setSortKey(key); setSortDir(key === 'nome' || key === 'empresa' ? 'asc' : 'desc'); }
@@ -137,25 +149,30 @@ export default function ColaboradoresClient({ initialColaboradores = [], isAdmin
   return (
     <Wrapper>
       <Title>Colaboradores</Title>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-        <FE.TopButton onClick={() => setModalOpen(true)}>Novo Colaborador</FE.TopButton>
-        {colaboradores.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              <Pager page={page} pageSize={pageSize} total={colaboradores.length} onChangePage={setPage} />
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span style={{ fontSize: '0.9rem', color: '#555' }}>Mostrar:</span>
-              <select value={pageSize} onChange={(e) => { setPage(1); setPageSize(Number(e.target.value)); }}>
-                <option value={10}>10</option>
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-              </select>
-              <span style={{ fontSize: '0.9rem', color: '#555' }}>Total: {colaboradores.length}</span>
-            </div>
-          </div>
-        )}
+      <div style={{ display: 'grid', gap: 8, marginBottom: 4 }}>
+        <div>
+          <FE.TopButton onClick={() => setModalOpen(true)}>Novo Colaborador</FE.TopButton>
+        </div>
+        <div style={{ minWidth: 260 }}>
+          <SearchBar value={q} onChange={e => { setPage(1); setQ(e.target.value); }} placeholder="Buscar por nome, empresa, email, UF, telefone..." />
+        </div>
       </div>
+      {colaboradores.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, justifyContent: 'flex-end', marginBottom: 8, flexWrap: 'wrap' }}>
+          <div style={{ display: 'inline-flex', gap: 6, alignItems: 'baseline' }}>
+            <Pager page={page} pageSize={pageSize} total={colaboradores.length} onChangePage={setPage} compact inline />
+          </div>
+          <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: 12 }}>
+            <span style={{ fontSize: '0.9rem', color: '#555' }}>Mostrar:</span>
+            <select value={pageSize} onChange={(e) => { setPage(1); setPageSize(Number(e.target.value)); }}>
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+            </select>
+            <span style={{ fontSize: '0.9rem', color: '#555' }}>Total: {colaboradores.length}</span>
+          </div>
+        </div>
+      )}
       {error && <Note $error>{error}</Note>}
       {loading ? <p>Carregando...</p> : (
         <Table>
@@ -165,29 +182,39 @@ export default function ColaboradoresClient({ initialColaboradores = [], isAdmin
                 Código {sortKey === 'codigo' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
               </Th>
               <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('nome')}>
-                Nome do Colaborador {sortKey === 'nome' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+                Nome {sortKey === 'nome' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+              </Th>
+              <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('tipo')}>
+                Tipo {sortKey === 'tipo' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
               </Th>
               <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('empresa')}>
                 Empresa {sortKey === 'empresa' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
               </Th>
-              <Th>PIX</Th>
-              <Th>Banco</Th>
+              <Th>CNPJ/CPF</Th>
+              <Th>Telefone</Th>
+              <Th>Email</Th>
               <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('uf')}>
                 UF {sortKey === 'uf' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
               </Th>
-              <Th>Telefone</Th>
-              <Th>Email</Th>
-              <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('tipo')}>
-                Tipo {sortKey === 'tipo' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-              </Th>
-              <Th>CNPJ/CPF</Th>
+              <Th>Banco</Th>
+              <Th>PIX</Th>
               <Th>Ações</Th>
             </tr>
           </thead>
           <tbody>
             {(
               () => {
-                const list = Array.isArray(colaboradores) ? colaboradores.slice() : [];
+                let list = Array.isArray(colaboradores) ? colaboradores.slice() : [];
+                if (query) {
+                  list = list.filter(s => {
+                    const nome = String(s?.nome || '').toLowerCase();
+                    const emp = String(s?.empresa || '').toLowerCase();
+                    const email = String(s?.email || '').toLowerCase();
+                    const uf = String(s?.uf || '').toLowerCase();
+                    const tel = String(s?.telefone || '').toLowerCase();
+                    return nome.includes(query) || emp.includes(query) || email.includes(query) || uf.includes(query) || tel.includes(query);
+                  });
+                }
                 const getVal = (s) => {
                   switch (sortKey) {
                     case 'codigo': return String(s?.codigo ?? '').padStart(4, '0');
@@ -212,20 +239,20 @@ export default function ColaboradoresClient({ initialColaboradores = [], isAdmin
               }
             )().map(colaborador => (
               <tr key={colaborador._id}>
-                <Td>{colaborador.codigo}</Td>
-                <Td>
+                <Td style={{ whiteSpace: 'nowrap' }}>{colaborador.codigo}</Td>
+                <Td style={{ minWidth: 140 }}>
                   <button onClick={() => router.push(`/colaboradores/${colaborador._id}`)} style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer' }}>
                     {colaborador.nome}
                   </button>
                 </Td>
+                <Td style={{ textTransform: 'capitalize', whiteSpace: 'nowrap' }}>{colaborador.tipo}</Td>
                 <Td>{colaborador.empresa || ''}</Td>
-                <Td>{colaborador.pix}</Td>
-                <Td>{colaborador.banco}</Td>
-                <Td>{colaborador.uf}</Td>
-                <Td>{colaborador.telefone}</Td>
-                <Td>{colaborador.email}</Td>
-                <Td>{colaborador.tipo}</Td>
-                <Td>{colaborador.cnpjCpf}</Td>
+                <Td style={{ whiteSpace: 'nowrap' }}>{colaborador.cnpjCpf}</Td>
+                <Td style={{ whiteSpace: 'nowrap' }}>{colaborador.telefone}</Td>
+                <Td style={{ maxWidth: 220 }}>{colaborador.email}</Td>
+                <Td style={{ whiteSpace: 'nowrap' }}>{colaborador.uf}</Td>
+                <Td style={{ maxWidth: 200 }}>{colaborador.banco}</Td>
+                <Td style={{ maxWidth: 200 }}>{colaborador.pix}</Td>
                 <Td>
                   <FE.SecondaryButton onClick={() => handleEdit(colaborador)}>Editar</FE.SecondaryButton>
                   {isAdmin && (

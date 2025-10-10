@@ -4,6 +4,7 @@ import dbConnect from "../../../../../lib/db/connect.js";
 import Action from "../../../../../lib/db/models/Action.js";
 import ContasAPagar from "../../../../../lib/db/models/ContasAPagar.js";
 import { PDFDocument, StandardFonts } from "pdf-lib";
+import { formatDateBR } from "@/lib/utils/dates";
 import fs from "fs";
 import path from "path";
 
@@ -41,8 +42,8 @@ export async function POST(request, context) {
     draw("Relatório da Ação", 18);
     draw(`Nome da ação: ${action.name || ""}`);
     draw(`Cliente: ${action.client || ""}`);
-    draw(`Data: ${action.date ? new Date(action.date).toLocaleDateString("pt-BR") : ""}`);
-    draw(`Vencimento: ${action.dueDate ? new Date(action.dueDate).toLocaleDateString("pt-BR") : ""}`);
+    draw(`Data: ${formatDateBR(action.date)}`);
+    draw(`Vencimento: ${formatDateBR(action.dueDate)}`);
     draw(`Forma de pagamento: ${action.paymentMethod || ""}`);
 
     const staff = Array.isArray(action.staff) ? action.staff : [];

@@ -2,11 +2,11 @@
 import styled from "styled-components";
 
 const Row = styled.div`
-  display: flex;
+  display: ${p => (p.$inline ? 'inline-flex' : 'flex')};
   gap: 6px;
-  align-items: center;
+  align-items: ${p => (p.$compact ? 'baseline' : 'center')};
   justify-content: flex-end;
-  margin-top: 8px;
+  margin-top: ${p => (p.$compact ? '0' : '8px')};
   flex-wrap: wrap;
 `;
 
@@ -29,11 +29,13 @@ export default function Pager({
   pageSize,
   total,
   onChangePage,
+  compact = false,
+  inline = false,
 }) {
   const totalPages = Math.max(1, Math.ceil((total || 0) / Math.max(1, pageSize || 10)));
   if (totalPages <= 1) return null;
   return (
-    <Row>
+    <Row $compact={compact} $inline={inline}>
       <PageButton onClick={() => onChangePage(Math.max(1, page - 1))} disabled={page === 1} aria-label="Anterior">«</PageButton>
       {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
         <PageButton key={n} data-active={String(n === page)} onClick={() => onChangePage(n)}>{n}</PageButton>

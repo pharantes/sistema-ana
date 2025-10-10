@@ -1,12 +1,15 @@
 "use client";
 /* eslint-env browser */
 import { useSession } from "next-auth/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-import { formatBRL, parseCurrency } from "../utils/currency";
 import styled from "styled-components";
 import Pager from "../components/ui/Pager";
 import { Table, Th, Td } from "../components/ui/Table";
+import { SecondaryButton } from "../components/ui";
+import { formatDateBR } from "@/lib/utils/dates";
+import { formatBRL } from "../utils/currency";
+import * as FE from "../components/FormElements";
 import Filters from "./Filters";
 import ContasReceberModal from "./ContasReceberModal";
 
@@ -24,55 +27,73 @@ const Wrapper = styled.div`
 
 export default function ContasAReceberPage() {
   const { data: session, status } = useSession();
-  const [actions, setActions] = useState([]);
+  const [items, setItems] = useState([]);
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
-  const [editId, setEditId] = useState(null);
-  const [editValue, setEditValue] = useState("");
+  const [sortKey, setSortKey] = useState('date'); // 'date' | 'acao' | 'cliente' | 'venc' | 'receb'
+  const [sortDir, setSortDir] = useState('desc'); // 'asc' | 'desc'
+  const [mode, setMode] = useState('venc'); // 'venc' | 'receb'
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL'); // ALL | ABERTO | RECEBIDO
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedAction, setSelectedAction] = useState(null);
+  const [total, setTotal] = useState(0);
+  const [version, setVersion] = useState(0);
 
-  // currency helpers now imported from utils
-
-  useEffect(() => { fetchActions(); }, []);
-
-  async function fetchActions() {
-    setLoading(true);
-    // Use contas a receber API which enriches with clientName and receivable
-    const res = await globalThis.fetch("/api/contasareceber");
-    const data = await res.json();
-    setActions(data);
-    setLoading(false);
-  }
-
-  const filtered = useMemo(() => {
-    const q = (query || "").trim().toLowerCase();
-    const base = Array.isArray(actions) ? actions : [];
-    const out = q
-      ? base.filter(a => {
-        const cliente = (a?.clientName || "").toLowerCase();
-        const acao = (a?.name || "").toLowerCase();
-        return cliente.includes(q) || acao.includes(q);
-      })
-      : base;
-    // sort by date desc (newest first)
-    return out.slice().sort((a, b) => {
-      const da = a?.date ? new Date(a.date).getTime() : 0;
-      const db = b?.date ? new Date(b.date).getTime() : 0;
-      return db - da;
-    });
-  }, [actions, query]);
-  const total = filtered.length;
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const pageData = useMemo(() => {
-    const start = (page - 1) * pageSize;
-    return filtered.slice(start, start + pageSize);
-  }, [filtered, page, pageSize]);
+  // Server-driven fetch on dependency changes
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      try {
+        const apiUrl = new URL('/api/contasareceber', globalThis.location.origin);
+        if (query) apiUrl.searchParams.set('q', query);
+        if (mode === 'venc') {
+          if (dateFrom) apiUrl.searchParams.set('vencFrom', dateFrom);
+          if (dateTo) apiUrl.searchParams.set('vencTo', dateTo);
+        } else {
+          if (dateFrom) apiUrl.searchParams.set('recFrom', dateFrom);
+          if (dateTo) apiUrl.searchParams.set('recTo', dateTo);
+        }
+        if (statusFilter && statusFilter !== 'ALL') apiUrl.searchParams.set('status', statusFilter);
+        apiUrl.searchParams.set('sort', sortKey);
+        apiUrl.searchParams.set('dir', sortDir);
+        apiUrl.searchParams.set('page', String(page));
+        apiUrl.searchParams.set('pageSize', String(pageSize));
+        const res = await fetch(apiUrl.toString());
+        const data = await res.json();
+        setItems(Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : []);
+        setTotal(Number.isFinite(data?.total) ? data.total : (Array.isArray(data) ? data.length : 0));
+      } catch {
+        setItems([]); setTotal(0);
+      }
+      setLoading(false);
+    }
+    load();
+  }, [query, sortKey, sortDir, mode, dateFrom, dateTo, statusFilter, page, pageSize, version]);
+  const totalPages = Math.max(1, Math.ceil((total || 0) / pageSize));
 
   async function gerarPDF() {
-    const rows = filtered;
+    // Fetch all rows with current filters to generate full report
+    const apiUrl = new URL('/api/contasareceber', globalThis.location.origin);
+    if (query) apiUrl.searchParams.set('q', query);
+    if (mode === 'venc') {
+      if (dateFrom) apiUrl.searchParams.set('vencFrom', dateFrom);
+      if (dateTo) apiUrl.searchParams.set('vencTo', dateTo);
+    } else {
+      if (dateFrom) apiUrl.searchParams.set('recFrom', dateFrom);
+      if (dateTo) apiUrl.searchParams.set('recTo', dateTo);
+    }
+    if (statusFilter && statusFilter !== 'ALL') apiUrl.searchParams.set('status', statusFilter);
+    apiUrl.searchParams.set('sort', sortKey);
+    apiUrl.searchParams.set('dir', sortDir);
+    apiUrl.searchParams.set('page', '1');
+    apiUrl.searchParams.set('pageSize', '10000');
+    const resAll = await fetch(apiUrl.toString());
+    const dataAll = await resAll.json();
+    const rows = Array.isArray(dataAll?.items) ? dataAll.items : (Array.isArray(dataAll) ? dataAll : []);
     if (!rows.length) {
       globalThis.alert("Nenhum resultado para gerar o relatório");
       return;
@@ -106,12 +127,12 @@ export default function ContasAReceberPage() {
     // Title and range
     drawText("Relatório - Contas a Receber", margin, 16);
     y += 22;
-    const range = `${firstDate ? firstDate.toLocaleDateString('pt-BR') : ''} - ${lastDate ? lastDate.toLocaleDateString('pt-BR') : ''}`;
+    const range = `${formatDateBR(firstDate)} - ${formatDateBR(lastDate)}`;
     drawText(`Período: ${range}`, margin, 10);
     y += 20;
 
     // Insights
-    drawText(`Total a receber (período): R$ ${totalReceber.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, margin, 11);
+    drawText(`Total a receber (período): R$ ${formatBRL(totalReceber)}`, margin, 11);
     y += 24;
 
     // Header
@@ -125,8 +146,8 @@ export default function ContasAReceberPage() {
     rows.forEach((a) => {
       const evento = a?.name || '';
       const cliente = a?.client || '';
-      const data = a?.date ? new Date(a.date).toLocaleDateString('pt-BR') : '';
-      const valor = a?.value ? `R$ ${Number(a.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '-';
+      const data = formatDateBR(a?.date);
+      const valor = a?.value ? `R$ ${formatBRL(Number(a.value))}` : '-';
       const staff = Array.isArray(a?.staff) ? a.staff : [];
       const lines = Math.max(1, staff.length);
 
@@ -155,19 +176,11 @@ export default function ContasAReceberPage() {
     globalThis.URL.revokeObjectURL(url);
   }
 
-  async function handleSave(id) {
-    setLoading(true);
-    const parsed = parseCurrency(editValue);
-    await globalThis.fetch("/api/action/edit", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, value: parsed }),
-    });
-    setEditId(null);
-    setEditValue("");
-    fetchActions();
-    setLoading(false);
-  }
+  const toggleSort = (key) => {
+    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortKey(key); setSortDir(key === 'acao' || key === 'cliente' ? 'asc' : 'desc'); setPage(1); }
+  };
+  const clearFilters = () => { setQuery(''); setMode('venc'); setDateFrom(''); setDateTo(''); setStatusFilter('ALL'); };
 
   if (status === "loading") return <div>Loading...</div>;
   if (!session || session.user.role !== "admin") {
@@ -176,7 +189,21 @@ export default function ContasAReceberPage() {
   return (
     <Wrapper>
       <Title>Contas a Receber</Title>
-      <Filters query={query} onChangeQuery={setQuery} onGerarPDF={gerarPDF} loading={loading} />
+      <Filters
+        query={query}
+        onChangeQuery={setQuery}
+        onGerarPDF={gerarPDF}
+        loading={loading}
+        mode={mode}
+        onChangeMode={setMode}
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        onChangeDateFrom={setDateFrom}
+        onChangeDateTo={setDateTo}
+        statusFilter={statusFilter}
+        onChangeStatus={setStatusFilter}
+        onClear={clearFilters}
+      />
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', marginTop: 8 }}>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           {total > pageSize && (
@@ -202,56 +229,77 @@ export default function ContasAReceberPage() {
       <Table>
         <thead>
           <tr>
-            <Th>Evento</Th>
-            <Th>Cliente</Th>
-            <Th>Valor a Receber</Th>
+            <Th style={{ cursor: 'pointer' }} onClick={() => toggleSort('date')}>
+              Data {sortKey === 'date' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+            </Th>
+            <Th style={{ cursor: 'pointer' }} onClick={() => toggleSort('acao')}>
+              Ação {sortKey === 'acao' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+            </Th>
+            <Th style={{ cursor: 'pointer' }} onClick={() => toggleSort('cliente')}>
+              Cliente {sortKey === 'cliente' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+            </Th>
+            <Th>Descrição</Th>
+            <Th>Qtde Parcela</Th>
+            <Th>Valor Parcela</Th>
+            <Th style={{ cursor: 'pointer' }} onClick={() => toggleSort('venc')}>
+              Data Vencimento {sortKey === 'venc' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+            </Th>
+            <Th style={{ cursor: 'pointer' }} onClick={() => toggleSort('receb')}>
+              Data Recebimento {sortKey === 'receb' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+            </Th>
+            <Th>Status</Th>
             <Th>Ações</Th>
           </tr>
         </thead>
         <tbody>
-          {pageData.map(action => (
-            <tr key={action._id}>
-              <Td>
-                {action?._id ? (
-                  <button
-                    onClick={() => globalThis.location.assign(`/acoes/${action._id}`)}
-                    style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer' }}
-                  >
-                    {action.name}
-                  </button>
-                ) : action.name}
-              </Td>
-              <Td>
-                {action?.clientName ? (
-                  <span style={{ color: '#111' }}>{action.clientName}</span>
-                ) : ''}
-              </Td>
-              <Td>
-                {editId === action._id ? (
-                  <input
-                    value={editValue}
-                    onChange={e => setEditValue(e.target.value)}
-                    onBlur={e => setEditValue(formatBRL(e.target.value))}
-                    onFocus={e => {
-                      const raw = String(editValue || '').replace(/[^0-9.,-]/g, '').replace(/\.(?=\d{3,})/g, '').replace(',', '.');
-                      setEditValue(raw);
-                      try { e.target.selectionStart = e.target.selectionEnd = e.target.value.length; } catch { /* ignore */ }
-                    }}
-                    placeholder="Valor R$"
-                  />
-                ) : (
-                  action.value ? `R$ ${Number(action.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : "-"
-                )}
-              </Td>
-              <Td>
-                {editId === action._id ? (
-                  <button onClick={() => handleSave(action._id)} disabled={loading}>Salvar</button>
-                ) : (
-                  <button onClick={() => { setSelectedAction(action); setModalOpen(true); }}>Editar</button>
-                )}
-              </Td>
-            </tr>
-          ))}
+          {items.map(row => {
+            const r = row.receivable || {};
+            const venc = formatDateBR(r?.dataVencimento);
+            const receb = formatDateBR(r?.dataRecebimento);
+            const data = formatDateBR(row?.date);
+            return (
+              <tr key={row._id} onClick={() => globalThis.location.assign(`/contasareceber/${row._id}`)} style={{ cursor: 'pointer' }}>
+                <Td>{data}</Td>
+                <Td>{row.name}</Td>
+                <Td>{row.clientName || ''}</Td>
+                <Td>{r?.descricao || ''}</Td>
+                <Td>{r?.qtdeParcela ?? ''}</Td>
+                <Td>{r?.valorParcela != null ? `R$ ${formatBRL(Number(r.valorParcela))}` : ''}</Td>
+                <Td>{venc}</Td>
+                <Td>{receb}</Td>
+                <Td>
+                  <FE.Select value={(r?.status || 'ABERTO')} onChange={async (e) => {
+                    const next = e.target.value;
+                    e.stopPropagation();
+                    // optimistic UI
+                    setItems(prev => prev.map(it => it._id === row._id ? { ...it, receivable: { ...(it.receivable || {}), status: next } } : it));
+                    try {
+                      const payload = {
+                        id: r?._id,
+                        actionId: row._id,
+                        clientId: row.clientId,
+                        status: next,
+                      };
+                      const res = await fetch('/api/contasareceber', {
+                        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+                      });
+                      if (!res.ok) throw new Error('Falha ao atualizar status');
+                    } catch (err) {
+                      alert(err.message || 'Erro ao atualizar status');
+                      // revert on error
+                      setItems(prev => prev.map(it => it._id === row._id ? { ...it, receivable: { ...(it.receivable || {}), status: (r?.status || 'ABERTO') } } : it));
+                    }
+                  }} onClick={(e) => e.stopPropagation()}>
+                    <option value="ABERTO">ABERTO</option>
+                    <option value="RECEBIDO">RECEBIDO</option>
+                  </FE.Select>
+                </Td>
+                <Td>
+                  <SecondaryButton onClick={(e) => { e.stopPropagation(); setSelectedAction(row); setModalOpen(true); }}>Editar</SecondaryButton>
+                </Td>
+              </tr>
+            );
+          })}
         </tbody>
       </Table>
       {total > pageSize && (
@@ -263,7 +311,7 @@ export default function ContasAReceberPage() {
         action={selectedAction}
         receivable={selectedAction?.receivable || null}
         clienteDetails={selectedAction?.clienteDetails || null}
-        onSaved={() => { setModalOpen(false); fetchActions(); }}
+        onSaved={() => { setModalOpen(false); setVersion(v => v + 1); }}
       />
     </Wrapper>
   );

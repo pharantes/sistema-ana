@@ -4,6 +4,7 @@ import { SecondaryButton } from './FormElements';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { actionListColumns } from "../utils/columns";
+import { formatDateBR } from "@/lib/utils/dates";
 
 const Table = styled.table`
   width: 100%;
@@ -133,14 +134,14 @@ export default function ActionTable({ actions, session, onEdit, onDelete }) {
         <tbody>
           {pageData.map((a) => (
             <tr key={a._id}>
-              <Td>{a.date ? new Date(a.date).toLocaleDateString("pt-BR") : ""}</Td>
+              <Td>{formatDateBR(a.date)}</Td>
               <Td>
                 <button onClick={() => gotoAction(a._id)} style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer' }}>
                   {a.name || a.event}
                 </button>
               </Td>
-              <Td>{a.startDate ? new Date(a.startDate).toLocaleDateString("pt-BR") : ""}</Td>
-              <Td>{a.endDate ? new Date(a.endDate).toLocaleDateString("pt-BR") : ""}</Td>
+              <Td>{formatDateBR(a.startDate)}</Td>
+              <Td>{formatDateBR(a.endDate)}</Td>
               <Td>
                 <button onClick={() => gotoCliente(a.client)} style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer' }}>
                   {a.clientName || a.client}

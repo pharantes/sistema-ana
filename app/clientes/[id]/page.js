@@ -7,6 +7,7 @@ import ClienteModal from '../../components/ClienteModal';
 import * as FE from '../../components/FormElements';
 import { Table, Th, Td } from '../../components/ui/Table';
 import Pager from '../../components/ui/Pager';
+import { formatDateBR } from '@/lib/utils/dates';
 
 // use shared Table/Th/Td for consistency
 
@@ -82,8 +83,8 @@ export default function ClienteDetailsPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <h1>Cliente</h1>
         <div style={{ display: 'flex', gap: 8 }}>
-          <FE.SecondaryButton onClick={() => router.back()}>Voltar</FE.SecondaryButton>
-          <FE.TopButton onClick={() => setEditOpen(true)}>Editar</FE.TopButton>
+          <FE.SecondaryButton onClick={() => router.back()} style={{ height: 40 }}>Voltar</FE.SecondaryButton>
+          <FE.Button onClick={() => setEditOpen(true)} style={{ height: 40 }}>Editar</FE.Button>
         </div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(220px, 1fr))', gap: 12 }}>
@@ -121,14 +122,14 @@ export default function ClienteDetailsPage() {
           <tbody>
             {acoesPageData.map(a => (
               <tr key={a._id}>
-                <Td>{a.date ? new Date(a.date).toLocaleDateString('pt-BR') : ''}</Td>
+                <Td>{formatDateBR(a.date)}</Td>
                 <Td>
                   <button onClick={() => router.push(`/acoes/${a._id}`)} style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer' }}>
                     {a.name || a.event}
                   </button>
                 </Td>
-                <Td>{a.startDate ? new Date(a.startDate).toLocaleDateString('pt-BR') : ''}</Td>
-                <Td>{a.endDate ? new Date(a.endDate).toLocaleDateString('pt-BR') : ''}</Td>
+                <Td>{formatDateBR(a.startDate)}</Td>
+                <Td>{formatDateBR(a.endDate)}</Td>
               </tr>
             ))}
           </tbody>

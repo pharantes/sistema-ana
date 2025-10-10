@@ -6,6 +6,7 @@ import Modal from './Modal';
 import * as FE from './FormElements';
 import * as FL from './FormLayout';
 import ColaboradorModal from './ColaboradorModal';
+import { formatBRL, parseCurrency } from '../utils/currency';
 
 const Title = styled.h2`
   margin-bottom: 12px;
@@ -21,7 +22,7 @@ export default function CostModal({ open, onClose, onSubmit, initial }) {
     if (initial) {
       setForm({
         description: initial.description || '',
-        value: initial.value != null ? Number(initial.value).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '',
+        value: initial.value != null ? formatBRL(Number(initial.value)) : '',
         pix: initial.pix || '',
         bank: initial.bank || '',
         pgt: initial.pgt || '',
@@ -41,13 +42,7 @@ export default function CostModal({ open, onClose, onSubmit, initial }) {
       .catch(() => setColaboradores([]));
   }, [open]);
 
-  const parseCurrency = (value) => {
-    if (value == null || value === '') return 0;
-    if (typeof value === 'number') return value;
-    const cleaned = String(value).replace(/[^0-9,.-]/g, '').replace(/\./g, '').replace(',', '.');
-    const n = parseFloat(cleaned);
-    return Number.isFinite(n) ? n : 0;
-  };
+  // parseCurrency imported from centralized utils
 
   function handleSubmit(e) {
     e.preventDefault();
@@ -131,7 +126,7 @@ export default function CostModal({ open, onClose, onSubmit, initial }) {
           <input
             value={form.value}
             onChange={e => setForm(f => ({ ...f, value: e.target.value }))}
-            onBlur={e => setForm(f => ({ ...f, value: Number(parseCurrency(e.target.value)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }))}
+            onBlur={e => setForm(f => ({ ...f, value: formatBRL(Number(parseCurrency(e.target.value))) }))}
             placeholder="R$"
             required
           />

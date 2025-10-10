@@ -7,6 +7,7 @@ import CostModal from '../../components/CostModal';
 import * as FE from '../../components/FormElements';
 import { useSession } from 'next-auth/react';
 import styled from 'styled-components';
+import { formatDateBR } from '@/lib/utils/dates';
 
 const Wrapper = styled.div`
   padding: 24px;
@@ -21,23 +22,7 @@ const HeaderRow = styled.div`
   justify-content: space-between;
   gap: 12px;
 `;
-const BackButton = styled.button`
-  padding: 8px 12px;
-  background: #eee;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  cursor: pointer;
-  &:hover { background: #e5e5e5; }
-`;
-const EditButton = styled.button`
-  padding: 8px 12px;
-  background: #6C2BB0;
-  border: 1px solid #5a2390;
-  color: #fff;
-  border-radius: 6px;
-  cursor: pointer;
-  &:hover { background: #5a2390; }
-`;
+// Use shared FE buttons for consistent style
 const Section = styled.div`
   margin: 16px 0;
 `;
@@ -110,10 +95,10 @@ export default function ActionDetailsPage({ params }) {
   if (error) return <Wrapper>Erro: {error}</Wrapper>;
   if (!acao) return <Wrapper>Nenhuma ação encontrada.</Wrapper>;
 
-  const criadoEm = acao.date ? new Date(acao.date).toLocaleDateString('pt-BR') : '';
-  const inicio = acao.startDate ? new Date(acao.startDate).toLocaleDateString('pt-BR') : '';
-  const fim = acao.endDate ? new Date(acao.endDate).toLocaleDateString('pt-BR') : '';
-  const venc = acao.dueDate ? new Date(acao.dueDate).toLocaleDateString('pt-BR') : '';
+  const criadoEm = formatDateBR(acao.date);
+  const inicio = formatDateBR(acao.startDate);
+  const fim = formatDateBR(acao.endDate);
+  const venc = formatDateBR(acao.dueDate);
 
   const canEdit = session?.user?.role === 'admin' || (
     Array.isArray(acao?.staff) && acao.staff.map(s => s?.name).includes(session?.user?.username)
@@ -174,10 +159,10 @@ export default function ActionDetailsPage({ params }) {
       <HeaderRow>
         <Title>Detalhes da Ação</Title>
         <div style={{ display: 'flex', gap: 8 }}>
+          <FE.SecondaryButton onClick={() => router.back()} style={{ height: 40 }}>Voltar</FE.SecondaryButton>
           {canEdit && (
-            <EditButton onClick={openEdit}>Editar</EditButton>
+            <FE.Button onClick={openEdit} style={{ height: 40 }}>Editar</FE.Button>
           )}
-          <BackButton onClick={() => router.back()}>Voltar</BackButton>
         </div>
       </HeaderRow>
 
@@ -245,7 +230,7 @@ export default function ActionDetailsPage({ params }) {
                   if (m === 'TED') return bankVal;
                   return '';
                 })()}</Td>
-                <Td>{(s?.vencimento ? new Date(s.vencimento).toLocaleDateString('pt-BR') : (acao.dueDate ? new Date(acao.dueDate).toLocaleDateString('pt-BR') : ''))}</Td>
+                <Td>{(s?.vencimento ? formatDateBR(s.vencimento) : formatDateBR(acao.dueDate))}</Td>
               </tr>
             ))}
           </tbody>
@@ -284,7 +269,7 @@ export default function ActionDetailsPage({ params }) {
                   <Td>{`R$ ${Number(c?.value || 0).toFixed(2)}`}</Td>
                   <Td>{c?.pgt || ''}</Td>
                   <Td>{(() => { const m = String(c?.pgt || '').toUpperCase(); if (m === 'PIX') return c?.pix || ''; if (m === 'TED') return c?.bank || ''; return ''; })()}</Td>
-                  <Td>{c?.vencimento ? new Date(c.vencimento).toLocaleDateString('pt-BR') : ''}</Td>
+                  <Td>{formatDateBR(c?.vencimento)}</Td>
                   <Td>
                     <FE.SecondaryButton onClick={() => { setCostInitial(c); setCostEditIndex(idx); setCostModalOpen(true); }}>Editar</FE.SecondaryButton>
                     <FE.InlineButton onClick={() => deleteCost(idx)}>Excluir</FE.InlineButton>

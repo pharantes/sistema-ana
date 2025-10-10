@@ -1,7 +1,8 @@
 "use client";
 /* eslint-env browser */
 import styled from "styled-components";
-import * as FE from "../components/FormElements";
+// import * as FE from "../components/FormElements"; // not needed now
+import BRDateInput from "../components/BRDateInput";
 
 const PresetButton = styled.button`
   padding: 6px 10px;
@@ -86,11 +87,11 @@ export default function Filters({
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, alignItems: 'end' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <label>De</label>
-            <FE.Input type="date" value={dueFrom} onChange={(e) => onChangeDueFrom(e.target.value)} style={inputSx} />
+            <BRDateInput value={dueFrom} onChange={onChangeDueFrom} style={inputSx} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <label>Até</label>
-            <FE.Input type="date" value={dueTo} onChange={(e) => onChangeDueTo(e.target.value)} style={inputSx} />
+            <BRDateInput value={dueTo} onChange={onChangeDueTo} style={inputSx} />
           </div>
         </div>
       </div>

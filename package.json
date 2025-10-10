@@ -13,7 +13,9 @@
     "db:clean": "node scripts/cleanDb.js",
     "db:seed:users": "node scripts/seedUsers.js",
     "db:reset": "node scripts/cleanDb.js && node lib/db/seedAll.mjs",
-    "db:migrate:cliente-banks": "node scripts/migrations/addClienteBankFields.js"
+    "db:migrate:cliente-banks": "node scripts/migrations/addClienteBankFields.js",
+    "db:seed:demo": "node scripts/seedDemo.js",
+    "db:reset:demo": "node scripts/cleanDb.js && node scripts/seedDemo.js"
   },
   "dependencies": {
     "@next-auth/mongodb-adapter": "^1.1.3",

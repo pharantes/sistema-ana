@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from 'react';
 import Modal from '../components/Modal';
+import { Select } from '../components/ui';
 
 export default function ContasReceberModal({
   open,
@@ -11,6 +12,19 @@ export default function ContasReceberModal({
   onSaved,
 }) {
   const [form, setForm] = useState({});
+
+  // Helpers: BRL currency formatting and parsing
+  const formatBRL = (val) => {
+    if (val === '' || val === undefined || val === null) return '';
+    const num = Number(val);
+    if (Number.isNaN(num)) return '';
+    return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  };
+  const parseBRL = (str) => {
+    const digits = String(str || '').replace(/\D/g, '');
+    if (!digits) return undefined;
+    return Number(digits) / 100;
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -61,6 +75,12 @@ export default function ContasReceberModal({
     <Modal onClose={onClose} ariaLabel="Editar Conta a Receber">
       <h2 style={{ marginTop: 0 }}>Conta a Receber</h2>
 
+      <label>Status</label>
+      <Select value={form.status || 'ABERTO'} onChange={e => update({ status: e.target.value })}>
+        <option value="ABERTO">ABERTO</option>
+        <option value="RECEBIDO">RECEBIDO</option>
+      </Select>
+
       <label>Data do documento</label>
       <input type="date" value={form.reportDate || ''} onChange={e => update({ reportDate: e.target.value })} />
 
@@ -82,22 +102,18 @@ export default function ContasReceberModal({
       <label>Descrição</label>
       <input value={form.descricao || ''} onChange={e => update({ descricao: e.target.value })} />
 
-      <div style={{ display: 'flex', gap: 16, alignItems: 'center', margin: '8px 0' }}>
-        <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <input type="radio" name="tipo" checked={!!form.recorrente} onChange={() => update({ recorrente: true, parcelas: false })} />
-          Recorrente
-        </label>
-        <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <input type="radio" name="tipo" checked={!!form.parcelas} onChange={() => update({ recorrente: false, parcelas: true })} />
-          Parcelas
-        </label>
-      </div>
+      {/* Radios removidos conforme nova instrução */}
 
       <label>Recebido pelo banco</label>
       <input value={form.banco || ''} onChange={e => update({ banco: e.target.value })} />
 
       <label>Valor</label>
-      <input type="number" step="0.01" value={form.valor ?? ''} onChange={e => update({ valor: e.target.value })} />
+      <input
+        type="text"
+        inputMode="numeric"
+        value={formatBRL(form.valor)}
+        onChange={e => update({ valor: parseBRL(e.target.value) })}
+      />
 
       <div style={{ display: 'flex', gap: 12 }}>
         <div style={{ flex: 1 }}>
@@ -106,7 +122,12 @@ export default function ContasReceberModal({
         </div>
         <div style={{ flex: 1 }}>
           <label>Valor da parcela</label>
-          <input type="number" step="0.01" value={form.valorParcela ?? ''} onChange={e => update({ valorParcela: e.target.value })} />
+          <input
+            type="text"
+            inputMode="numeric"
+            value={formatBRL(form.valorParcela)}
+            onChange={e => update({ valorParcela: parseBRL(e.target.value) })}
+          />
         </div>
       </div>
 

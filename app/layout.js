@@ -9,7 +9,7 @@ export default async function RootLayout({ children }) {
   const session = await getServerSession(baseOptions);
 
   return (
-    <html lang="en">
+    <html lang="pt-BR">
       <body>
         <NextAuthProvider session={session}> {/* Pass session here */}
           <NavBar />

@@ -25,11 +25,67 @@ export async function GET(request) {
     getLimiter.check(request);
     await connect();
 
-    const actions = await Action.find({}).sort({ createdAt: -1 }).lean();
+    const searchParams = request.nextUrl?.searchParams ?? new globalThis.URL(request.url).searchParams;
+    const q = (searchParams.get('q') || '').trim();
+    const actionId = (searchParams.get('actionId') || '').trim();
+    const sort = (searchParams.get('sort') || 'date').trim();
+    const dir = (searchParams.get('dir') || 'desc').trim().toLowerCase() === 'asc' ? 'asc' : 'desc';
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
+    const pageSize = Math.min(200, Math.max(1, parseInt(searchParams.get('pageSize') || '10', 10)));
+    const vencFrom = (searchParams.get('vencFrom') || '').trim();
+    const vencTo = (searchParams.get('vencTo') || '').trim();
+    const recFrom = (searchParams.get('recFrom') || '').trim();
+    const recTo = (searchParams.get('recTo') || '').trim();
+    const status = (searchParams.get('status') || '').trim().toUpperCase(); // ABERTO | RECEBIDO
+
+    const actionsQuery = {};
+    const or = [];
+    if (actionId && /^[0-9a-fA-F]{24}$/.test(actionId)) actionsQuery._id = actionId;
+    if (q) {
+      // eslint-disable-next-line security/detect-non-literal-regexp
+      const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      or.push({ name: re }, { event: re });
+      // match by client name: find ids by nome
+      const clientIds = await Cliente.find({ nome: re }).select('_id').lean();
+      if (clientIds.length) or.push({ client: { $in: clientIds.map(c => c._id) } });
+    }
+    if (or.length) actionsQuery.$or = or;
+
+    // Build allowed actionId set from receivables date filters if provided
+    let allowed = null;
+    const rangeFilters = [];
+    if (vencFrom || vencTo) {
+      const rf = {};
+      if (vencFrom) rf.$gte = new Date(vencFrom);
+      if (vencTo) rf.$lte = new Date(`${vencTo}T23:59:59.999Z`);
+      rangeFilters.push({ dataVencimento: rf });
+    }
+    if (recFrom || recTo) {
+      const rr = {};
+      if (recFrom) rr.$gte = new Date(recFrom);
+      if (recTo) rr.$lte = new Date(`${recTo}T23:59:59.999Z`);
+      rangeFilters.push({ dataRecebimento: rr });
+    }
+    if (status === 'ABERTO' || status === 'RECEBIDO') {
+      rangeFilters.push({ status });
+    }
+    if (rangeFilters.length) {
+      const match = rangeFilters.length === 1 ? rangeFilters[0] : { $and: rangeFilters };
+      const recs = await ContasAReceber.find(match).select('actionId').lean();
+      allowed = new Set(recs.map(r => String(r.actionId)));
+      if (allowed.size === 0) return ok({ items: [], total: 0 }); // no matches
+      actionsQuery._id = actionsQuery._id
+        ? actionsQuery._id
+        : { $in: Array.from(allowed) };
+    }
+
+    const actions = await Action.find(actionsQuery).sort({ createdAt: -1 }).lean();
 
     // Fetch existing receivables for these actions
     const actionIds = actions.map(a => a._id);
-    const recebiveis = await ContasAReceber.find({ actionId: { $in: actionIds } }).lean();
+    const recMatch = { actionId: { $in: actionIds } };
+    if (status === 'ABERTO' || status === 'RECEBIDO') recMatch.status = status;
+    const recebiveis = await ContasAReceber.find(recMatch).lean();
     const recMap = new Map(recebiveis.map(r => [String(r.actionId), r]));
 
     // Resolve client names
@@ -40,7 +96,7 @@ export async function GET(request) {
     }
     const clientMap = new Map(clientes.map(c => [String(c._id), c]));
 
-    const rows = actions.map(a => {
+    let rows = actions.map(a => {
       const r = recMap.get(String(a._id));
       const cliente = clientMap.get(String(a.client || ''));
       return {
@@ -55,7 +111,28 @@ export async function GET(request) {
       };
     });
 
-    return ok(toPlainDocs(rows));
+    const getVal = (a) => {
+      switch (sort) {
+        case 'acao': return String(a?.name || '').toLowerCase();
+        case 'cliente': return String(a?.clientName || '').toLowerCase();
+        case 'venc': return a?.receivable?.dataVencimento ? new Date(a.receivable.dataVencimento).getTime() : 0;
+        case 'receb': return a?.receivable?.dataRecebimento ? new Date(a.receivable.dataRecebimento).getTime() : 0;
+        case 'date':
+        default: return a?.date ? new Date(a.date).getTime() : 0;
+      }
+    };
+    rows.sort((a, b) => {
+      const va = getVal(a); const vb = getVal(b);
+      if (typeof va === 'number' && typeof vb === 'number') return dir === 'asc' ? va - vb : vb - va;
+      const sa = String(va || ''); const sb = String(vb || '');
+      const cmp = sa.localeCompare(sb);
+      return dir === 'asc' ? cmp : -cmp;
+    });
+
+    const total = rows.length;
+    const start = (page - 1) * pageSize;
+    const items = rows.slice(start, start + pageSize);
+    return ok({ items: toPlainDocs(items), total });
   } catch (err) {
     try { process.stderr.write('GET /api/contasareceber error: ' + String(err) + '\n'); } catch { /* noop */ }
     return serverError('Failed to fetch contas a receber');

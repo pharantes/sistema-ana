@@ -3,6 +3,7 @@
 import styled from "styled-components";
 import { useRouter } from 'next/navigation';
 import Pager from "../components/ui/Pager";
+import { SearchBar } from "../components/ui";
 import { useEffect, useState } from "react";
 import ClienteModal from "../components/ClienteModal";
 import * as FE from "../components/FormElements";
@@ -43,6 +44,9 @@ export default function ClientesPage() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [confirmCodigo, setConfirmCodigo] = useState("");
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [q, setQ] = useState("");
+  const [query, setQuery] = useState("");
+  useEffect(() => { const t = setTimeout(() => setQuery(q.trim().toLowerCase()), 250); return () => clearTimeout(t); }, [q]);
 
   useEffect(() => {
     fetchClientes();
@@ -72,7 +76,16 @@ export default function ClientesPage() {
     else { setSortKey(key); setSortDir(key === 'nome' || key === 'cidade' ? 'asc' : 'desc'); }
   };
   const sorted = useMemo(() => {
-    const list = Array.isArray(clientes) ? clientes.slice() : [];
+    let list = Array.isArray(clientes) ? clientes.slice() : [];
+    if (query) {
+      list = list.filter(c => {
+        const nome = String(c?.nome || '').toLowerCase();
+        const contato = String(c?.nomeContato || '').toLowerCase();
+        const email = String(c?.email || '').toLowerCase();
+        const cidade = String(c?.cidade || '').toLowerCase();
+        return nome.includes(query) || contato.includes(query) || email.includes(query) || cidade.includes(query);
+      });
+    }
     const getVal = (c) => {
       switch (sortKey) {
         case 'codigo': return String(c?.codigo ?? '').padStart(4, '0');
@@ -164,8 +177,9 @@ export default function ClientesPage() {
   return (
     <Wrapper>
       <Title>Clientes</Title>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <FE.TopButton onClick={() => setModalOpen(true)}>Novo Cliente</FE.TopButton>
+        <SearchBar value={q} onChange={e => { setPage(1); setQ(e.target.value); }} placeholder="Buscar por nome, contato, email ou cidade..." />
         {total > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>

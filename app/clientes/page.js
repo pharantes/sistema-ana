@@ -205,7 +205,7 @@ export default function ClientesPage() {
                 Código {sortKey === 'codigo' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
               </Th>
               <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('nome')}>
-                Nome do Cliente {sortKey === 'nome' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+                Cliente {sortKey === 'nome' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
               </Th>
               <Th>Endereço</Th>
               <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('cidade')}>
@@ -216,7 +216,7 @@ export default function ClientesPage() {
               </Th>
               <Th>Telefone</Th>
               <Th>Email</Th>
-              <Th>Nome do contato</Th>
+              <Th>Contato</Th>
               <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('tipo')}>
                 Tipo {sortKey === 'tipo' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
               </Th>

@@ -128,21 +128,21 @@ export default function ActionTable({ actions, session, onEdit, onDelete }) {
                 {sortKey === c.key ? (sortDir === 'asc' ? '▲' : '▼') : ''}
               </Th>
             ))}
-            <Th>Ações</Th>
+            <Th>Opções</Th>
           </tr>
         </thead>
         <tbody>
           {pageData.map((a) => (
             <tr key={a._id}>
               <Td>{formatDateBR(a.date)}</Td>
-              <Td>
+              <Td style={{ textAlign: 'left' }}>
                 <button onClick={() => gotoAction(a._id)} style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer' }}>
                   {a.name || a.event}
                 </button>
               </Td>
               <Td>{formatDateBR(a.startDate)}</Td>
               <Td>{formatDateBR(a.endDate)}</Td>
-              <Td>
+              <Td style={{ textAlign: 'left' }}>
                 <button onClick={() => gotoCliente(a.client)} style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer' }}>
                   {a.clientName || a.client}
                 </button>

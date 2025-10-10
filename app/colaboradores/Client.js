@@ -198,7 +198,7 @@ export default function ColaboradoresClient({ initialColaboradores = [], isAdmin
               </Th>
               <Th>Banco</Th>
               <Th>PIX</Th>
-              <Th>Ações</Th>
+              <Th>Opções</Th>
             </tr>
           </thead>
           <tbody>
@@ -240,7 +240,7 @@ export default function ColaboradoresClient({ initialColaboradores = [], isAdmin
             )().map(colaborador => (
               <tr key={colaborador._id}>
                 <Td style={{ whiteSpace: 'nowrap' }}>{colaborador.codigo}</Td>
-                <Td style={{ minWidth: 140 }}>
+                <Td style={{ minWidth: 140, textAlign: 'left' }}>
                   <button onClick={() => router.push(`/colaboradores/${colaborador._id}`)} style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer' }}>
                     {colaborador.nome}
                   </button>

@@ -221,14 +221,14 @@ export default function ClientesPage() {
                 Tipo {sortKey === 'tipo' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
               </Th>
               <Th>CNPJ/CPF</Th>
-              <Th>Ações</Th>
+              <Th>Opções</Th>
             </tr>
           </thead>
           <tbody>
             {pageData.map((cliente) => (
               <tr key={cliente._id}>
                 <Td>{cliente.codigo}</Td>
-                <Td>
+                <Td style={{ textAlign: 'left' }}>
                   <button onClick={() => router.push(`/clientes/${cliente._id}`)} style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer' }}>
                     {cliente.nome}
                   </button>

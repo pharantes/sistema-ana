@@ -252,7 +252,7 @@ export default function ActionDetailsPage({ params }) {
               <Th>Pgt</Th>
               <Th>Banco/PIX</Th>
               <Th>Vencimento</Th>
-              <Th>Ações</Th>
+              <Th>Opções</Th>
             </tr>
           </thead>
           <tbody>

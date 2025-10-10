@@ -248,7 +248,7 @@ export default function ContasAReceberPage() {
               Data Recebimento {sortKey === 'receb' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
             </Th>
             <Th>Status</Th>
-            <Th>Ações</Th>
+            <Th>Opções</Th>
           </tr>
         </thead>
         <tbody>
@@ -260,7 +260,7 @@ export default function ContasAReceberPage() {
             return (
               <tr key={row._id} onClick={() => globalThis.location.assign(`/contasareceber/${row._id}`)} style={{ cursor: 'pointer' }}>
                 <Td>{data}</Td>
-                <Td>{row.name}</Td>
+                <Td style={{ textAlign: 'left' }}>{row.name}</Td>
                 <Td>{row.clientName || ''}</Td>
                 <Td>{r?.descricao || ''}</Td>
                 <Td>{r?.qtdeParcela ?? ''}</Td>

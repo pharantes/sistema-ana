@@ -59,7 +59,7 @@ export default function ContasFixasTable({
             <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => onToggleSort?.('status')}>
               Status {sortKey === 'status' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
             </Th>
-            <Th>Ações</Th>
+            <Th>Opções</Th>
           </tr>
         </thead>
         <tbody>

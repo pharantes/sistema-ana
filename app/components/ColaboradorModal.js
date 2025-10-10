@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState, useEffect } from "react";
 import styled from "styled-components";
 import Modal from './Modal';
 import * as FE from './FormElements';
@@ -9,34 +9,22 @@ const Title = styled.h2`
 `;
 const Input = styled.input``;
 
-export default function ServidorModal({ open, onClose, onSubmit, initial }) {
-  const [form, setForm] = useState(() => {
-    if (initial) {
-      return {
-        ...initial,
-        codigo: initial.codigo ? String(Number(initial.codigo)) : "",
-      };
-    }
-    return {
-      codigo: "",
-      nome: "",
-      pix: "",
-      banco: "",
-      uf: "",
-      telefone: "",
-      email: "",
-      tipo: "",
-      cnpjCpf: "",
-    };
+export default function ColaboradorModal({ open, onClose, onSubmit, initial }) {
+  const [form, setForm] = useState({
+    nome: "",
+    empresa: "",
+    pix: "",
+    banco: "",
+    conta: "",
+    uf: "",
+    telefone: "",
+    email: "",
+    tipo: "",
+    cnpjCpf: "",
   });
 
-  React.useEffect(() => {
-    if (initial) {
-      setForm({
-        ...initial,
-        codigo: initial.codigo ? String(Number(initial.codigo)) : "",
-      });
-    }
+  useEffect(() => {
+    if (initial) setForm({ ...initial });
   }, [initial]);
 
   function handleChange(e) {
@@ -47,23 +35,22 @@ export default function ServidorModal({ open, onClose, onSubmit, initial }) {
 
   function handleSubmit(e) {
     e.preventDefault();
-    const paddedForm = { ...form, codigo: String(form.codigo || "").padStart(4, "0") };
-    onSubmit(paddedForm);
-    setForm({ codigo: "", nome: "", pix: "", banco: "", uf: "", telefone: "", email: "", tipo: "", cnpjCpf: "" });
+    onSubmit(form);
+    setForm({ nome: "", empresa: "", pix: "", banco: "", conta: "", uf: "", telefone: "", email: "", tipo: "", cnpjCpf: "" });
   }
 
   if (!open) return null;
   return (
-    <Modal onClose={onClose} ariaLabel={initial ? "Editar Servidor" : "Novo Servidor"}>
-      <Title>{initial ? "Editar Servidor" : "Novo Servidor"}</Title>
+    <Modal onClose={onClose} ariaLabel={initial ? "Editar Colaborador" : "Novo Colaborador"}>
+      <Title>{initial ? "Editar Colaborador" : "Novo Colaborador"}</Title>
       <FL.FormGrid as="form" onSubmit={handleSubmit}>
         <div>
-          <FL.Label>Código</FL.Label>
-          <Input name="codigo" placeholder="Código" value={form.codigo} onChange={handleChange} required type="text" maxLength={4} pattern="\\d{1,4}" />
+          <FL.Label>Nome do Colaborador</FL.Label>
+          <Input name="nome" placeholder="Nome do Colaborador" value={form.nome} onChange={handleChange} required />
         </div>
         <div>
-          <FL.Label>Nome do Fornecedor</FL.Label>
-          <Input name="nome" placeholder="Nome do Fornecedor" value={form.nome} onChange={handleChange} required />
+          <FL.Label>Empresa</FL.Label>
+          <Input name="empresa" placeholder="Empresa (opcional)" value={form.empresa} onChange={handleChange} />
         </div>
         <div>
           <FL.Label>PIX</FL.Label>
@@ -72,6 +59,10 @@ export default function ServidorModal({ open, onClose, onSubmit, initial }) {
         <div>
           <FL.Label>Banco</FL.Label>
           <Input name="banco" placeholder="Banco" value={form.banco} onChange={handleChange} />
+        </div>
+        <div>
+          <FL.Label>Conta</FL.Label>
+          <Input name="conta" placeholder="Conta (agência/conta)" value={form.conta} onChange={handleChange} />
         </div>
         <div>
           <FL.Label>UF</FL.Label>
@@ -87,7 +78,11 @@ export default function ServidorModal({ open, onClose, onSubmit, initial }) {
         </div>
         <div>
           <FL.Label>Tipo</FL.Label>
-          <Input name="tipo" placeholder="Tipo" value={form.tipo} onChange={handleChange} />
+          <select name="tipo" value={form.tipo} onChange={handleChange}>
+            <option value="">Selecionar</option>
+            <option value="Pessoa Fisica">Pessoa Fisica</option>
+            <option value="Pessoa Juridica">Pessoa Juridica</option>
+          </select>
         </div>
         <div>
           <FL.Label>CNPJ/CPF</FL.Label>
@@ -101,4 +96,3 @@ export default function ServidorModal({ open, onClose, onSubmit, initial }) {
     </Modal>
   );
 }
-

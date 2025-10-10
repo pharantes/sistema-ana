@@ -1,7 +1,15 @@
 "use client";
+/* eslint-env browser */
 import { useSession } from "next-auth/react";
+import { useEffect, useMemo, useState } from "react";
+import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { formatBRL, parseCurrency } from "../utils/currency";
 import styled from "styled-components";
+import Pager from "../components/ui/Pager";
+import { Table, Th, Td } from "../components/ui/Table";
+import Filters from "./Filters";
 
+// Pager now centralized in components/ui/Pager
 
 const Title = styled.h1`
   font-size: 2rem;
@@ -11,36 +19,25 @@ const Wrapper = styled.div`
   padding: 24px;
 `;
 
-import { useEffect, useMemo, useState } from "react";
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-
-const Table = styled.table`
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 16px;
-`;
-const Th = styled.th`
-  text-align: left;
-  border-bottom: 1px solid #ccc;
-  padding: 8px;
-`;
-const Td = styled.td`
-  padding: 8px;
-`;
+// Table, Th, Td imported from components/ui/Table for consistency
 
 export default function ContasAReceberPage() {
   const { data: session, status } = useSession();
   const [actions, setActions] = useState([]);
+  const [pageSize, setPageSize] = useState(10);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [editId, setEditId] = useState(null);
   const [editValue, setEditValue] = useState("");
 
+  // currency helpers now imported from utils
+
   useEffect(() => { fetchActions(); }, []);
 
   async function fetchActions() {
     setLoading(true);
-    const res = await fetch("/api/action");
+    const res = await globalThis.fetch("/api/action");
     const data = await res.json();
     setActions(data);
     setLoading(false);
@@ -56,18 +53,24 @@ export default function ContasAReceberPage() {
         return cliente.includes(q) || acao.includes(q);
       })
       : base;
-    // sort by date asc
+    // sort by date desc (newest first)
     return out.slice().sort((a, b) => {
       const da = a?.date ? new Date(a.date).getTime() : 0;
       const db = b?.date ? new Date(b.date).getTime() : 0;
-      return da - db;
+      return db - da;
     });
   }, [actions, query]);
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const pageData = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, page, pageSize]);
 
   async function gerarPDF() {
     const rows = filtered;
     if (!rows.length) {
-      alert("Nenhum resultado para gerar o relatório");
+      globalThis.alert("Nenhum resultado para gerar o relatório");
       return;
     }
     const firstDate = rows[0]?.date ? new Date(rows[0].date) : null;
@@ -87,7 +90,7 @@ export default function ContasAReceberPage() {
     const rowHeight = 18;
     const headerHeight = 28;
     const margin = 30;
-    // Evento, Cliente, Data, Servidores, PIX, Valor
+    // Evento, Cliente, Data, Colaboradores, PIX, Valor
     const colWidths = [160, 200, 100, 180, 150, 100];
     const pageHeight = margin + headerHeight + (totalLines + 5) * rowHeight + 80;
     const page = doc.addPage([pageWidth, pageHeight]);
@@ -108,13 +111,13 @@ export default function ContasAReceberPage() {
     y += 24;
 
     // Header
-    const headers = ["Evento", "Cliente", "Data", "Servidores", "PIX", "Valor (R$)"];
+    const headers = ["Evento", "Cliente", "Data", "Colaboradores", "PIX", "Valor (R$)"];
     let x = margin;
     headers.forEach((h, i) => { drawText(h, x, 10); x += colWidths[i]; });
     page.drawLine({ start: { x: margin, y: page.getHeight() - y - 4 }, end: { x: pageWidth - margin, y: page.getHeight() - y - 4 }, thickness: 1, color: rgb(0.7, 0.7, 0.7) });
     y += rowHeight;
 
-    // Rows: servidores/PIX on aligned multiple lines; only first line shows Evento/Cliente/Data/Valor
+    // Rows: colaboradores/PIX on aligned multiple lines; only first line shows Evento/Cliente/Data/Valor
     rows.forEach((a) => {
       const evento = a?.name || '';
       const cliente = a?.client || '';
@@ -139,21 +142,22 @@ export default function ContasAReceberPage() {
     });
 
     const pdfBytes = await doc.save();
-    const blob = new Blob([pdfBytes], { type: "application/pdf" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
+    const blob = new globalThis.Blob([pdfBytes], { type: "application/pdf" });
+    const url = globalThis.URL.createObjectURL(blob);
+    const a = globalThis.document.createElement("a");
     a.href = url;
     a.download = `contas-a-receber.pdf`;
     a.click();
-    URL.revokeObjectURL(url);
+    globalThis.URL.revokeObjectURL(url);
   }
 
   async function handleSave(id) {
     setLoading(true);
-    await fetch("/api/action/edit", {
+    const parsed = parseCurrency(editValue);
+    await globalThis.fetch("/api/action/edit", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, value: editValue }),
+      body: JSON.stringify({ id, value: parsed }),
     });
     setEditId(null);
     setEditValue("");
@@ -168,14 +172,28 @@ export default function ContasAReceberPage() {
   return (
     <Wrapper>
       <Title>Contas a Receber</Title>
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Buscar por cliente ou ação..."
-          style={{ padding: 8, minWidth: 280 }}
-        />
-        <button onClick={gerarPDF} disabled={loading}>Gerar PDF</button>
+      <Filters query={query} onChangeQuery={setQuery} onGerarPDF={gerarPDF} loading={loading} />
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', marginTop: 8 }}>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          {total > pageSize && (
+            <>
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} aria-label="Anterior">«</button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
+                <button key={n} data-active={n === page} onClick={() => setPage(n)} style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #ddd', background: n === page ? '#2563eb' : '#fff', color: n === page ? '#fff' : '#111' }}>{n}</button>
+              ))}
+              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} aria-label="Próxima">»</button>
+            </>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <span style={{ fontSize: '0.9rem', color: '#555' }}>Mostrar:</span>
+          <select value={pageSize} onChange={(e) => { setPage(1); setPageSize(Number(e.target.value)); }}>
+            <option value={10}>10</option>
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+          </select>
+          <span style={{ fontSize: '0.9rem', color: '#555' }}>Total: {total}</span>
+        </div>
       </div>
       <Table>
         <thead>
@@ -187,28 +205,55 @@ export default function ContasAReceberPage() {
           </tr>
         </thead>
         <tbody>
-          {filtered.map(action => (
+          {pageData.map(action => (
             <tr key={action._id}>
-              <Td>{action.name}</Td>
-              <Td>{action.client}</Td>
+              <Td>
+                {action?._id ? (
+                  <button
+                    onClick={() => globalThis.location.assign(`/acoes/${action._id}`)}
+                    style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer' }}
+                  >
+                    {action.name}
+                  </button>
+                ) : action.name}
+              </Td>
+              <Td>
+                {action?.client ? (
+                  <span style={{ color: '#111' }}>{action.client}</span>
+                ) : ''}
+              </Td>
               <Td>
                 {editId === action._id ? (
-                  <input value={editValue} onChange={e => setEditValue(e.target.value)} />
+                  <input
+                    value={editValue}
+                    onChange={e => setEditValue(e.target.value)}
+                    onBlur={e => setEditValue(formatBRL(e.target.value))}
+                    onFocus={e => {
+                      const raw = String(editValue || '').replace(/[^0-9.,-]/g, '').replace(/\.(?=\d{3,})/g, '').replace(',', '.');
+                      setEditValue(raw);
+                      try { e.target.selectionStart = e.target.selectionEnd = e.target.value.length; } catch { /* ignore */ }
+                    }}
+                    placeholder="Valor R$"
+                  />
                 ) : (
-                  action.value ? `R$ ${Number(action.value).toFixed(2)}` : "-"
+                  action.value ? `R$ ${Number(action.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : "-"
                 )}
               </Td>
               <Td>
                 {editId === action._id ? (
                   <button onClick={() => handleSave(action._id)} disabled={loading}>Salvar</button>
                 ) : (
-                  <button onClick={() => { setEditId(action._id); setEditValue(action.value || ""); }}>Editar</button>
+                  <button onClick={() => { setEditId(action._id); setEditValue(action.value != null ? Number(action.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : ""); }}>Editar</button>
                 )}
               </Td>
             </tr>
           ))}
         </tbody>
       </Table>
+      {total > pageSize && (
+        <Pager page={page} pageSize={pageSize} total={total} onChangePage={setPage} />
+      )}
     </Wrapper>
   );
 }
+

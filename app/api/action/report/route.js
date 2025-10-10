@@ -1,15 +1,19 @@
+/* eslint-env node */
+/* eslint-disable no-console, security/detect-non-literal-regexp */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { getServerSession } from "next-auth";
-import { authOptions } from "../../auth/[...nextauth]/route";
+import baseOptions from "../../../../lib/auth/authOptionsBase";
 import dbConnect from "../../../../lib/db/connect.js";
 import Action from "../../../../lib/db/models/Action.js";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { actionReportColumns, actionReportWidths } from "../../../utils/columns.js";
+import Cliente from "../../../../lib/db/models/Cliente.js";
 
 export async function GET(request) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession(baseOptions);
     if (!session || !session.user || session.user.role !== "admin") {
       return new Response(JSON.stringify({ error: "Forbidden" }), {
         status: 403,
@@ -21,8 +25,10 @@ export async function GET(request) {
 
     const { searchParams } = new URL(request.url);
     const q = (searchParams.get("q") || "").trim();
-    const start = searchParams.get("start");
-    const end = searchParams.get("end");
+    const acaoFrom = searchParams.get("acaoFrom");
+    const acaoTo = searchParams.get("acaoTo");
+    const vencFrom = searchParams.get("vencFrom");
+    const vencTo = searchParams.get("vencTo");
     const regex = q ? new RegExp(q, "i") : null;
 
     const filter = {};
@@ -37,13 +43,46 @@ export async function GET(request) {
         { staff: { $elemMatch: { bank: { $regex: regex } } } },
       ];
     }
-    if (start || end) {
+    if (acaoFrom || acaoTo) {
       filter.createdAt = {};
-      if (start) filter.createdAt.$gte = new Date(start);
-      if (end) filter.createdAt.$lte = new Date(end);
+      if (acaoFrom) filter.createdAt.$gte = new Date(acaoFrom);
+      if (acaoTo) {
+        const d = new Date(acaoTo);
+        d.setDate(d.getDate() + 1);
+        filter.createdAt.$lt = d;
+      }
+    }
+    if (vencFrom || vencTo) {
+      filter.dueDate = filter.dueDate || {};
+      if (vencFrom) filter.dueDate.$gte = new Date(vencFrom);
+      if (vencTo) {
+        const d = new Date(vencTo);
+        d.setDate(d.getDate() + 1);
+        filter.dueDate.$lt = d;
+      }
     }
 
     const actions = await Action.find(filter).sort({ createdAt: -1 }).lean();
+
+    // Resolve client IDs to display names for report
+    try {
+      const clientIds = Array.from(new Set(
+        actions
+          .map(a => String(a.client || ''))
+          .filter(id => /^[0-9a-fA-F]{24}$/.test(id))
+      ));
+      if (clientIds.length) {
+        const clientes = await Cliente.find({ _id: { $in: clientIds } })
+          .select('_id nome codigo')
+          .lean()
+          .exec();
+        const map = new Map(clientes.map(c => [String(c._id), `${c.codigo ? c.codigo + ' ' : ''}${c.nome || ''}`.trim()]));
+        for (const a of actions) {
+          const id = String(a.client || '');
+          if (map.has(id)) a.clientName = map.get(id);
+        }
+      }
+    } catch { /* ignore client name resolution */ }
 
     if (regex) {
       for (const a of actions) {
@@ -72,12 +111,14 @@ export async function GET(request) {
       for (const s of staffList) {
         rows.push({
           date: a.date ? new Date(a.date) : null,
-          paymentMethod: a.paymentMethod || "",
-          client: a.client || "",
+          startDate: a.startDate ? new Date(a.startDate) : null,
+          endDate: a.endDate ? new Date(a.endDate) : null,
+          paymentMethod: s?.pgt || a.paymentMethod || "",
+          client: a.clientName || a.client || "",
           staffName: s?.name || "",
           event: a.name || a.event || "",
           value: Number(s?.value || 0),
-          dueDate: a.dueDate ? new Date(a.dueDate) : null,
+          dueDate: (s?.vencimento ? new Date(s.vencimento) : (a.dueDate ? new Date(a.dueDate) : null)),
           pix: s?.pix || "",
           bank: s?.bank || "",
         });
@@ -128,59 +169,19 @@ export async function GET(request) {
       return lines.length ? lines : [""];
     };
 
-    const widths = {
-      date: 60,
-      pgt: 55,
-      client: 120,
-      staff: 150,
-      event: 95,
-      value: 55,
-      due: 70,
-      pix: 90,
-      bank: 50,
-    };
-    const positions = {
-      date: pageMargin,
-      pgt: pageMargin + widths.date,
-      client: pageMargin + widths.date + widths.pgt,
-      staff: pageMargin + widths.date + widths.pgt + widths.client,
-      event:
-        pageMargin + widths.date + widths.pgt + widths.client + widths.staff,
-      value:
-        pageMargin +
-        widths.date +
-        widths.pgt +
-        widths.client +
-        widths.staff +
-        widths.event,
-      due:
-        pageMargin +
-        widths.date +
-        widths.pgt +
-        widths.client +
-        widths.staff +
-        widths.event +
-        widths.value,
-      pix:
-        pageMargin +
-        widths.date +
-        widths.pgt +
-        widths.client +
-        widths.staff +
-        widths.event +
-        widths.value +
-        widths.due,
-      bank:
-        pageMargin +
-        widths.date +
-        widths.pgt +
-        widths.client +
-        widths.staff +
-        widths.event +
-        widths.value +
-        widths.due +
-        widths.pix,
-    };
+    // Column widths and x positions derived from shared config
+    const widths = actionReportColumns.reduce((acc, col) => {
+      acc[col.key] = actionReportWidths[col.key] || 60;
+      return acc;
+    }, {});
+    const positions = {};
+    {
+      let x = pageMargin;
+      for (const col of actionReportColumns) {
+        positions[col.key] = x;
+        x += widths[col.key] || 0;
+      }
+    }
 
     // Header
     drawText("Relatório de Ações", pageMargin, cursorY - 16, 16);
@@ -194,16 +195,10 @@ export async function GET(request) {
     );
     moveDown(1.2);
 
-    // Table header
-    drawText("Data", positions.date, cursorY - fontSize, 10.5);
-    drawText("Pgt", positions.pgt, cursorY - fontSize, 10.5);
-    drawText("Cliente", positions.client, cursorY - fontSize, 10.5);
-    drawText("Profissional", positions.staff, cursorY - fontSize, 10.5);
-    drawText("Evento", positions.event, cursorY - fontSize, 10.5);
-    drawText("Valor", positions.value, cursorY - fontSize, 10.5);
-    drawText("Vencimento", positions.due, cursorY - fontSize, 10.5);
-    drawText("PIX", positions.pix, cursorY - fontSize, 10.5);
-    drawText("Banco", positions.bank, cursorY - fontSize, 10.5);
+    // Table header (aligned with shared UI order)
+    for (const col of actionReportColumns) {
+      drawText(col.label, positions[col.key], cursorY - fontSize, 10.5);
+    }
     moveDown(1);
     page.drawLine({
       start: { x: pageMargin, y: cursorY },
@@ -218,6 +213,8 @@ export async function GET(request) {
     // Draw rows
     for (const r of rows) {
       const dateStr = r.date ? r.date.toLocaleDateString("pt-BR") : "";
+      const startStr = r.startDate ? r.startDate.toLocaleDateString("pt-BR") : "";
+      const endStr = r.endDate ? r.endDate.toLocaleDateString("pt-BR") : "";
       const dueStr = r.dueDate ? r.dueDate.toLocaleDateString("pt-BR") : "";
 
       const clientLines = wrapByWidth(r.client, widths.client);
@@ -241,13 +238,15 @@ export async function GET(request) {
         const y = cursorY - (fontSize + 1);
         if (i === 0) {
           drawText(dateStr, positions.date, y);
-          drawText(r.paymentMethod, positions.pgt, y);
+          drawText(startStr, positions.start, y);
+          drawText(endStr, positions.end, y);
           drawText(`R$ ${r.value.toFixed(2)}`, positions.value, y);
           drawText(dueStr, positions.due, y);
+          drawText(r.paymentMethod, positions.pgt, y);
         }
+        if (eventLines[i]) drawText(eventLines[i], positions.event, y);
         if (clientLines[i]) drawText(clientLines[i], positions.client, y);
         if (staffLines[i]) drawText(staffLines[i], positions.staff, y);
-        if (eventLines[i]) drawText(eventLines[i], positions.event, y);
         if (pixLines[i]) drawText(pixLines[i], positions.pix, y);
         if (bankLines[i]) drawText(bankLines[i], positions.bank, y);
 

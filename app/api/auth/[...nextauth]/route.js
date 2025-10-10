@@ -1,77 +1,68 @@
 import NextAuth from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
-import { MongoDBAdapter } from "@next-auth/mongodb-adapter";
-import clientPromise from "../../../../lib/mongodb";
-import bcrypt from "bcryptjs";
+import baseOptions, { authorizeUser } from "../../../../lib/auth/authOptionsBase";
 
-export const authOptions = {
-  adapter: MongoDBAdapter(clientPromise),
-  providers: [
-    CredentialsProvider({
-      name: "credentials",
-      credentials: {
-        username: { label: "Username", type: "text" },
-        password: { label: "Password", type: "password" }
-      },
-      async authorize(credentials) {
-        if (!credentials?.username || !credentials?.password) {
-          return null;
-        }
+// Build the final auth options at runtime: prefer server-side shim, else inline provider
+async function buildAuthOptions() {
+  const authorizeWrapper = async (credentials) => {
+    return await authorizeUser(credentials);
+  };
+  // Prefer an ESM shim that attempts to import next-auth's credentials provider in the server runtime
+  try {
+    const { getCredentialsProvider } = await import('../../../../lib/auth/credentialsFactory.mjs');
+    if (typeof getCredentialsProvider === 'function') {
+      const providerFromShim = await getCredentialsProvider(authorizeWrapper);
+      if (providerFromShim) return { ...baseOptions, providers: [providerFromShim] };
+    }
+  } catch {
+    // ignore and try CJS shim next
+  }
 
-        const client = await clientPromise;
-        const db = client.db();
+  // Try server-side CJS shim (importing CJS via dynamic import will expose a default)
+  try {
+    const cjs = await import('../../../../lib/auth/credentialsFactory.cjs');
+    const factory = cjs && (typeof cjs === 'function' ? cjs : cjs.default);
+    if (typeof factory === 'function') {
+      const providerFromCjs = await factory(authorizeWrapper);
+      if (providerFromCjs) return { ...baseOptions, providers: [providerFromCjs] };
+    }
+  } catch {
+    // fall through to error
+  }
 
-        // Look for user by username instead of email
-        const user = await db.collection("users").findOne({
-          username: credentials.username
-        });
+  // If we reach here, no shim produced a provider
+  throw new Error('No credentials provider available from shims');
+}
 
-        if (!user) {
-          return null;
-        }
-
-        const isPasswordValid = await bcrypt.compare(
-          credentials.password,
-          user.password
-        );
-
-        if (!isPasswordValid) {
-          return null;
-        }
-
-        return {
-          id: user._id.toString(),
-          username: user.username,
-          name: user.name,
-          email: user.email || `${user.username}@sistemaana.com` // fallback email
-        };
-      }
-    })
-  ],
-  session: {
-    strategy: "jwt",
-  },
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id;
-        token.username = user.username;
-      }
-      return token;
-    },
-    async session({ session, token }) {
-      if (token) {
-        session.user.id = token.id;
-        session.user.username = token.username;
-      }
-      return session;
-    },
-  },
-  pages: {
-    signIn: "/login",
-  },
-  secret: process.env.NEXTAUTH_SECRET,
+const handler = async (req, res) => {
+  try {
+    const options = await buildAuthOptions();
+    // NextAuth import can be a namespace object depending on bundling; prefer function export
+    let NextAuthFn = NextAuth;
+    if (typeof NextAuthFn !== 'function' && NextAuth && typeof NextAuth.default === 'function') {
+      NextAuthFn = NextAuth.default;
+    }
+    if (typeof NextAuthFn !== 'function') {
+      process.stderr.write('NextAuth is not a function; module shape: ' + String(typeof NextAuth) + "\n");
+      throw new Error('NextAuth import is not callable');
+    }
+    const nextAuthHandler = NextAuthFn(options);
+    return await nextAuthHandler(req, res);
+  } catch (err) {
+    // Log and return a clear JSON error so logs capture the stack
+    try {
+      process.stderr.write('NextAuth handler error ' + (err && err.stack ? err.stack : String(err)) + "\n");
+    } catch {
+      // ignore
+    }
+    // For App Router, return a Response if res isn't a Node response
+    if (res && typeof res.setHeader === 'function') {
+      res.statusCode = 500;
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify({ error: String(err?.message || err) }));
+      return;
+    }
+    return new Response(JSON.stringify({ error: String(err?.message || err) }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+  }
 };
 
-const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };

@@ -1,5 +1,5 @@
 import { getServerSession } from "next-auth";
-import { authOptions } from "../../../auth/[...nextauth]/route";
+import baseOptions from "../../../../../lib/auth/authOptionsBase";
 import dbConnect from "../../../../../lib/db/connect.js";
 import Action from "../../../../../lib/db/models/Action.js";
 import ContasAPagar from "../../../../../lib/db/models/ContasAPagar.js";
@@ -10,13 +10,14 @@ import path from "path";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function POST(request, { params }) {
+export async function POST(request, context) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession(baseOptions);
     if (!session || !session.user || session.user.role !== "admin") {
       return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 });
     }
 
+    const params = await (context?.params);
     const { id } = params || {};
     if (!id) {
       return new Response(JSON.stringify({ error: "Missing id" }), { status: 400 });
@@ -52,11 +53,15 @@ export async function POST(request, { params }) {
 
     const bytes = await pdf.save();
 
-    // Persist file under public/reports
+    // Persist file under public/reports (safe, validated path)
     const reportsDir = path.join(process.cwd(), "public", "reports");
     if (!fs.existsSync(reportsDir)) fs.mkdirSync(reportsDir, { recursive: true });
-    const fileName = `${id}-${Date.now()}.pdf`;
+    const isValidId = /^[0-9a-fA-F]{24}$/.test(String(id));
+    const safeBase = isValidId ? String(id) : String(Date.now());
+    const fileName = `${safeBase}-${Date.now()}.pdf`;
     const filePath = path.join(reportsDir, fileName);
+    // filePath is constructed from a constant base directory and a validated filename
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
     fs.writeFileSync(filePath, Buffer.from(bytes));
     const pdfUrl = `/reports/${fileName}`;
 
@@ -73,7 +78,7 @@ export async function POST(request, { params }) {
       headers: { "Content-Type": "application/json" },
     });
   } catch (err) {
-    console.error("report generate error", err);
+    try { process?.stderr?.write("report generate error: " + String(err && err.stack ? err.stack : err) + "\n"); } catch { /* noop */ }
     return new Response(JSON.stringify({ error: "Failed to generate report" }), { status: 500 });
   }
 }

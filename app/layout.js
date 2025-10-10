@@ -1,27 +1,18 @@
-import NextAuthProvider from "./sessionProvider";
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
+// app/layout.js
+import { getServerSession } from "next-auth";
+import baseOptions from "../lib/auth/authOptionsBase";
+import NextAuthProvider from "./sessionProvider"; // Your client component
+import NavBar from "./NavBar";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+export default async function RootLayout({ children }) {
+  // Get session on the server side
+  const session = await getServerSession(baseOptions);
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-export const metadata = {
-  title: "Sistema Ana",
-  description: "Sistema de gestão",
-};
-
-export default function RootLayout({ children }) {
   return (
-    <html lang="pt-BR">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <NextAuthProvider>
+    <html lang="en">
+      <body>
+        <NextAuthProvider session={session}> {/* Pass session here */}
+          <NavBar />
           {children}
         </NextAuthProvider>
       </body>

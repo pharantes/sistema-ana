@@ -13,11 +13,9 @@ export default function ClienteModal({ open, onClose, onSubmit, initial }) {
     if (initial) {
       return {
         ...initial,
-        codigo: initial.codigo ? String(Number(initial.codigo)) : "",
       };
     }
     return {
-      codigo: "",
       nome: "",
       endereco: "",
       cidade: "",
@@ -35,29 +33,19 @@ export default function ClienteModal({ open, onClose, onSubmit, initial }) {
     if (initial) {
       setForm({
         ...initial,
-        codigo: initial.codigo ? String(Number(initial.codigo)) : "",
       });
     }
   }, [initial]);
 
   function handleChange(e) {
     let value = e.target.value;
-    if (e.target.name === "codigo") {
-      // Only allow numbers, strip leading zeros for input
-      value = value.replace(/\D/g, "");
-    }
     setForm({ ...form, [e.target.name]: value });
   }
 
   function handleSubmit(e) {
     e.preventDefault();
-    const paddedForm = {
-      ...form,
-      codigo: String(form.codigo).padStart(4, "0"),
-    };
-    onSubmit(paddedForm);
+    onSubmit(form);
     setForm({
-      codigo: "",
       nome: "",
       endereco: "",
       cidade: "",
@@ -75,10 +63,6 @@ export default function ClienteModal({ open, onClose, onSubmit, initial }) {
     <Modal onClose={onClose} ariaLabel={initial ? 'Editar Cliente' : 'Novo Cliente'}>
       <Title>{initial ? "Editar Cliente" : "Novo Cliente"}</Title>
       <FL.FormGrid as="form" onSubmit={handleSubmit}>
-        <div>
-          <FL.Label>Código</FL.Label>
-          <Input name="codigo" placeholder="Código" value={form.codigo} onChange={handleChange} required type="text" maxLength={4} pattern="\d{1,4}" />
-        </div>
         <div>
           <FL.Label>Nome do Cliente</FL.Label>
           <Input name="nome" placeholder="Nome do Cliente" value={form.nome} onChange={handleChange} required />

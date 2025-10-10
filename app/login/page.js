@@ -37,7 +37,7 @@ export default function LoginPage() {
       }
     } catch (error) {
       setError("Erro ao fazer login");
-      console.error("Login error:", error);
+      try { process?.stderr?.write(`Login error: ${String(error)}\n`); } catch { /* noop */ }
     } finally {
       setLoading(false);
     }

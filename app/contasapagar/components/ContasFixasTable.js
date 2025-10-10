@@ -31,6 +31,13 @@ export default function ContasFixasTable({
 
   return (
     <>
+      <HeaderControls
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        onChangePage={onChangePage}
+        onChangePageSize={(n) => { onChangePage?.(1); onChangePageSize?.(n); }}
+      />
       <Table>
         <thead>
           <tr>
@@ -90,13 +97,6 @@ export default function ContasFixasTable({
           )}
         </tbody>
       </Table>
-      <HeaderControls
-        page={page}
-        pageSize={pageSize}
-        total={total}
-        onChangePage={onChangePage}
-        onChangePageSize={(n) => { onChangePage?.(1); onChangePageSize?.(n); }}
-      />
     </>
   );
 }

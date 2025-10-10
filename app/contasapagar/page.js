@@ -1,8 +1,6 @@
 "use client";
 /* eslint-env browser */
 import styled from "styled-components";
-import Pager from "../components/ui/Pager";
-import PageSizeSelector from "../components/ui/PageSizeSelector";
 import Filters from "./Filters";
 import ContasFixasTable from "./components/ContasFixasTable";
 
@@ -322,22 +320,22 @@ export default function ContasAPagarPage() {
     });
     return list;
   }, [filteredFixas, sortKeyFixas, sortDirFixas]);
-  const totalFixas = sortedFixas.length;
+  // const totalFixas = sortedFixas.length; // no longer used at page level
   // Pagination for fixas is handled within ContasFixasTable; no local page slices needed here
   const toggleSortFixas = (key) => {
     if (sortKeyFixas === key) setSortDirFixas(d => d === 'asc' ? 'desc' : 'asc');
     else { setSortKeyFixas(key); setSortDirFixas('asc'); setPageFixas(1); }
   };
 
-  // Full PDF (ações + fixas when no search)
-  async function onGerarPDF() {
-    const includeFixas = (query || '').trim().length === 0;
+  // Removed combined PDF handler by request
+  // Only fixas PDF
+  async function onGerarPDFFixas() {
     await gerarContasAPagarPDF({
-      rows: filtered,
-      fixasRows: includeFixas ? filteredFixas : [],
+      rows: [],
+      fixasRows: filteredFixas,
       dueFrom,
       dueTo,
-      includeFixas,
+      includeFixas: true,
       getDisplayStatus,
     });
   }
@@ -433,7 +431,22 @@ export default function ContasAPagarPage() {
     <Wrapper>
       <Title>Contas a pagar</Title>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'end', flexWrap: 'wrap' }}>
+      <div style={{ marginTop: 12 }}>
+        <Filters
+          dueFrom={dueFrom}
+          dueTo={dueTo}
+          onChangeDueFrom={setDueFrom}
+          onChangeDueTo={setDueTo}
+          statusFilter={statusFilter}
+          onChangeStatus={setStatusFilter}
+          onClear={clearAll}
+          inputSx={inputSx}
+          rightActions={<FE.SecondaryButton onClick={onGerarPDFFixas} style={{ height: 36 }}>Gerar PDF (com fixas)</FE.SecondaryButton>}
+        />
+      </div>
+
+      <h2 style={{ marginTop: 12 }}>Custos ações</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'end', flexWrap: 'wrap', marginTop: 4 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 280, flex: '1 1 320px' }}>
           <label>Buscar</label>
           <FE.Input
@@ -446,21 +459,7 @@ export default function ContasAPagarPage() {
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <FE.SecondaryButton onClick={onGerarPDFAcoes} style={{ height: 40 }}>Gerar PDF (ações)</FE.SecondaryButton>
-          <FE.SecondaryButton onClick={onGerarPDF} style={{ height: 40 }}>Gerar PDF (com fixas)</FE.SecondaryButton>
         </div>
-      </div>
-
-      <div style={{ marginTop: 12 }}>
-        <Filters
-          dueFrom={dueFrom}
-          dueTo={dueTo}
-          onChangeDueFrom={setDueFrom}
-          onChangeDueTo={setDueTo}
-          statusFilter={statusFilter}
-          onChangeStatus={setStatusFilter}
-          onClear={clearAll}
-          inputSx={inputSx}
-        />
       </div>
 
       <div style={{ marginTop: 12 }}>
@@ -487,14 +486,6 @@ export default function ContasAPagarPage() {
       )}
       <div style={{ color: '#666', fontSize: '0.9rem', marginTop: 4 }}>
         Quando o status estiver "PAGO", mostramos o mês/ano do pagamento e ele volta para "ABERTO" automaticamente após o ciclo (15 dias para quinzenal, 30 dias para mensal).
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {totalFixas > pageSizeFixas && (
-            <Pager page={pageFixas} pageSize={pageSizeFixas} total={totalFixas} onChangePage={setPageFixas} compact />
-          )}
-          <PageSizeSelector pageSize={pageSizeFixas} total={totalFixas} onChange={(n) => { setPageFixas(1); setPageSizeFixas(n); }} />
-        </div>
       </div>
       <ContasFixasTable
         rows={sortedFixas}

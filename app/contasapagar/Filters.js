@@ -53,6 +53,7 @@ export default function Filters({
   onChangeStatus,
   onClear,
   inputSx,
+  rightActions,
 }) {
   const applyHoje = () => {
     const s = fmt(new Date());
@@ -135,7 +136,10 @@ export default function Filters({
             onClick={() => onChangeStatus('PAGO')}
           >PAGO</PresetButton>
         </div>
-        <PresetButton onClick={onClear}>Limpar</PresetButton>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          {rightActions}
+          <PresetButton onClick={onClear}>Limpar</PresetButton>
+        </div>
       </div>
     </>
   );

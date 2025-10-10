@@ -19,6 +19,42 @@ const Title = styled.h1`
 `;
 import { Table, Th, Td } from "../components/ui/Table";
 
+// Make a compact, responsive variant to avoid horizontal scrolling on 15" screens
+const ResponsiveTable = styled(Table)`
+  font-size: 0.92rem;
+  th, td { padding: 4px 6px; }
+  table-layout: fixed;
+  th, td {
+    white-space: normal !important;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    max-width: 280px;
+  }
+  td button, td a { white-space: normal !important; }
+
+  @media (max-width: 1440px) {
+    font-size: 0.9rem;
+    th, td { padding: 4px 6px; }
+    /* Email */
+    th:nth-child(7), td:nth-child(7) { max-width: 220px; }
+    /* Empresa */
+    th:nth-child(4), td:nth-child(4) { max-width: 180px; }
+    /* Banco, PIX */
+    th:nth-child(9), td:nth-child(9), th:nth-child(10), td:nth-child(10) { max-width: 180px; }
+    /* Opções */
+    th:nth-child(11), td:nth-child(11) { max-width: 160px; }
+  }
+
+  @media (max-width: 1366px) {
+    font-size: 0.88rem;
+    th, td { padding: 3px 5px; }
+    th:nth-child(7), td:nth-child(7) { max-width: 200px; }
+    th:nth-child(4), td:nth-child(4) { max-width: 160px; }
+    th:nth-child(9), td:nth-child(9), th:nth-child(10), td:nth-child(10) { max-width: 160px; }
+    th:nth-child(11), td:nth-child(11) { max-width: 140px; }
+  }
+`;
+
 function useColaboradorApi(initial = []) {
   const [colaboradores, setColaboradores] = useState(Array.isArray(initial) ? initial : []);
   const [loading, setLoading] = useState(false);
@@ -155,7 +191,7 @@ export default function ColaboradoresClient({ initialColaboradores = [], isAdmin
       )}
       {error && <Note $error>{error}</Note>}
       {loading ? <p>Carregando...</p> : (
-        <Table>
+        <ResponsiveTable>
           <thead>
             <tr>
               <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('codigo')}>
@@ -219,22 +255,22 @@ export default function ColaboradoresClient({ initialColaboradores = [], isAdmin
               }
             )().map(colaborador => (
               <tr key={colaborador._id}>
-                <Td style={{ whiteSpace: 'nowrap' }}>{colaborador.codigo}</Td>
-                <Td style={{ minWidth: 140, textAlign: 'left' }}>
+                <Td>{colaborador.codigo}</Td>
+                <Td style={{ textAlign: 'left' }}>
                   <button onClick={() => router.push(`/colaboradores/${colaborador._id}`)} style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer', textAlign: 'left' }}>
                     {colaborador.nome}
                   </button>
                 </Td>
-                <Td style={{ textTransform: 'capitalize', whiteSpace: 'nowrap' }}>{colaborador.tipo}</Td>
+                <Td style={{ textTransform: 'capitalize' }}>{colaborador.tipo}</Td>
                 <Td>{colaborador.empresa || ''}</Td>
-                <Td style={{ whiteSpace: 'nowrap' }}>{colaborador.cnpjCpf}</Td>
-                <Td style={{ whiteSpace: 'nowrap' }}>{colaborador.telefone}</Td>
+                <Td>{colaborador.cnpjCpf}</Td>
+                <Td>{colaborador.telefone}</Td>
                 <Td style={{ maxWidth: 220 }}>{colaborador.email}</Td>
-                <Td style={{ whiteSpace: 'nowrap' }}>{colaborador.uf}</Td>
+                <Td>{colaborador.uf}</Td>
                 <Td style={{ maxWidth: 200 }}>{colaborador.banco}</Td>
                 <Td style={{ maxWidth: 200 }}>{colaborador.pix}</Td>
-                <Td>
-                  <FE.ActionsRow>
+                <Td style={{ maxWidth: 160 }}>
+                  <FE.ActionsRow style={{ flexWrap: 'wrap', gap: 6 }}>
                     <FE.SmallSecondaryButton onClick={() => handleEdit(colaborador)}>Editar</FE.SmallSecondaryButton>
                     {isAdmin && (
                       <FE.SmallInlineButton onClick={() => openDeleteModal(colaborador)}>Excluir</FE.SmallInlineButton>
@@ -244,7 +280,7 @@ export default function ColaboradoresClient({ initialColaboradores = [], isAdmin
               </tr>
             ))}
           </tbody>
-        </Table>
+        </ResponsiveTable>
       )}
       {colaboradores.length > pageSize && (
         <Pager page={page} pageSize={pageSize} total={colaboradores.length} onChangePage={setPage} />

@@ -26,7 +26,7 @@ export default function CostModal({ open, onClose, onSubmit, initial }) {
         bank: initial.bank || '',
         pgt: initial.pgt || '',
         vencimento: initial.vencimento ? String(initial.vencimento).slice(0, 10) : '',
-        colaboradorId: initial.colaboradorId || initial.servidorId || '',
+        colaboradorId: initial.colaboradorId || '',
         vendorName: initial.vendorName || '',
         vendorEmpresa: initial.vendorEmpresa || '',
       });

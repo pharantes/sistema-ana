@@ -119,7 +119,7 @@ export default function ActionModal({ editing, form, onClose, onSubmit, loading 
           pix: c.pix || '',
           bank: c.bank || '',
           vencimento: c.vencimento ? String(c.vencimento).split('T')[0] : (editing.dueDate ? String(editing.dueDate).split('T')[0] : ''),
-          colaboradorId: c.colaboradorId || c.servidorId || '',
+          colaboradorId: c.colaboradorId || '',
           vendorName: c.vendorName || '',
           vendorEmpresa: c.vendorEmpresa || '',
         })));
@@ -241,7 +241,7 @@ export default function ActionModal({ editing, form, onClose, onSubmit, loading 
       staff: selectedColaboradores.map(s => ({ _id: s._id, name: s.nome, codigo: s.codigo, value: parseCurrency(s.value), pgt: s.pgt || '', pix: s.pix || '', bank: s.bank || '', vencimento: s.vencimento || '' })),
       costs: selectedCosts
         .filter(c => (c.description || '').trim())
-        .map(c => ({ _id: c._id, description: (c.description || '').trim(), value: parseCurrency(c.value), pgt: c.pgt || '', pix: c.pix || '', bank: c.bank || '', vencimento: c.vencimento || '', colaboradorId: c.colaboradorId || c.servidorId || '', vendorName: (c.vendorName || ''), vendorEmpresa: (c.vendorEmpresa || '') })),
+        .map(c => ({ _id: c._id, description: (c.description || '').trim(), value: parseCurrency(c.value), pgt: c.pgt || '', pix: c.pix || '', bank: c.bank || '', vencimento: c.vencimento || '', colaboradorId: c.colaboradorId || '', vendorName: (c.vendorName || ''), vendorEmpresa: (c.vendorEmpresa || '') })),
     };
     onSubmit && onSubmit(payload);
   }
@@ -363,7 +363,7 @@ export default function ActionModal({ editing, form, onClose, onSubmit, loading 
                   </thead>
                   <tbody>
                     {selectedCosts.map((c, idx) => {
-                      const linkId = c.colaboradorId || c.servidorId || '';
+                      const linkId = c.colaboradorId || '';
                       const sel = linkId ? colaboradores.find(s => String(s._id) === String(linkId)) : null;
                       const nome = sel?.nome || c.vendorName || '';
                       const empresa = sel?.empresa || c.vendorEmpresa || '';

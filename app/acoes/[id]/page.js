@@ -272,7 +272,7 @@ export default function ActionDetailsPage({ params }) {
           </thead>
           <tbody>
             {(Array.isArray(acao.costs) ? acao.costs : []).map((c, idx) => {
-              const linkId = c?.colaboradorId || c?.servidorId || '';
+              const linkId = c?.colaboradorId || '';
               const sel = linkId ? colaboradores.find(s => String(s._id) === String(linkId)) : null;
               const nome = sel?.nome || c?.vendorName || '';
               const empresa = sel?.empresa || c?.vendorEmpresa || '';

@@ -24,7 +24,10 @@ export default function ClienteModal({ open, onClose, onSubmit, initial }) {
       email: "",
       nomeContato: "",
       tipo: "",
-      cnpjCpf: ""
+      cnpjCpf: "",
+      banco: "",
+      conta: "",
+      formaPgt: "",
     };
   });
 
@@ -54,7 +57,10 @@ export default function ClienteModal({ open, onClose, onSubmit, initial }) {
       email: "",
       nomeContato: "",
       tipo: "",
-      cnpjCpf: ""
+      cnpjCpf: "",
+      banco: "",
+      conta: "",
+      formaPgt: "",
     });
   }
 
@@ -98,6 +104,18 @@ export default function ClienteModal({ open, onClose, onSubmit, initial }) {
         <div>
           <FL.Label>CNPJ/CPF</FL.Label>
           <Input name="cnpjCpf" placeholder="CNPJ/CPF" value={form.cnpjCpf} onChange={handleChange} required />
+        </div>
+        <div>
+          <FL.Label>Banco</FL.Label>
+          <Input name="banco" placeholder="Banco" value={form.banco || ''} onChange={handleChange} />
+        </div>
+        <div>
+          <FL.Label>Conta</FL.Label>
+          <Input name="conta" placeholder="Conta" value={form.conta || ''} onChange={handleChange} />
+        </div>
+        <div>
+          <FL.Label>Forma Pgt</FL.Label>
+          <Input name="formaPgt" placeholder="Forma de Pagamento" value={form.formaPgt || ''} onChange={handleChange} />
         </div>
         <FL.Actions>
           <FE.SecondaryButton type="button" onClick={onClose}>Cancelar</FE.SecondaryButton>

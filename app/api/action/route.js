@@ -92,7 +92,7 @@ export async function POST(request) {
       const opsCosts = costs.map((c) => ({
         updateOne: {
           filter: { actionId: action._id, costId: c._id },
-          update: { $setOnInsert: { status: 'ABERTO', actionId: action._id, costId: c._id }, $set: { reportDate, colaboradorId: c.colaboradorId || c.servidorId || undefined } },
+          update: { $setOnInsert: { status: 'ABERTO', actionId: action._id, costId: c._id }, $set: { reportDate, colaboradorId: c.colaboradorId || undefined } },
           upsert: true,
         }
       }));

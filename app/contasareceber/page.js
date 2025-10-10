@@ -8,6 +8,7 @@ import styled from "styled-components";
 import Pager from "../components/ui/Pager";
 import { Table, Th, Td } from "../components/ui/Table";
 import Filters from "./Filters";
+import ContasReceberModal from "./ContasReceberModal";
 
 // Pager now centralized in components/ui/Pager
 
@@ -30,6 +31,8 @@ export default function ContasAReceberPage() {
   const [query, setQuery] = useState("");
   const [editId, setEditId] = useState(null);
   const [editValue, setEditValue] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedAction, setSelectedAction] = useState(null);
 
   // currency helpers now imported from utils
 
@@ -37,7 +40,8 @@ export default function ContasAReceberPage() {
 
   async function fetchActions() {
     setLoading(true);
-    const res = await globalThis.fetch("/api/action");
+    // Use contas a receber API which enriches with clientName and receivable
+    const res = await globalThis.fetch("/api/contasareceber");
     const data = await res.json();
     setActions(data);
     setLoading(false);
@@ -48,7 +52,7 @@ export default function ContasAReceberPage() {
     const base = Array.isArray(actions) ? actions : [];
     const out = q
       ? base.filter(a => {
-        const cliente = (a?.client || "").toLowerCase();
+        const cliente = (a?.clientName || "").toLowerCase();
         const acao = (a?.name || "").toLowerCase();
         return cliente.includes(q) || acao.includes(q);
       })
@@ -218,8 +222,8 @@ export default function ContasAReceberPage() {
                 ) : action.name}
               </Td>
               <Td>
-                {action?.client ? (
-                  <span style={{ color: '#111' }}>{action.client}</span>
+                {action?.clientName ? (
+                  <span style={{ color: '#111' }}>{action.clientName}</span>
                 ) : ''}
               </Td>
               <Td>
@@ -243,7 +247,7 @@ export default function ContasAReceberPage() {
                 {editId === action._id ? (
                   <button onClick={() => handleSave(action._id)} disabled={loading}>Salvar</button>
                 ) : (
-                  <button onClick={() => { setEditId(action._id); setEditValue(action.value != null ? Number(action.value).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : ""); }}>Editar</button>
+                  <button onClick={() => { setSelectedAction(action); setModalOpen(true); }}>Editar</button>
                 )}
               </Td>
             </tr>
@@ -253,6 +257,14 @@ export default function ContasAReceberPage() {
       {total > pageSize && (
         <Pager page={page} pageSize={pageSize} total={total} onChangePage={setPage} />
       )}
+      <ContasReceberModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        action={selectedAction}
+        receivable={selectedAction?.receivable || null}
+        clienteDetails={selectedAction?.clienteDetails || null}
+        onSaved={() => { setModalOpen(false); fetchActions(); }}
+      />
     </Wrapper>
   );
 }

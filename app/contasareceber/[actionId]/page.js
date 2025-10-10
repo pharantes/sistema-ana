@@ -87,7 +87,7 @@ export default function RecebivelDetailPage({ params }) {
         <div><Label>Status</Label><Value>{r?.status || 'ABERTO'}</Value></div>
         <div><Label>Ação</Label><Value>{row?.name || ''}</Value></div>
         <div><Label>Cliente</Label><Value>{row?.clientName || ''}</Value></div>
-        <div><Label>Valor</Label><Value>{r?.valor != null ? `R$ ${formatBRL(Number(r.valor))}` : ''}</Value></div>
+        <div><Label>Valor total</Label><Value>{r?.valor != null ? `R$ ${formatBRL(Number(r.valor))}` : ''}</Value></div>
         <div><Label>Descrição</Label><Value>{r?.descricao || ''}</Value></div>
         <div><Label>Qtde Parcela</Label><Value>{r?.qtdeParcela ?? ''}</Value></div>
         <div><Label>Valor Parcela</Label><Value>{r?.valorParcela != null ? `R$ ${formatBRL(Number(r.valorParcela))}` : ''}</Value></div>

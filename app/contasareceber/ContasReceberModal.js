@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import Modal from '../components/Modal';
 import { Select } from '../components/ui';
+import BRDateInput from '../components/BRDateInput';
 
 export default function ContasReceberModal({
   open,
@@ -82,7 +83,7 @@ export default function ContasReceberModal({
       </Select>
 
       <label>Data do documento</label>
-      <input type="date" value={form.reportDate || ''} onChange={e => update({ reportDate: e.target.value })} />
+      <BRDateInput value={form.reportDate || ''} onChange={(iso) => update({ reportDate: iso })} style={{ height: 40, width: '100%' }} />
 
       <label>Ação</label>
       <input readOnly value={action?.name || ''} />
@@ -107,7 +108,7 @@ export default function ContasReceberModal({
       <label>Recebido pelo banco</label>
       <input value={form.banco || ''} onChange={e => update({ banco: e.target.value })} />
 
-      <label>Valor</label>
+      <label>Valor total</label>
       <input
         type="text"
         inputMode="numeric"
@@ -134,11 +135,11 @@ export default function ContasReceberModal({
       <div style={{ display: 'flex', gap: 12 }}>
         <div style={{ flex: 1 }}>
           <label>Data de vencimento</label>
-          <input type="date" value={form.dataVencimento || ''} onChange={e => update({ dataVencimento: e.target.value })} />
+          <BRDateInput value={form.dataVencimento || ''} onChange={(iso) => update({ dataVencimento: iso })} style={{ height: 40, width: '100%' }} />
         </div>
         <div style={{ flex: 1 }}>
           <label>Data de recebimento</label>
-          <input type="date" value={form.dataRecebimento || ''} onChange={e => update({ dataRecebimento: e.target.value })} />
+          <BRDateInput value={form.dataRecebimento || ''} onChange={(iso) => update({ dataRecebimento: iso })} style={{ height: 40, width: '100%' }} />
         </div>
       </div>
 

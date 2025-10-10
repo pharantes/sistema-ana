@@ -2,6 +2,7 @@
 import Cliente from '@/lib/db/models/Cliente';
 import connect from '@/lib/db/connect';
 import mongoose from 'mongoose';
+import { ok, badRequest, notFound } from '@/lib/api/responses';
 
 export async function GET(request, context) {
   await connect();
@@ -9,9 +10,9 @@ export async function GET(request, context) {
   const params = await (context?.params);
   const { id } = params || {};
   if (!id || !mongoose.Types.ObjectId.isValid(id)) {
-    return new Response(JSON.stringify({ error: 'Invalid id' }), { status: 400 });
+    return badRequest('Invalid id');
   }
   const cliente = await Cliente.findById(id).lean();
-  if (!cliente) return new Response(JSON.stringify({ error: 'Not found' }), { status: 404 });
-  return Response.json(cliente);
+  if (!cliente) return notFound('Not found');
+  return ok(cliente);
 }

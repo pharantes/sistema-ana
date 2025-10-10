@@ -5,10 +5,12 @@ import { useEffect, useState } from "react";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import styled from "styled-components";
 import Pager from "../components/ui/Pager";
+import PageSizeSelector from "../components/ui/PageSizeSelector";
 import { Table, Th, Td } from "../components/ui/Table";
 import { formatDateBR } from "@/lib/utils/dates";
 import { formatBRL } from "../utils/currency";
 import * as FE from "../components/FormElements";
+import StatusSelect from "../components/ui/StatusSelect";
 import Filters from "./Filters";
 import ContasReceberModal from "./ContasReceberModal";
 
@@ -72,7 +74,7 @@ export default function ContasAReceberPage() {
     }
     load();
   }, [query, sortKey, sortDir, mode, dateFrom, dateTo, statusFilter, page, pageSize, version]);
-  const totalPages = Math.max(1, Math.ceil((total || 0) / pageSize));
+  // totalPages not needed here since Pager computes it internally
 
   async function gerarPDF() {
     // Fetch all rows with current filters to generate full report
@@ -103,7 +105,7 @@ export default function ContasAReceberPage() {
     let totalReceber = 0;
     let totalLines = 0;
     for (const a of rows) {
-      totalReceber += Number(a?.value || 0);
+      totalReceber += Number(a?.receivable?.valor ?? 0);
       const staffLen = Array.isArray(a?.staff) ? a.staff.length : 0;
       totalLines += Math.max(1, staffLen);
     }
@@ -135,7 +137,7 @@ export default function ContasAReceberPage() {
     y += 24;
 
     // Header
-    const headers = ["Evento", "Cliente", "Data", "Colaboradores", "PIX", "Valor (R$)"];
+    const headers = ["Evento", "Cliente", "Data", "Colaboradores", "PIX", "Valor total (R$)"];
     let x = margin;
     headers.forEach((h, i) => { drawText(h, x, 10); x += colWidths[i]; });
     page.drawLine({ start: { x: margin, y: page.getHeight() - y - 4 }, end: { x: pageWidth - margin, y: page.getHeight() - y - 4 }, thickness: 1, color: rgb(0.7, 0.7, 0.7) });
@@ -146,7 +148,7 @@ export default function ContasAReceberPage() {
       const evento = a?.name || '';
       const cliente = a?.client || '';
       const data = formatDateBR(a?.date);
-      const valor = a?.value ? `R$ ${formatBRL(Number(a.value))}` : '-';
+      const valor = (a?.receivable?.valor != null) ? `R$ ${formatBRL(Number(a.receivable.valor))}` : '-';
       const staff = Array.isArray(a?.staff) ? a.staff : [];
       const lines = Math.max(1, staff.length);
 
@@ -204,26 +206,8 @@ export default function ContasAReceberPage() {
         onClear={clearFilters}
       />
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', marginTop: 8 }}>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          {total > pageSize && (
-            <>
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} aria-label="Anterior">«</button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
-                <button key={n} data-active={n === page} onClick={() => setPage(n)} style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #ddd', background: n === page ? '#2563eb' : '#fff', color: n === page ? '#fff' : '#111' }}>{n}</button>
-              ))}
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} aria-label="Próxima">»</button>
-            </>
-          )}
-        </div>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <span style={{ fontSize: '0.9rem', color: '#555' }}>Mostrar:</span>
-          <select value={pageSize} onChange={(e) => { setPage(1); setPageSize(Number(e.target.value)); }}>
-            <option value={10}>10</option>
-            <option value={25}>25</option>
-            <option value={50}>50</option>
-          </select>
-          <span style={{ fontSize: '0.9rem', color: '#555' }}>Total: {total}</span>
-        </div>
+        <Pager page={page} pageSize={pageSize} total={total} onChangePage={setPage} compact inline />
+        <PageSizeSelector pageSize={pageSize} total={total} onChange={(n) => { setPage(1); setPageSize(n); }} />
       </div>
       <Table>
         <thead>
@@ -240,6 +224,7 @@ export default function ContasAReceberPage() {
             <Th>Descrição</Th>
             <Th>Qtde Parcela</Th>
             <Th>Valor Parcela</Th>
+            <Th>Valor total</Th>
             <Th style={{ cursor: 'pointer' }} onClick={() => toggleSort('venc')}>
               Data Vencimento {sortKey === 'venc' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
             </Th>
@@ -266,34 +251,39 @@ export default function ContasAReceberPage() {
                 <Td>{r?.descricao || ''}</Td>
                 <Td>{r?.qtdeParcela ?? ''}</Td>
                 <Td>{r?.valorParcela != null ? `R$ ${formatBRL(Number(r.valorParcela))}` : ''}</Td>
+                <Td>{r?.valor != null ? `R$ ${formatBRL(Number(r.valor))}` : ''}</Td>
                 <Td>{venc}</Td>
                 <Td>{receb}</Td>
                 <Td>
-                  <FE.Select value={(r?.status || 'ABERTO')} onChange={async (e) => {
-                    const next = e.target.value;
-                    e.stopPropagation();
-                    // optimistic UI
-                    setItems(prev => prev.map(it => it._id === row._id ? { ...it, receivable: { ...(it.receivable || {}), status: next } } : it));
-                    try {
-                      const payload = {
-                        id: r?._id,
-                        actionId: row._id,
-                        clientId: row.clientId,
-                        status: next,
-                      };
-                      const res = await fetch('/api/contasareceber', {
-                        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-                      });
-                      if (!res.ok) throw new Error('Falha ao atualizar status');
-                    } catch (err) {
-                      alert(err.message || 'Erro ao atualizar status');
-                      // revert on error
-                      setItems(prev => prev.map(it => it._id === row._id ? { ...it, receivable: { ...(it.receivable || {}), status: (r?.status || 'ABERTO') } } : it));
-                    }
-                  }} onClick={(e) => e.stopPropagation()}>
-                    <option value="ABERTO">ABERTO</option>
-                    <option value="RECEBIDO">RECEBIDO</option>
-                  </FE.Select>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <StatusSelect
+                      value={(r?.status || 'ABERTO')}
+                      options={[{ value: 'ABERTO', label: 'ABERTO' }, { value: 'RECEBIDO', label: 'RECEBIDO' }]}
+                      onChange={async (e) => {
+                        const next = e.target.value;
+                        e.stopPropagation();
+                        // optimistic UI
+                        setItems(prev => prev.map(it => it._id === row._id ? { ...it, receivable: { ...(it.receivable || {}), status: next } } : it));
+                        try {
+                          const payload = {
+                            id: r?._id,
+                            actionId: row._id,
+                            clientId: row.clientId,
+                            status: next,
+                          };
+                          const res = await fetch('/api/contasareceber', {
+                            method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+                          });
+                          if (!res.ok) throw new Error('Falha ao atualizar status');
+                        } catch (err) {
+                          alert(err.message || 'Erro ao atualizar status');
+                          // revert on error
+                          setItems(prev => prev.map(it => it._id === row._id ? { ...it, receivable: { ...(it.receivable || {}), status: (r?.status || 'ABERTO') } } : it));
+                        }
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
                 </Td>
                 <Td>
                   <FE.ActionsRow>
@@ -306,7 +296,7 @@ export default function ContasAReceberPage() {
         </tbody>
       </Table>
       {total > pageSize && (
-        <Pager page={page} pageSize={pageSize} total={total} onChangePage={setPage} />
+        <Pager page={page} pageSize={pageSize} total={total} onChangePage={setPage} compact />
       )}
       <ContasReceberModal
         open={modalOpen}

@@ -5,19 +5,11 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { actionListColumns } from "../utils/columns";
 import { formatDateBR } from "@/lib/utils/dates";
+import { Table, Th, Td } from "./ui/Table";
+import Pager from "./ui/Pager";
+import PageSizeSelector from "./ui/PageSizeSelector";
 
-const Table = styled.table`
-  width: 100%;
-  border-collapse: collapse;
-`;
-const Th = styled.th`
-  text-align: left;
-  border-bottom: 1px solid #ccc;
-  padding: 8px;
-`;
-const Td = styled.td`
-  padding: 8px;
-`;
+// Use shared Table, Th, Td (with zebra striping)
 
 const TopRow = styled.div`
   display: flex;
@@ -27,28 +19,7 @@ const TopRow = styled.div`
   margin: 8px 0 4px;
 `;
 
-const PaginationBar = styled.div`
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  justify-content: flex-end;
-  margin-top: 8px;
-`;
-
-const PageBtn = styled.button`
-  background: #fff;
-  border: 1px solid #ddd;
-  padding: 4px 8px;
-  border-radius: 6px;
-  cursor: pointer;
-  color: #111;
-  &[data-active="true"] {
-    background: #2563eb;
-    color: #fff;
-    border-color: #2563eb;
-  }
-  &:disabled { opacity: 0.5; cursor: not-allowed; }
-`;
+// Pagination now handled by shared Pager component
 
 export default function ActionTable({ actions, session, onEdit, onDelete }) {
   const router = useRouter();
@@ -102,22 +73,8 @@ export default function ActionTable({ actions, session, onEdit, onDelete }) {
   return (
     <>
       <TopRow>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <PageBtn onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} aria-label="Anterior">«</PageBtn>
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
-            <PageBtn key={n} data-active={n === page} onClick={() => setPage(n)}>{n}</PageBtn>
-          ))}
-          <PageBtn onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} aria-label="Próxima">»</PageBtn>
-        </div>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <span style={{ fontSize: '0.9rem', color: '#555' }}>Mostrar:</span>
-          <select value={pageSize} onChange={(e) => { setPage(1); setPageSize(Number(e.target.value)); }}>
-            <option value={10}>10</option>
-            <option value={25}>25</option>
-            <option value={50}>50</option>
-          </select>
-          <span style={{ fontSize: '0.9rem', color: '#555' }}>Total: {total}</span>
-        </div>
+        <Pager page={page} pageSize={pageSize} total={total} onChangePage={setPage} compact inline />
+        <PageSizeSelector pageSize={pageSize} total={total} onChange={(n) => { setPage(1); setPageSize(n); }} />
       </TopRow>
       <Table>
         <thead>
@@ -162,13 +119,9 @@ export default function ActionTable({ actions, session, onEdit, onDelete }) {
         </tbody>
       </Table>
       {total > pageSize && (
-        <PaginationBar>
-          <PageBtn onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} aria-label="Anterior">«</PageBtn>
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
-            <PageBtn key={n} data-active={n === page} onClick={() => setPage(n)}>{n}</PageBtn>
-          ))}
-          <PageBtn onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} aria-label="Próxima">»</PageBtn>
-        </PaginationBar>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+          <Pager page={page} pageSize={pageSize} total={total} onChangePage={setPage} compact />
+        </div>
       )}
     </>
   );

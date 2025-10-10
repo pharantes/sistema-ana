@@ -9,6 +9,7 @@ import ClienteModal from "../components/ClienteModal";
 import * as FE from "../components/FormElements";
 import DeleteModal from "../components/DeleteModal";
 import { useMemo } from "react";
+import { Table, Th, Td } from "../components/ui/Table";
 
 const Wrapper = styled.div`
   padding: 16px;
@@ -17,19 +18,7 @@ const Title = styled.h1`
   font-size: 1.6rem;
   margin-bottom: 0.5rem;
 `;
-const Table = styled.table`
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 8px;
-`;
-const Th = styled.th`
-  text-align: left;
-  border-bottom: 1px solid #ccc;
-  padding: 6px;
-`;
-const Td = styled.td`
-  padding: 6px;
-`;
+// Use shared Table, Th, Td (with zebra striping)
 
 
 export default function ClientesPage() {
@@ -183,7 +172,7 @@ export default function ClientesPage() {
         {total > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              <Pager page={page} pageSize={pageSize} total={total} onChangePage={setPage} />
+              <Pager page={page} pageSize={pageSize} total={total} onChangePage={setPage} compact inline />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <span style={{ fontSize: '0.9rem', color: '#555' }}>Mostrar:</span>

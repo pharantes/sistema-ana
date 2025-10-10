@@ -2,19 +2,13 @@
 import { useMemo } from "react";
 import { Table, Th, Td } from "../../components/ui/Table";
 import Pager from "../../components/ui/Pager";
+import PageSizeSelector from "../../components/ui/PageSizeSelector";
+import StatusSelect from "../../components/ui/StatusSelect";
 import * as FE from "../../components/FormElements";
 import { formatMonthYearBR } from "@/lib/utils/dates";
 import { formatBRL } from "../../utils/currency";
 
 // Small, reusable Contas Fixas table with sorting and pagination
-// Props:
-// - rows: array of contas fixas
-// - sortKey, sortDir, onToggleSort
-// - page, pageSize, onChangePage
-// - onChangePageSize
-// - getDisplayStatus(c): function provided by parent for status computation
-// - formatDateBR(date): function provided by parent for localized date
-// - onEdit(c), onDelete(id), onStatusChange(c, next)
 export default function ContasFixasTable({
   rows = [],
   sortKey = "vencimento",
@@ -72,10 +66,11 @@ export default function ContasFixasTable({
               <Td>{formatDateBR?.(c.vencimento)}</Td>
               <Td>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <FE.Select value={getDisplayStatus?.(c)} onChange={(e) => onStatusChange?.(c, e.target.value)}>
-                    <option value="ABERTO">ABERTO</option>
-                    <option value="PAGO">PAGO</option>
-                  </FE.Select>
+                  <StatusSelect
+                    value={getDisplayStatus?.(c)}
+                    options={[{ value: 'ABERTO', label: 'ABERTO' }, { value: 'PAGO', label: 'PAGO' }]}
+                    onChange={(e) => onStatusChange?.(c, e.target.value)}
+                  />
                   {getDisplayStatus?.(c) === 'PAGO' && c.lastPaidAt && (
                     <span style={{ fontSize: '0.8rem', color: '#555', border: '1px solid #ddd', padding: '2px 6px', borderRadius: 6 }}>
                       {formatMonthYearBR(c.lastPaidAt)}
@@ -98,18 +93,11 @@ export default function ContasFixasTable({
       </Table>
       {total > pageSize && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8, justifyContent: 'space-between', flexWrap: 'wrap' }}>
-          <Pager page={page} pageSize={pageSize} total={total} onChangePage={onChangePage} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontSize: '0.9rem', color: '#555' }}>Mostrar:</span>
-            <select value={pageSize} onChange={(e) => { onChangePage?.(1); onChangePageSize?.(Number(e.target.value)); }}>
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-            </select>
-            <span style={{ fontSize: '0.9rem', color: '#555' }}>Total: {total}</span>
-          </div>
+          <Pager page={page} pageSize={pageSize} total={total} onChangePage={onChangePage} compact />
+          <PageSizeSelector pageSize={pageSize} total={total} onChange={(n) => { onChangePage?.(1); onChangePageSize?.(n); }} />
         </div>
       )}
     </>
   );
 }
+

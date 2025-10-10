@@ -5,6 +5,7 @@ import { getServerSession } from 'next-auth';
 import baseOptions from '@/lib/auth/authOptionsBase';
 import { parseDateMaybe } from '@/lib/utils/dates';
 import { validateContaFixaCreate, validateContaFixaUpdate } from '@/lib/validators/contafixa';
+import { ok, created, badRequest, unauthorized, serverError, notFound } from '@/lib/api/responses';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -13,20 +14,20 @@ export async function GET() {
   try {
     await dbConnect();
     const contas = await ContaFixa.find({}).sort({ createdAt: -1 }).lean();
-    return Response.json(contas);
+    return ok(contas);
   } catch (err) {
-    try { process.stderr.write('GET /api/contafixa error: ' + String(err) + '\n'); } catch { void 0; /* noop */ }
-    return new Response(JSON.stringify({ error: 'Failed to fetch contas fixas' }), { status: 500 });
+    try { process.stderr.write('GET /api/contafixa error: ' + String(err) + '\n'); } catch { /* noop */ }
+    return serverError('Failed to fetch contas fixas');
   }
 }
 
 export async function POST(request) {
   try {
     const session = await getServerSession(baseOptions);
-    if (!session || !session.user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    if (!session || !session.user) return unauthorized();
     await dbConnect();
     const body = await request.json();
-    try { validateContaFixaCreate(body); } catch (e) { return new Response(JSON.stringify({ error: e.message || 'Invalid payload' }), { status: e.status || 400 }); }
+    try { validateContaFixaCreate(body); } catch (e) { return badRequest(e.message || 'Invalid payload'); }
     const payload = {
       name: (body.name || '').trim(),
       empresa: (body.empresa || '').trim(),
@@ -52,10 +53,10 @@ export async function POST(request) {
     doc.nextDueAt = due;
     await doc.save();
     // Ensure we return a plain object with all fields serialized
-    return Response.json(doc.toObject(), { status: 201 });
+    return created(doc.toObject());
   } catch (err) {
-    try { process.stderr.write('POST /api/contafixa error: ' + String(err) + '\n'); } catch { void 0; /* noop */ }
-    return new Response(JSON.stringify({ error: 'Failed to create conta fixa' }), { status: 500 });
+    try { process.stderr.write('POST /api/contafixa error: ' + String(err) + '\n'); } catch { /* noop */ }
+    return serverError('Failed to create conta fixa');
   }
 }
 
@@ -63,12 +64,12 @@ export async function PATCH(request) {
   try {
     const parseDate = (val) => (val === null ? null : parseDateMaybe(val));
     const session = await getServerSession(baseOptions);
-    if (!session || !session.user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    if (!session || !session.user) return unauthorized();
     await dbConnect();
     const parsed = await request.json();
-    try { validateContaFixaUpdate(parsed); } catch (e) { return new Response(JSON.stringify({ error: e.message || 'Invalid payload' }), { status: e.status || 400 }); }
+    try { validateContaFixaUpdate(parsed); } catch (e) { return badRequest(e.message || 'Invalid payload'); }
     const { id, ...rest } = parsed;
-    if (!id) return new Response(JSON.stringify({ error: 'Missing id' }), { status: 400 });
+    if (!id) return badRequest('Missing id');
     const setUpdate = {
       ...(rest.name != null ? { name: String(rest.name).trim() } : {}),
       ...(rest.empresa != null ? { empresa: String(rest.empresa).trim() } : {}),
@@ -102,7 +103,7 @@ export async function PATCH(request) {
       ...(Object.keys(unsetUpdate).length ? { $unset: unsetUpdate } : {}),
     };
     let doc = await ContaFixa.findByIdAndUpdate(id, updateQuery, { new: true });
-    if (!doc) return new Response(JSON.stringify({ error: 'Not found' }), { status: 404 });
+    if (!doc) return notFound('Not found');
     // Recompute nextDueAt when tipo or lastPaidAt changed or when status toggled
     const base = doc.lastPaidAt || doc.createdAt;
     if (base) {
@@ -113,24 +114,24 @@ export async function PATCH(request) {
       await doc.save();
     }
     // Return a plain object to avoid any serialization quirks
-    return Response.json(doc.toObject());
+    return ok(doc.toObject());
   } catch (err) {
-    try { process.stderr.write('PATCH /api/contafixa error: ' + String(err) + '\n'); } catch { void 0; /* noop */ }
-    return new Response(JSON.stringify({ error: 'Failed to update conta fixa' }), { status: 500 });
+    try { process.stderr.write('PATCH /api/contafixa error: ' + String(err) + '\n'); } catch { /* noop */ }
+    return serverError('Failed to update conta fixa');
   }
 }
 
 export async function DELETE(request) {
   try {
     const session = await getServerSession(baseOptions);
-    if (!session || !session.user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
+    if (!session || !session.user) return unauthorized();
     await dbConnect();
     const { id } = await request.json();
-    if (!id) return new Response(JSON.stringify({ error: 'Missing id' }), { status: 400 });
+    if (!id) return badRequest('Missing id');
     await ContaFixa.findByIdAndDelete(id);
-    return Response.json({ success: true });
+    return ok({ success: true });
   } catch (err) {
-    try { process.stderr.write('DELETE /api/contafixa error: ' + String(err) + '\n'); } catch { void 0; /* noop */ }
-    return new Response(JSON.stringify({ error: 'Failed to delete conta fixa' }), { status: 500 });
+    try { process.stderr.write('DELETE /api/contafixa error: ' + String(err) + '\n'); } catch { /* noop */ }
+    return serverError('Failed to delete conta fixa');
   }
 }

@@ -55,6 +55,13 @@ a {
   text-decoration: none;
 }
 
+/* Tables: enforce left alignment app-wide as default */
+table th,
+table td {
+  text-align: left !important;
+  vertical-align: top;
+}
+
 /* Modal helpers (styled-components can reuse these classes or variables) */
 .modal-overlay {
   position: fixed;

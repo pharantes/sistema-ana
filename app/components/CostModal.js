@@ -1,12 +1,14 @@
 "use client";
 /* eslint-env browser */
 import { useState, useEffect } from 'react';
+import BRDateInput from './BRDateInput';
 import styled from 'styled-components';
 import Modal from './Modal';
 import * as FE from './FormElements';
 import * as FL from './FormLayout';
 import ColaboradorModal from './ColaboradorModal';
 import { formatBRL, parseCurrency } from '../utils/currency';
+import BRCurrencyInput from './BRCurrencyInput';
 
 const Title = styled.h2`
   margin-bottom: 12px;
@@ -123,13 +125,7 @@ export default function CostModal({ open, onClose, onSubmit, initial }) {
         </div>
         <div>
           <FL.Label>Valor</FL.Label>
-          <input
-            value={form.value}
-            onChange={e => setForm(f => ({ ...f, value: e.target.value }))}
-            onBlur={e => setForm(f => ({ ...f, value: formatBRL(Number(parseCurrency(e.target.value))) }))}
-            placeholder="R$"
-            required
-          />
+          <BRCurrencyInput value={form.value} onChange={(val) => setForm(f => ({ ...f, value: val }))} required />
         </div>
         <div>
           <FL.Label>PIX</FL.Label>
@@ -151,7 +147,7 @@ export default function CostModal({ open, onClose, onSubmit, initial }) {
         </div>
         <div>
           <FL.Label>Vencimento</FL.Label>
-          <input type="date" value={form.vencimento} onChange={e => setForm(f => ({ ...f, vencimento: e.target.value }))} />
+          <BRDateInput value={form.vencimento} onChange={(iso) => setForm(f => ({ ...f, vencimento: iso }))} />
         </div>
         <FL.Actions>
           <FE.SecondaryButton type="button" onClick={onClose}>Cancelar</FE.SecondaryButton>

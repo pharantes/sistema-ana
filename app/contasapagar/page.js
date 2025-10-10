@@ -2,6 +2,7 @@
 /* eslint-env browser */
 import styled from "styled-components";
 import Pager from "../components/ui/Pager";
+import PageSizeSelector from "../components/ui/PageSizeSelector";
 import { Table, Th, Td } from "../components/ui/Table";
 import ColaboradorCell from "../components/ui/ColaboradorCell";
 import Filters from "./Filters";
@@ -22,8 +23,12 @@ import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState, useRef } from "react";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import * as FE from "../components/FormElements";
+import StatusSelect from "../components/ui/StatusSelect";
+import StatusBadge from "../components/ui/StatusBadge";
 import { formatBRL, parseCurrency } from "../utils/currency";
 import { formatDateBR } from "@/lib/utils/dates";
+import BRDateInput from "../components/BRDateInput";
+import BRCurrencyInput from "../components/BRCurrencyInput";
 
 // Date preset UI moved to Filters component
 
@@ -262,7 +267,7 @@ export default function ContasAPagarPage() {
     else { setSortKeyAcoes(key); setSortDirAcoes((key === 'acao' || key === 'colaborador') ? 'asc' : 'desc'); }
   };
   const totalAcoes = filtered.length;
-  const totalPagesAcoes = Math.max(1, Math.ceil(totalAcoes / pageSizeAcoes));
+  // totalPagesAcoes computed internally by Pager; local variable no longer needed
   const pageDataAcoes = useMemo(() => {
     const start = (pageAcoes - 1) * pageSizeAcoes;
     return filtered.slice(start, start + pageSizeAcoes);
@@ -303,7 +308,20 @@ export default function ContasAPagarPage() {
     const drawText = (text, x, size = 10) => {
       page.drawText(String(text ?? ""), { x, y: page.getHeight() - y, size, font });
     };
-
+    const measure = (t, size = 10) => font.widthOfTextAtSize(String(t ?? ''), size);
+    const clip = (t, maxW, size = 10) => {
+      const avail = Math.max(0, (maxW || 0) - 4);
+      let s = String(t ?? '');
+      if (!s) return '';
+      if (measure(s, size) <= avail) return s;
+      const ell = '…';
+      let lo = 0, hi = s.length;
+      while (lo < hi) {
+        const mid = Math.floor((lo + hi + 1) / 2);
+        if (measure(s.slice(0, mid) + ell, size) <= avail) lo = mid; else hi = mid - 1;
+      }
+      return s.slice(0, lo) + ell;
+    };
     // Title
     drawText("Custos ações", margin, 16);
     y += 22;
@@ -311,13 +329,13 @@ export default function ContasAPagarPage() {
     drawText(`Período: ${range}`, margin, 10);
     y += 16;
     // Totals
-    drawText(`Total a pagar: R$ ${formatBRL(totalApagar)}`, margin, 11);
+    drawText(`Total a pagar (Valor total): R$ ${formatBRL(totalApagar)}`, margin, 11);
     y += 16;
     drawText(`Total pago: R$ ${formatBRL(totalPago)}`, margin, 11);
     y += 20;
 
     // Headers
-    const headers = ["Data", "Cliente", "Ação", "Colaborador", "Vencimento", "Valor", "Pgt", "Banco/PIX", "Status"];
+    const headers = ["Data", "Cliente", "Ação", "Colaborador", "Vencimento", "Valor total", "Pgt", "Banco/PIX", "Status"];
     {
       let cx = margin;
       headers.forEach((h, i) => { drawText(h, cx, 9); cx += colWidths[i]; });
@@ -334,23 +352,23 @@ export default function ContasAPagarPage() {
       const status = (r?.status || 'ABERTO').toUpperCase();
       let cx = margin;
       drawText(data, cx, 8.5); cx += colWidths[0];
-      drawText(cliente, cx, 8.5); cx += colWidths[1];
-      drawText(acao, cx, 8.5); cx += colWidths[2];
+      drawText(clip(cliente, colWidths[1], 8.5), cx, 8.5); cx += colWidths[1];
+      drawText(clip(acao, colWidths[2], 8.5), cx, 8.5); cx += colWidths[2];
       let sName = r?.staffName || '';
       if (!sName && r?.costId) {
         const ct = costs.find(c => String(c._id) === String(r.costId));
         if (ct) sName = r?.colaboradorLabel ? `${ct.description || ''} - ${r.colaboradorLabel}` : (ct.description || '');
       }
-      drawText(sName, cx, 8.5); cx += colWidths[3];
+      drawText(clip(sName, colWidths[3], 8.5), cx, 8.5); cx += colWidths[3];
       const st = staff.find(s => s.name === r?.staffName);
       const venci = formatDateBR(st?.vencimento);
       drawText(venci, cx, 8.5); cx += colWidths[4];
       const sVal = (st && typeof st.value !== 'undefined') ? formatBRL(Number(st.value)) : '';
       drawText(sVal, cx, 8.5); cx += colWidths[5];
       const sPgt = st?.pgt || '';
-      drawText(sPgt, cx, 8.5); cx += colWidths[6];
+      drawText(clip(sPgt, colWidths[6], 8.5), cx, 8.5); cx += colWidths[6];
       const disp = (sPgt === 'PIX') ? (st?.pix || '') : (sPgt === 'TED' ? (st?.bank || '') : '');
-      drawText(disp, cx, 8.5); cx += colWidths[7];
+      drawText(clip(disp, colWidths[7], 8.5), cx, 8.5); cx += colWidths[7];
       drawText(status, cx, 8.5);
       page.drawLine({ start: { x: margin, y: page.getHeight() - y - 2 }, end: { x: pageWidth - margin, y: page.getHeight() - y - 2 }, thickness: 0.5, color: rgb(0.85, 0.85, 0.85) });
       y += rowHeight;
@@ -497,6 +515,20 @@ export default function ContasAPagarPage() {
     const drawText = (text, x, size = 10) => {
       page.drawText(String(text ?? ""), { x, y: page.getHeight() - y, size, font });
     };
+    const measure = (t, size = 10) => font.widthOfTextAtSize(String(t ?? ''), size);
+    const clip = (t, maxW, size = 10) => {
+      const avail = Math.max(0, (maxW || 0) - 4);
+      let s = String(t ?? '');
+      if (!s) return '';
+      if (measure(s, size) <= avail) return s;
+      const ell = '…';
+      let lo = 0, hi = s.length;
+      while (lo < hi) {
+        const mid = Math.floor((lo + hi + 1) / 2);
+        if (measure(s.slice(0, mid) + ell, size) <= avail) lo = mid; else hi = mid - 1;
+      }
+      return s.slice(0, lo) + ell;
+    };
 
     // Title and overall summary
     drawText("Contas a pagar", margin, 16);
@@ -504,19 +536,19 @@ export default function ContasAPagarPage() {
     const range = `${formatDateBR(firstDate)} - ${formatDateBR(lastDate)}`;
     drawText(`Período: ${range}`, margin, 10);
     y += 16;
-    drawText(`Total geral (ações${includeFixas ? ' + fixas' : ''}): R$ ${formatBRL(totalGeralApagar)}`, margin, 12);
+    drawText(`Total geral (Valor total${includeFixas ? ' - ações + fixas' : ''}): R$ ${formatBRL(totalGeralApagar)}`, margin, 12);
     y += 20;
 
     // Section: Custos ações
     drawText('Custos ações', margin, 14);
     y += 18;
-    drawText(`Total a pagar (ações): R$ ${formatBRL(totalAcoesApagar)}`, margin, 11);
+    drawText(`Total a pagar (Valor total - ações): R$ ${formatBRL(totalAcoesApagar)}`, margin, 11);
     y += 16;
     drawText(`Total pago (ações): R$ ${formatBRL(totalAcoesPago)}`, margin, 11);
     y += 20;
 
     // Header aligned with Custos ações table
-    const headers = ["Data", "Cliente", "Ação", "Colaborador", "Vencimento", "Valor", "Pgt", "Banco/PIX", "Status"];
+    const headers = ["Data", "Cliente", "Ação", "Colaborador", "Vencimento", "Valor total", "Pgt", "Banco/PIX", "Status"];
     // Draw headers row
     {
       let cx = margin;
@@ -538,21 +570,21 @@ export default function ContasAPagarPage() {
       const status = (r?.status || 'ABERTO').toUpperCase();
       let cx = margin;
       drawText(data, cx, 8.5); cx += colWidths[0];
-      drawText(cliente, cx, 8.5); cx += colWidths[1];
-      drawText(acao, cx, 8.5); cx += colWidths[2];
+      drawText(clip(cliente, colWidths[1], 8.5), cx, 8.5); cx += colWidths[1];
+      drawText(clip(acao, colWidths[2], 8.5), cx, 8.5); cx += colWidths[2];
       const st = r?.staffName ? staff.find(s => s.name === r?.staffName) : null;
       const ct = (!r?.staffName && r?.costId) ? costs.find(c => String(c._id) === String(r.costId)) : null;
       const sName = r?.staffName ? (r?.staffName || '') : (ct?.description || '');
-      drawText(sName, cx, 8.5); cx += colWidths[3];
+      drawText(clip(sName, colWidths[3], 8.5), cx, 8.5); cx += colWidths[3];
       const venci = st?.vencimento ? formatDateBR(st.vencimento) : formatDateBR(ct?.vencimento);
       drawText(venci, cx, 8.5); cx += colWidths[4];
       const valNumber = (st && typeof st.value !== 'undefined') ? Number(st.value) : (ct && typeof ct.value !== 'undefined') ? Number(ct.value) : NaN;
       const sVal = Number.isFinite(valNumber) ? formatBRL(valNumber) : '';
       drawText(sVal, cx, 8.5); cx += colWidths[5];
       const sPgt = (st?.pgt || ct?.pgt || '');
-      drawText(sPgt, cx, 8.5); cx += colWidths[6];
+      drawText(clip(sPgt, colWidths[6], 8.5), cx, 8.5); cx += colWidths[6];
       const disp = (sPgt === 'PIX') ? (st?.pix || ct?.pix || '') : (sPgt === 'TED' ? (st?.bank || ct?.bank || '') : '');
-      drawText(disp, cx, 8.5); cx += colWidths[7];
+      drawText(clip(disp, colWidths[7], 8.5), cx, 8.5); cx += colWidths[7];
       drawText(status, cx, 8.5);
       page.drawLine({ start: { x: margin, y: page.getHeight() - y - 2 }, end: { x: pageWidth - margin, y: page.getHeight() - y - 2 }, thickness: 0.5, color: rgb(0.85, 0.85, 0.85) });
       y += rowHeight;
@@ -563,13 +595,13 @@ export default function ContasAPagarPage() {
       y += 8;
       drawText('Contas Fixas', margin, 14);
       y += 18;
-      drawText(`Total a pagar (fixas): R$ ${formatBRL(totalFixasApagar)}`, margin, 11);
+      drawText(`Total a pagar (Valor total - fixas): R$ ${formatBRL(totalFixasApagar)}`, margin, 11);
       y += 16;
       drawText(`Total pago (fixas): R$ ${formatBRL(totalFixasPago)}`, margin, 11);
       y += 20;
 
       // Headers for fixas table: Nome, Empresa, Tipo, Valor, Vencimento, Status
-      const fHeaders = ["Nome", "Empresa", "Tipo", "Valor", "Vencimento", "Status"];
+      const fHeaders = ["Nome", "Empresa", "Tipo", "Valor total", "Vencimento", "Status"];
       const fColWidths = [180, 180, 90, 90, 110, 100];
       {
         let cx = margin;
@@ -579,9 +611,9 @@ export default function ContasAPagarPage() {
       y += rowHeight;
       fixasRows.forEach(c => {
         let cx = margin;
-        drawText(c.name || '', cx, 8.5); cx += fColWidths[0];
-        drawText(c.empresa || '', cx, 8.5); cx += fColWidths[1];
-        drawText(String(c.tipo || ''), cx, 8.5); cx += fColWidths[2];
+        drawText(clip(c.name || '', fColWidths[0], 8.5), cx, 8.5); cx += fColWidths[0];
+        drawText(clip(c.empresa || '', fColWidths[1], 8.5), cx, 8.5); cx += fColWidths[1];
+        drawText(clip(String(c.tipo || ''), fColWidths[2], 8.5), cx, 8.5); cx += fColWidths[2];
         const fVal = (c.valor != null) ? formatBRL(Number(c.valor)) : '';
         drawText(fVal, cx, 8.5); cx += fColWidths[3];
         const fVenc = formatDateBR(c.vencimento);
@@ -716,21 +748,9 @@ export default function ContasAPagarPage() {
       <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {totalAcoes > pageSizeAcoes && (
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              <button onClick={() => setPageAcoes(p => Math.max(1, p - 1))} disabled={pageAcoes === 1} aria-label="Anterior">«</button>
-              {Array.from({ length: totalPagesAcoes }, (_, i) => i + 1).map(n => (
-                <button key={n} data-active={n === pageAcoes} onClick={() => setPageAcoes(n)} style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #ddd', background: n === pageAcoes ? '#2563eb' : '#fff', color: n === pageAcoes ? '#fff' : '#111' }}>{n}</button>
-              ))}
-              <button onClick={() => setPageAcoes(p => Math.min(totalPagesAcoes, p + 1))} disabled={pageAcoes === totalPagesAcoes} aria-label="Próxima">»</button>
-            </div>
+            <Pager page={pageAcoes} pageSize={pageSizeAcoes} total={totalAcoes} onChangePage={setPageAcoes} compact />
           )}
-          <span style={{ fontSize: '0.9rem', color: '#555' }}>Mostrar:</span>
-          <select value={pageSizeAcoes} onChange={(e) => { setPageAcoes(1); setPageSizeAcoes(Number(e.target.value)); }}>
-            <option value={10}>10</option>
-            <option value={25}>25</option>
-            <option value={50}>50</option>
-          </select>
-          <span style={{ fontSize: '0.9rem', color: '#555' }}>Total: {totalAcoes}</span>
+          <PageSizeSelector pageSize={pageSizeAcoes} total={totalAcoes} onChange={(n) => { setPageAcoes(1); setPageSizeAcoes(n); }} />
         </div>
       </div>
       {/* Search limited to Custos ações + PDF for actions only */}
@@ -825,15 +845,13 @@ export default function ContasAPagarPage() {
               })()}</Td>
               <Td>
                 {session.user.role === "admin" ? (
-                  <FE.Select
+                  <StatusSelect
                     value={(report.status || "ABERTO").toUpperCase()}
+                    options={[{ value: 'ABERTO', label: 'ABERTO' }, { value: 'PAGO', label: 'PAGO' }]}
                     onChange={(e) => handleStatusChange(report._id, e.target.value, report.status || "ABERTO")}
-                  >
-                    <option value="ABERTO">ABERTO</option>
-                    <option value="PAGO">PAGO</option>
-                  </FE.Select>
+                  />
                 ) : (
-                  (report.status || "ABERTO").toUpperCase()
+                  <StatusBadge value={(report.status || "ABERTO").toUpperCase()} />
                 )}
               </Td>
             </tr>
@@ -841,7 +859,7 @@ export default function ContasAPagarPage() {
         </tbody>
       </Table>
       {totalAcoes > pageSizeAcoes && (
-        <Pager page={pageAcoes} pageSize={pageSizeAcoes} total={totalAcoes} onChangePage={setPageAcoes} />
+        <Pager page={pageAcoes} pageSize={pageSizeAcoes} total={totalAcoes} onChangePage={setPageAcoes} compact />
       )}
 
       {/* Contas Fixas section */}
@@ -857,15 +875,9 @@ export default function ContasAPagarPage() {
       <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {totalFixas > pageSizeFixas && (
-            <Pager page={pageFixas} pageSize={pageSizeFixas} total={totalFixas} onChangePage={setPageFixas} />
+            <Pager page={pageFixas} pageSize={pageSizeFixas} total={totalFixas} onChangePage={setPageFixas} compact />
           )}
-          <span style={{ fontSize: '0.9rem', color: '#555' }}>Mostrar:</span>
-          <select value={pageSizeFixas} onChange={(e) => { setPageFixas(1); setPageSizeFixas(Number(e.target.value)); }}>
-            <option value={10}>10</option>
-            <option value={25}>25</option>
-            <option value={50}>50</option>
-          </select>
-          <span style={{ fontSize: '0.9rem', color: '#555' }}>Total: {totalFixas}</span>
+          <PageSizeSelector pageSize={pageSizeFixas} total={totalFixas} onChange={(n) => { setPageFixas(1); setPageSizeFixas(n); }} />
         </div>
       </div>
       <ContasFixasTable
@@ -914,22 +926,15 @@ export default function ContasAPagarPage() {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <label>Vencimento</label>
-                <FE.Input type="date" value={fixaForm.vencimento} onChange={e => setFixaForm(f => ({ ...f, vencimento: e.target.value }))} />
+                <BRDateInput
+                  value={fixaForm.vencimento}
+                  onChange={(iso) => setFixaForm(f => ({ ...f, vencimento: iso }))}
+                  style={{ height: 40, width: '100%' }}
+                />
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <label>Valor</label>
-                <FE.Input
-                  type="text"
-                  value={fixaForm.valor}
-                  placeholder="Valor R$"
-                  onChange={e => setFixaForm(f => ({ ...f, valor: e.target.value }))}
-                  onBlur={e => setFixaForm(f => ({ ...f, valor: formatBRL(e.target.value) }))}
-                  onFocus={e => {
-                    const raw = String(fixaForm.valor || '').replace(/[^0-9.,-]/g, '').replace(/\.(?=\d{3,})/g, '').replace(',', '.');
-                    setFixaForm(f => ({ ...f, valor: raw }));
-                    try { e.target.selectionStart = e.target.selectionEnd = e.target.value.length; } catch { /* ignore */ }
-                  }}
-                />
+                <BRCurrencyInput value={fixaForm.valor} onChange={(val) => setFixaForm(f => ({ ...f, valor: val }))} />
               </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>

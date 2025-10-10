@@ -10,7 +10,9 @@ import * as FE from './FormElements';
 import ClienteDropdown from './ClienteDropdown';
 import ColaboradorDropdown from './ColaboradorDropdown';
 import CostModal from './CostModal';
+import BRDateInput from './BRDateInput';
 import { formatBRL, parseCurrency } from '../utils/currency';
+import BRCurrencyInput from './BRCurrencyInput';
 
 const FormGrid = styled.div`
   display: grid;
@@ -55,6 +57,7 @@ const SelectedTable = styled.table`
   overflow: hidden;
   th, td { padding: 8px; border-bottom: 1px solid #eee; }
   thead th { background: #f7f7f7; text-align: left; font-weight: 600; }
+  tbody td { text-align: left; vertical-align: top; }
 `;
 const ThServ = styled.th``;
 const TdServ = styled.td``;
@@ -293,17 +296,7 @@ export default function ActionModal({ editing, form, onClose, onSubmit, loading 
                       <tr key={`${s._id || s.codigo || s.nome || ''}-${idx}`}>
                         <TdServ>{`${s.codigo ? s.codigo + ' - ' : ''}${s.nome}`}</TdServ>
                         <TdServ>
-                          <ValueInput
-                            placeholder="Valor R$"
-                            value={s.value}
-                            onChange={e => updateColaboradorAt(idx, { value: e.target.value })}
-                            onBlur={e => updateColaboradorAt(idx, { value: formatBRL(e.target.value) })}
-                            onFocus={e => {
-                              const raw = String(s.value || '').replace(/[^0-9.,-]/g, '').replace(/\.(?=\d{3,})/g, '').replace(',', '.');
-                              updateColaboradorAt(idx, { value: raw });
-                              try { e.target.selectionStart = e.target.selectionEnd = e.target.value.length; } catch { /* ignore */ }
-                            }}
-                          />
+                          <BRCurrencyInput value={s.value} onChange={(val) => updateColaboradorAt(idx, { value: val })} />
                         </TdServ>
                         <TdServ>
                           <select value={s.pgt || ''} onChange={e => updateColaboradorAt(idx, { pgt: e.target.value })}>
@@ -315,7 +308,7 @@ export default function ActionModal({ editing, form, onClose, onSubmit, loading 
                           </select>
                         </TdServ>
                         <TdServ>
-                          <ValueInput type="date" value={s.vencimento || ''} onChange={e => updateColaboradorAt(idx, { vencimento: e.target.value })} />
+                          <BRDateInput value={s.vencimento || ''} onChange={(iso) => updateColaboradorAt(idx, { vencimento: iso })} style={{ width: 120 }} />
                         </TdServ>
                         <TdServ>
                           <FL.DropdownButton as="button" type="button" onClick={() => removeColaboradorAt(idx)}>Remover</FL.DropdownButton>
@@ -388,17 +381,7 @@ export default function ActionModal({ editing, form, onClose, onSubmit, loading 
                             </div>
                           </TdServ>
                           <TdServ>
-                            <ValueInput
-                              placeholder="Valor R$"
-                              value={c.value}
-                              onChange={e => updateCostAt(idx, { value: e.target.value })}
-                              onBlur={e => updateCostAt(idx, { value: formatBRL(e.target.value) })}
-                              onFocus={e => {
-                                const raw = String(c.value || '').replace(/[^0-9.,-]/g, '').replace(/\.(?=\d{3,})/g, '').replace(',', '.');
-                                updateCostAt(idx, { value: raw });
-                                try { e.target.selectionStart = e.target.selectionEnd = e.target.value.length; } catch { /* ignore */ }
-                              }}
-                            />
+                            <BRCurrencyInput value={c.value} onChange={(val) => updateCostAt(idx, { value: val })} />
                           </TdServ>
                           <TdServ>
                             <select value={c.pgt || ''} onChange={e => updateCostAt(idx, { pgt: e.target.value })}>
@@ -424,7 +407,7 @@ export default function ActionModal({ editing, form, onClose, onSubmit, loading 
                             />
                           </TdServ>
                           <TdServ>
-                            <ValueInput type="date" value={c.vencimento || ''} onChange={e => updateCostAt(idx, { vencimento: e.target.value })} />
+                            <BRDateInput value={c.vencimento || ''} onChange={(iso) => updateCostAt(idx, { vencimento: iso })} style={{ width: 120 }} />
                           </TdServ>
                           <TdServ>
                             <FE.ActionsRow>

@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "smoke": "node scripts/smoke.mjs",
     "prepare": "husky install",
     "test": "vitest --run",
     "db:clean": "node scripts/cleanDb.js",

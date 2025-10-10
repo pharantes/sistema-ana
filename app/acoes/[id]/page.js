@@ -7,6 +7,7 @@ import CostModal from '../../components/CostModal';
 import * as FE from '../../components/FormElements';
 import { useSession } from 'next-auth/react';
 import styled from 'styled-components';
+import { Table, Th, Td } from '../../components/ui/Table';
 import { formatDateBR } from '@/lib/utils/dates';
 
 const Wrapper = styled.div`
@@ -37,19 +38,7 @@ const Label = styled.div`
 const Value = styled.div`
   color: #222;
 `;
-const Table = styled.table`
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 8px;
-`;
-const Th = styled.th`
-  text-align: left;
-  border-bottom: 1px solid #ddd;
-  padding: 8px;
-`;
-const Td = styled.td`
-  padding: 8px;
-`;
+// Use shared Table, Th, Td (with zebra striping)
 
 
 export default function ActionDetailsPage({ params }) {
@@ -219,7 +208,7 @@ export default function ActionDetailsPage({ params }) {
             {(Array.isArray(acao.staff) ? acao.staff : []).map((s, idx) => (
               <tr key={`${acao._id}-s-${idx}`}>
                 <Td>{s?.name || ''}</Td>
-                <Td>{`R$ ${Number(s?.value || 0).toFixed(2)}`}</Td>
+                <Td>{`R$ ${Number.isFinite(Number(s?.value)) ? require('../../utils/currency').formatBRL(Number(s.value)) : '0,00'}`}</Td>
                 <Td>{(s?.pgt || acao.paymentMethod || '')}</Td>
                 <Td>{(() => {
                   const m = String(s?.pgt || acao.paymentMethod || '').toUpperCase();
@@ -266,7 +255,7 @@ export default function ActionDetailsPage({ params }) {
                   <Td>{nome}</Td>
                   <Td>{empresa}</Td>
                   <Td>{c?.description || ''}</Td>
-                  <Td>{`R$ ${Number(c?.value || 0).toFixed(2)}`}</Td>
+                  <Td>{`R$ ${Number.isFinite(Number(c?.value)) ? require('../../utils/currency').formatBRL(Number(c.value)) : '0,00'}`}</Td>
                   <Td>{c?.pgt || ''}</Td>
                   <Td>{(() => { const m = String(c?.pgt || '').toUpperCase(); if (m === 'PIX') return c?.pix || ''; if (m === 'TED') return c?.bank || ''; return ''; })()}</Td>
                   <Td>{formatDateBR(c?.vencimento)}</Td>

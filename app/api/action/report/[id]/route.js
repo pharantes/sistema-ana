@@ -7,6 +7,7 @@ import { PDFDocument, StandardFonts } from "pdf-lib";
 import { formatDateBR } from "@/lib/utils/dates";
 import fs from "fs";
 import path from "path";
+import { ok, badRequest, forbidden, notFound, serverError } from "@/lib/api/responses";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,19 +16,19 @@ export async function POST(request, context) {
   try {
     const session = await getServerSession(baseOptions);
     if (!session || !session.user || session.user.role !== "admin") {
-      return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 });
+      return forbidden();
     }
 
     const params = await (context?.params);
     const { id } = params || {};
     if (!id) {
-      return new Response(JSON.stringify({ error: "Missing id" }), { status: 400 });
+      return badRequest('Missing id');
     }
 
     await dbConnect();
     const action = await Action.findById(id).lean();
     if (!action) {
-      return new Response(JSON.stringify({ error: "Action not found" }), { status: 404 });
+      return notFound('Action not found');
     }
 
     // Build a simple PDF with key info
@@ -74,13 +75,10 @@ export async function POST(request, context) {
       status: 'ABERTO',
     });
 
-    return new Response(JSON.stringify({ conta, pdfUrl }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    return ok({ conta, pdfUrl });
   } catch (err) {
     try { process?.stderr?.write("report generate error: " + String(err && err.stack ? err.stack : err) + "\n"); } catch { /* noop */ }
-    return new Response(JSON.stringify({ error: "Failed to generate report" }), { status: 500 });
+    return serverError('Failed to generate report');
   }
 }
 

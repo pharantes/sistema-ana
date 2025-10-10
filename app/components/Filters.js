@@ -2,6 +2,7 @@
 import React, { useRef, useEffect } from "react";
 import styled from "styled-components";
 import * as FE from "./FormElements";
+import BRDateInput from "../components/BRDateInput";
 
 const FiltersWrapper = styled.section`
   width: 100%;
@@ -145,11 +146,11 @@ function FiltersComponent({
         </Field>
         <Field>
           <Label>De</Label>
-          <FE.Input type="date" value={rangeFrom} onChange={e => setRangeFrom(e.target.value)} style={inputSx} />
+          <BRDateInput value={rangeFrom} onChange={(iso) => setRangeFrom(iso)} style={inputSx} />
         </Field>
         <Field>
           <Label>Até</Label>
-          <FE.Input type="date" value={rangeTo} onChange={e => setRangeTo(e.target.value)} style={inputSx} />
+          <BRDateInput value={rangeTo} onChange={(iso) => setRangeTo(iso)} style={inputSx} />
         </Field>
       </Grid>
       <PresetsRow>

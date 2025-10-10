@@ -6,6 +6,7 @@ import { getServerSession } from 'next-auth';
 import baseOptions from '@/lib/auth/authOptionsBase';
 import { attachClientNameFromActions, attachColaboradorLabel, linkStaffNameToColaborador } from '@/lib/helpers/contasapagar';
 import { validateContasAPagarCreate, validateContasAPagarUpdate } from '@/lib/validators/contasapagar';
+import { ok, created, badRequest, unauthorized, forbidden, notFound, serverError } from '@/lib/api/responses';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -38,10 +39,10 @@ export async function GET(request) {
     await linkStaffNameToColaborador(withDefaults);
     await attachClientNameFromActions(withDefaults);
 
-    return Response.json(withDefaults);
+    return ok(withDefaults);
   } catch (err) {
     try { process.stderr.write('GET /api/contasapagar error: ' + String(err) + '\n'); } catch { void 0; /* noop */ }
-    return new Response(JSON.stringify({ error: 'Failed to fetch contas a pagar' }), { status: 500 });
+    return serverError('Failed to fetch contas a pagar');
   }
 }
 
@@ -49,12 +50,12 @@ export async function POST(request) {
   try {
     await connect();
     const data = await request.json();
-    try { validateContasAPagarCreate(data); } catch (e) { return new Response(JSON.stringify({ error: e.message }), { status: e.status || 400 }); }
+    try { validateContasAPagarCreate(data); } catch (e) { return badRequest(e.message); }
     const conta = await ContasAPagar.create({ status: 'ABERTO', ...data });
-    return Response.json(conta);
+    return created(conta);
   } catch (err) {
     try { process.stderr.write('POST /api/contasapagar error: ' + String(err) + '\n'); } catch { void 0; /* noop */ }
-    return new Response(JSON.stringify({ error: 'Failed to create conta' }), { status: 500 });
+    return serverError('Failed to create conta');
   }
 }
 
@@ -63,30 +64,29 @@ export async function DELETE(request) {
     await connect();
     const { id } = await request.json();
     await ContasAPagar.findByIdAndDelete(id);
-    return Response.json({ success: true });
+    return ok({ success: true });
   } catch (err) {
     try { process.stderr.write('DELETE /api/contasapagar error: ' + String(err) + '\n'); } catch { void 0; /* noop */ }
-    return new Response(JSON.stringify({ error: 'Failed to delete conta' }), { status: 500 });
+    return serverError('Failed to delete conta');
   }
 }
 
 export async function PATCH(request) {
   try {
     const session = await getServerSession(baseOptions);
-    if (!session || !session.user || session.user.role !== 'admin') {
-      return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 });
-    }
+    if (!session || !session.user) return unauthorized();
+    if (session.user.role !== 'admin') return forbidden();
     await connect();
     const parsed = await request.json();
-    try { validateContasAPagarUpdate(parsed); } catch (e) { return new Response(JSON.stringify({ error: e.message }), { status: e.status || 400 }); }
+    try { validateContasAPagarUpdate(parsed); } catch (e) { return badRequest(e.message); }
     const { id, status } = parsed;
     const updated = await ContasAPagar.findByIdAndUpdate(id, { status }, { new: true });
     if (!updated) {
-      return new Response(JSON.stringify({ error: 'Not found' }), { status: 404 });
+      return notFound('Not found');
     }
-    return Response.json(updated);
+    return ok(updated);
   } catch (err) {
     try { process.stderr.write('PATCH /api/contasapagar error: ' + String(err) + '\n'); } catch { void 0; /* noop */ }
-    return new Response(JSON.stringify({ error: 'Failed to update status' }), { status: 500 });
+    return serverError('Failed to update status');
   }
 }

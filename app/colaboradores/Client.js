@@ -17,27 +17,7 @@ const Title = styled.h1`
   font-size: 1.6rem;
   margin-bottom: 0.5rem;
 `;
-const Table = styled.table`
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 8px;
-  font-size: 0.92rem;
-  /* Allow wrapping to avoid horizontal scroll */
-  table-layout: auto;
-`;
-const Th = styled.th`
-  text-align: left;
-  border-bottom: 1px solid #ccc;
-  padding: 6px;
-  font-weight: 600;
-  vertical-align: top;
-`;
-const Td = styled.td`
-  padding: 6px;
-  vertical-align: top;
-  word-break: break-word;
-  overflow-wrap: anywhere;
-`;
+import { Table, Th, Td } from "../components/ui/Table";
 
 function useColaboradorApi(initial = []) {
   const [colaboradores, setColaboradores] = useState(Array.isArray(initial) ? initial : []);

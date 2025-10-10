@@ -12,13 +12,15 @@ export const Table = styled.table`
     background-color: #ffffff;
   }
   tbody tr:nth-child(even) {
-    background-color: #f9fafb; /* light grey */
+    background-color: #d1d5db; /* darker light grey for higher contrast on most panels */
   }
   /* Ensure left alignment even if raw th/td are used inside */
   th, td { text-align: left !important; vertical-align: top; }
   thead th * { text-align: left !important; }
   tbody td * { text-align: left !important; }
   tbody td a, tbody td button { text-align: left !important; }
+  /* Subtle row divider for clarity even on low-contrast displays */
+  tbody td { border-bottom: 1px solid #e2e8f0; }
 `;
 export const Th = styled.th`
   text-align: left !important;

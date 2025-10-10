@@ -10,16 +10,18 @@ import Action from "../../../../lib/db/models/Action.js";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { actionReportColumns, actionReportWidths } from "../../../utils/columns.js";
 import Cliente from "../../../../lib/db/models/Cliente.js";
+import { forbidden, serverError, badRequest } from "../../../../lib/api/responses";
+import { rateLimit } from "../../../../lib/utils/rateLimit";
+
+const idFn = (req) => req.headers?.get?.('x-forwarded-for')?.split(',')[0]?.trim() || req.ip || 'anon';
+const getLimiter = rateLimit({ windowMs: 10_000, limit: 10, idFn });
 
 export async function GET(request) {
   try {
     const session = await getServerSession(baseOptions);
-    if (!session || !session.user || session.user.role !== "admin") {
-      return new Response(JSON.stringify({ error: "Forbidden" }), {
-        status: 403,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    if (!session || !session.user || session.user.role !== "admin") return forbidden();
+
+    getLimiter.check(request);
 
     await dbConnect();
 
@@ -45,18 +47,28 @@ export async function GET(request) {
     }
     if (acaoFrom || acaoTo) {
       filter.createdAt = {};
-      if (acaoFrom) filter.createdAt.$gte = new Date(acaoFrom);
+      if (acaoFrom) {
+        const d = new Date(acaoFrom);
+        if (isNaN(d)) return badRequest('Invalid acaoFrom');
+        filter.createdAt.$gte = d;
+      }
       if (acaoTo) {
         const d = new Date(acaoTo);
+        if (isNaN(d)) return badRequest('Invalid acaoTo');
         d.setDate(d.getDate() + 1);
         filter.createdAt.$lt = d;
       }
     }
     if (vencFrom || vencTo) {
       filter.dueDate = filter.dueDate || {};
-      if (vencFrom) filter.dueDate.$gte = new Date(vencFrom);
+      if (vencFrom) {
+        const d = new Date(vencFrom);
+        if (isNaN(d)) return badRequest('Invalid vencFrom');
+        filter.dueDate.$gte = d;
+      }
       if (vencTo) {
         const d = new Date(vencTo);
+        if (isNaN(d)) return badRequest('Invalid vencTo');
         d.setDate(d.getDate() + 1);
         filter.dueDate.$lt = d;
       }
@@ -282,10 +294,7 @@ export async function GET(request) {
       },
     });
   } catch (err) {
-    console.error("PDF generation error", err);
-    return new Response(
-      JSON.stringify({ error: "Failed to generate PDF" }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    );
+    try { console.error("PDF generation error", err); } catch { /* noop */ }
+    return serverError('Failed to generate PDF');
   }
 }

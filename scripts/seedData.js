@@ -89,7 +89,7 @@ async function run() {
     uf: 'MG',
     telefone: `34 9${pad(idx + 20, 2)}00-0000`,
     email: `${nome.toLowerCase().replace(/\s+/g, '')}@example.com`,
-    tipo: 'PF',
+    tipo: 'Pessoa Fisica',
     cnpjCpf: `000.000.000-0${idx + 1}`
   }));
   await Colaborador.deleteMany({});

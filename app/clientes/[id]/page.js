@@ -123,8 +123,8 @@ export default function ClienteDetailsPage() {
             {acoesPageData.map(a => (
               <tr key={a._id}>
                 <Td>{formatDateBR(a.date)}</Td>
-                <Td>
-                  <button onClick={() => router.push(`/acoes/${a._id}`)} style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer' }}>
+                <Td style={{ textAlign: 'left' }}>
+                  <button onClick={() => router.push(`/acoes/${a._id}`)} style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer', textAlign: 'left' }}>
                     {a.name || a.event}
                   </button>
                 </Td>

@@ -345,7 +345,7 @@ export default function ActionModal({ editing, form, onClose, onSubmit, loading 
                       <ThServ>Banco</ThServ>
                       <ThServ>PIX</ThServ>
                       <ThServ>Vencimento</ThServ>
-                      <ThServ>Ações</ThServ>
+                      <ThServ>Opções</ThServ>
                     </tr>
                   </thead>
                   <tbody>
@@ -387,8 +387,6 @@ export default function ActionModal({ editing, form, onClose, onSubmit, loading 
                               )}
                             </div>
                           </TdServ>
-                          <TdServ>{empresa}</TdServ>
-                          <TdServ>{c.description}</TdServ>
                           <TdServ>
                             <ValueInput
                               placeholder="Valor R$"
@@ -429,10 +427,10 @@ export default function ActionModal({ editing, form, onClose, onSubmit, loading 
                             <ValueInput type="date" value={c.vencimento || ''} onChange={e => updateCostAt(idx, { vencimento: e.target.value })} />
                           </TdServ>
                           <TdServ>
-                            <div style={{ display: 'flex', gap: 8 }}>
-                              <FL.DropdownButton as="button" type="button" onClick={() => { setCostInitial(c); setCostModalOpen(true); }}>Editar</FL.DropdownButton>
-                              <FL.DropdownButton as="button" type="button" onClick={() => removeCostAt(idx)}>Remover</FL.DropdownButton>
-                            </div>
+                            <FE.ActionsRow>
+                              <FE.SmallSecondaryButton type="button" onClick={() => { setCostInitial(c); setCostModalOpen(true); }}>Editar</FE.SmallSecondaryButton>
+                              <FE.SmallInlineButton type="button" onClick={() => removeCostAt(idx)}>Remover</FE.SmallInlineButton>
+                            </FE.ActionsRow>
                           </TdServ>
                         </tr>
                       );

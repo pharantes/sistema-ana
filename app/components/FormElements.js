@@ -62,4 +62,28 @@ export const Select = styled.select`
   &:focus { outline: 2px solid rgba(108,43,176,0.12); }
 `;
 
+// Compact actions row to keep Editar/Excluir on one line
+export const ActionsRow = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+`;
+
+// Compact button variants for Opções columns
+export const SmallSecondaryButton = styled(SecondaryButton)`
+  padding: 4px 8px;
+  font-size: 0.9rem;
+  height: 28px;
+  line-height: 1;
+`;
+
+export const SmallInlineButton = styled(InlineButton)`
+  margin-left: 0;
+  font-size: 0.9rem;
+  height: 28px;
+  line-height: 1;
+`;
+
 // named exports are already declared above

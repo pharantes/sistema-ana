@@ -84,8 +84,10 @@ export default function ContasFixasTable({
                 </div>
               </Td>
               <Td>
-                <FE.SecondaryButton onClick={() => onEdit?.(c)}>Editar</FE.SecondaryButton>
-                <FE.InlineButton onClick={() => onDelete?.(c._id)}>Excluir</FE.InlineButton>
+                <FE.ActionsRow>
+                  <FE.SmallSecondaryButton onClick={() => onEdit?.(c)}>Editar</FE.SmallSecondaryButton>
+                  <FE.SmallInlineButton onClick={() => onDelete?.(c._id)}>Excluir</FE.SmallInlineButton>
+                </FE.ActionsRow>
               </Td>
             </tr>
           ))}

@@ -229,7 +229,7 @@ export default function ClientesPage() {
               <tr key={cliente._id}>
                 <Td>{cliente.codigo}</Td>
                 <Td style={{ textAlign: 'left' }}>
-                  <button onClick={() => router.push(`/clientes/${cliente._id}`)} style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer' }}>
+                  <button onClick={() => router.push(`/clientes/${cliente._id}`)} style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer', textAlign: 'left' }}>
                     {cliente.nome}
                   </button>
                 </Td>
@@ -242,10 +242,12 @@ export default function ClientesPage() {
                 <Td>{cliente.tipo}</Td>
                 <Td>{cliente.cnpjCpf}</Td>
                 <Td>
-                  <FE.SecondaryButton onClick={() => handleEdit(cliente)}>Editar</FE.SecondaryButton>
-                  {isAdmin && (
-                    <FE.InlineButton onClick={() => openDeleteModal(cliente)}>Excluir</FE.InlineButton>
-                  )}
+                  <FE.ActionsRow>
+                    <FE.SmallSecondaryButton onClick={() => handleEdit(cliente)}>Editar</FE.SmallSecondaryButton>
+                    {isAdmin && (
+                      <FE.SmallInlineButton onClick={() => openDeleteModal(cliente)}>Excluir</FE.SmallInlineButton>
+                    )}
+                  </FE.ActionsRow>
                 </Td>
               </tr>
             ))}

@@ -241,7 +241,7 @@ export default function ColaboradoresClient({ initialColaboradores = [], isAdmin
               <tr key={colaborador._id}>
                 <Td style={{ whiteSpace: 'nowrap' }}>{colaborador.codigo}</Td>
                 <Td style={{ minWidth: 140, textAlign: 'left' }}>
-                  <button onClick={() => router.push(`/colaboradores/${colaborador._id}`)} style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer' }}>
+                  <button onClick={() => router.push(`/colaboradores/${colaborador._id}`)} style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer', textAlign: 'left' }}>
                     {colaborador.nome}
                   </button>
                 </Td>
@@ -254,10 +254,12 @@ export default function ColaboradoresClient({ initialColaboradores = [], isAdmin
                 <Td style={{ maxWidth: 200 }}>{colaborador.banco}</Td>
                 <Td style={{ maxWidth: 200 }}>{colaborador.pix}</Td>
                 <Td>
-                  <FE.SecondaryButton onClick={() => handleEdit(colaborador)}>Editar</FE.SecondaryButton>
-                  {isAdmin && (
-                    <FE.InlineButton onClick={() => openDeleteModal(colaborador)}>Excluir</FE.InlineButton>
-                  )}
+                  <FE.ActionsRow>
+                    <FE.SmallSecondaryButton onClick={() => handleEdit(colaborador)}>Editar</FE.SmallSecondaryButton>
+                    {isAdmin && (
+                      <FE.SmallInlineButton onClick={() => openDeleteModal(colaborador)}>Excluir</FE.SmallInlineButton>
+                    )}
+                  </FE.ActionsRow>
                 </Td>
               </tr>
             ))}

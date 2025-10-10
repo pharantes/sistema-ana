@@ -6,7 +6,6 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import styled from "styled-components";
 import Pager from "../components/ui/Pager";
 import { Table, Th, Td } from "../components/ui/Table";
-import { SecondaryButton } from "../components/ui";
 import { formatDateBR } from "@/lib/utils/dates";
 import { formatBRL } from "../utils/currency";
 import * as FE from "../components/FormElements";
@@ -260,7 +259,9 @@ export default function ContasAReceberPage() {
             return (
               <tr key={row._id} onClick={() => globalThis.location.assign(`/contasareceber/${row._id}`)} style={{ cursor: 'pointer' }}>
                 <Td>{data}</Td>
-                <Td style={{ textAlign: 'left' }}>{row.name}</Td>
+                <Td style={{ textAlign: 'left' }}>
+                  <span style={{ display: 'inline-block', textAlign: 'left' }}>{row.name}</span>
+                </Td>
                 <Td>{row.clientName || ''}</Td>
                 <Td>{r?.descricao || ''}</Td>
                 <Td>{r?.qtdeParcela ?? ''}</Td>
@@ -295,7 +296,9 @@ export default function ContasAReceberPage() {
                   </FE.Select>
                 </Td>
                 <Td>
-                  <SecondaryButton onClick={(e) => { e.stopPropagation(); setSelectedAction(row); setModalOpen(true); }}>Editar</SecondaryButton>
+                  <FE.ActionsRow>
+                    <FE.SmallSecondaryButton onClick={(e) => { e.stopPropagation(); setSelectedAction(row); setModalOpen(true); }}>Editar</FE.SmallSecondaryButton>
+                  </FE.ActionsRow>
                 </Td>
               </tr>
             );

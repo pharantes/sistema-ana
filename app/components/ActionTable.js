@@ -1,6 +1,6 @@
 "use client";
 import styled from "styled-components";
-import { SecondaryButton } from './FormElements';
+import { ActionsRow, SmallSecondaryButton, SmallInlineButton } from './FormElements';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { actionListColumns } from "../utils/columns";
@@ -136,25 +136,25 @@ export default function ActionTable({ actions, session, onEdit, onDelete }) {
             <tr key={a._id}>
               <Td>{formatDateBR(a.date)}</Td>
               <Td style={{ textAlign: 'left' }}>
-                <button onClick={() => gotoAction(a._id)} style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer' }}>
+                <button onClick={() => gotoAction(a._id)} style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer', textAlign: 'left' }}>
                   {a.name || a.event}
                 </button>
               </Td>
               <Td>{formatDateBR(a.startDate)}</Td>
               <Td>{formatDateBR(a.endDate)}</Td>
               <Td style={{ textAlign: 'left' }}>
-                <button onClick={() => gotoCliente(a.client)} style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer' }}>
+                <button onClick={() => gotoCliente(a.client)} style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer', textAlign: 'left' }}>
                   {a.clientName || a.client}
                 </button>
               </Td>
               <Td onClick={(e) => e.stopPropagation()}>
                 {(session.user.role === "admin" || (Array.isArray(a.staff) && a.staff.map(x => x.name).includes(session.user.username))) ? (
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <SecondaryButton onClick={() => onEdit(a)}>Editar</SecondaryButton>
+                  <ActionsRow>
+                    <SmallSecondaryButton onClick={() => onEdit(a)}>Editar</SmallSecondaryButton>
                     {session.user.role === "admin" && (
-                      <SecondaryButton onClick={() => onDelete(a)}>Excluir</SecondaryButton>
+                      <SmallInlineButton onClick={() => onDelete(a)}>Excluir</SmallInlineButton>
                     )}
-                  </div>
+                  </ActionsRow>
                 ) : null}
               </Td>
             </tr>

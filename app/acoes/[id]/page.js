@@ -271,8 +271,10 @@ export default function ActionDetailsPage({ params }) {
                   <Td>{(() => { const m = String(c?.pgt || '').toUpperCase(); if (m === 'PIX') return c?.pix || ''; if (m === 'TED') return c?.bank || ''; return ''; })()}</Td>
                   <Td>{formatDateBR(c?.vencimento)}</Td>
                   <Td>
-                    <FE.SecondaryButton onClick={() => { setCostInitial(c); setCostEditIndex(idx); setCostModalOpen(true); }}>Editar</FE.SecondaryButton>
-                    <FE.InlineButton onClick={() => deleteCost(idx)}>Excluir</FE.InlineButton>
+                    <FE.ActionsRow>
+                      <FE.SmallSecondaryButton onClick={() => { setCostInitial(c); setCostEditIndex(idx); setCostModalOpen(true); }}>Editar</FE.SmallSecondaryButton>
+                      <FE.SmallInlineButton onClick={() => deleteCost(idx)}>Excluir</FE.SmallInlineButton>
+                    </FE.ActionsRow>
                   </Td>
                 </tr>
               );

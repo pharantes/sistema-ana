@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import HeaderBar from "../components/HeaderBar";
 import * as FE from "../components/FormElements";
-import ActionTable from "../components/ActionTable";
+import ActionListTable from "./components/ActionListTable";
 import Filters from "../components/Filters";
 import dynamic from 'next/dynamic';
 const ActionModal = dynamic(() => import('../components/ActionModal'), { ssr: false });
@@ -193,7 +193,7 @@ export default function AcoesPage() {
         </div>
 
         <div style={{ marginTop: "1rem" }}>
-          <ActionTable actions={acoes} session={session} onEdit={handleEdit} onDelete={handleDelete} />
+          <ActionListTable actions={acoes} session={session} onEdit={handleEdit} onDelete={handleDelete} />
           {isFetching && <div style={{ marginTop: 8, color: '#666' }}>Atualizando…</div>}
         </div>
       </div>

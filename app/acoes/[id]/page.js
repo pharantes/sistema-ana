@@ -7,7 +7,9 @@ import CostModal from '../../components/CostModal';
 import * as FE from '../../components/FormElements';
 import { useSession } from 'next-auth/react';
 import styled from 'styled-components';
-import { Table, Th, Td } from '../../components/ui/Table';
+// Table extracted into components
+import StaffTable from "../components/StaffTable";
+import CostsTable from "../components/CostsTable";
 import { formatDateBR } from '@/lib/utils/dates';
 
 const Wrapper = styled.div`
@@ -194,36 +196,7 @@ export default function ActionDetailsPage({ params }) {
 
       <Section>
         <h3>Colaboradores</h3>
-        <Table>
-          <thead>
-            <tr>
-              <Th>Profissional</Th>
-              <Th>Valor</Th>
-              <Th>Pgt</Th>
-              <Th>Banco/PIX</Th>
-              <Th>Vencimento</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {(Array.isArray(acao.staff) ? acao.staff : []).map((s, idx) => (
-              <tr key={`${acao._id}-s-${idx}`}>
-                <Td>{s?.name || ''}</Td>
-                <Td>{`R$ ${Number.isFinite(Number(s?.value)) ? require('../../utils/currency').formatBRL(Number(s.value)) : '0,00'}`}</Td>
-                <Td>{(s?.pgt || acao.paymentMethod || '')}</Td>
-                <Td>{(() => {
-                  const m = String(s?.pgt || acao.paymentMethod || '').toUpperCase();
-                  const colab = colaboradores.find(v => String(v?.nome || '').toLowerCase() === String(s?.name || '').toLowerCase());
-                  const pixVal = s?.pix || colab?.pix || '';
-                  const bankVal = s?.bank || (colab ? `${colab.banco || ''}${colab.conta ? ` ${colab.conta}` : ''}`.trim() : '');
-                  if (m === 'PIX') return pixVal;
-                  if (m === 'TED') return bankVal;
-                  return '';
-                })()}</Td>
-                <Td>{(s?.vencimento ? formatDateBR(s.vencimento) : formatDateBR(acao.dueDate))}</Td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
+        <StaffTable acao={acao} staff={acao.staff} colaboradores={colaboradores} />
       </Section>
 
       <Section>
@@ -231,45 +204,13 @@ export default function ActionDetailsPage({ params }) {
         <div style={{ marginTop: 8 }}>
           <FE.TopButton onClick={() => { setCostInitial({ vencimento: acao.dueDate ? String(acao.dueDate).slice(0, 10) : '' }); setCostEditIndex(null); setCostModalOpen(true); }}>Novo Custo</FE.TopButton>
         </div>
-        <Table>
-          <thead>
-            <tr>
-              <Th>Nome</Th>
-              <Th>Empresa</Th>
-              <Th>Descrição</Th>
-              <Th>Valor</Th>
-              <Th>Pgt</Th>
-              <Th>Banco/PIX</Th>
-              <Th>Vencimento</Th>
-              <Th>Opções</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {(Array.isArray(acao.costs) ? acao.costs : []).map((c, idx) => {
-              const linkId = c?.colaboradorId || '';
-              const sel = linkId ? colaboradores.find(s => String(s._id) === String(linkId)) : null;
-              const nome = sel?.nome || c?.vendorName || '';
-              const empresa = sel?.empresa || c?.vendorEmpresa || '';
-              return (
-                <tr key={`${acao._id}-c-${idx}`}>
-                  <Td>{nome}</Td>
-                  <Td>{empresa}</Td>
-                  <Td>{c?.description || ''}</Td>
-                  <Td>{`R$ ${Number.isFinite(Number(c?.value)) ? require('../../utils/currency').formatBRL(Number(c.value)) : '0,00'}`}</Td>
-                  <Td>{c?.pgt || ''}</Td>
-                  <Td>{(() => { const m = String(c?.pgt || '').toUpperCase(); if (m === 'PIX') return c?.pix || ''; if (m === 'TED') return c?.bank || ''; return ''; })()}</Td>
-                  <Td>{formatDateBR(c?.vencimento)}</Td>
-                  <Td>
-                    <FE.ActionsRow>
-                      <FE.SmallSecondaryButton onClick={() => { setCostInitial(c); setCostEditIndex(idx); setCostModalOpen(true); }}>Editar</FE.SmallSecondaryButton>
-                      <FE.SmallInlineButton onClick={() => deleteCost(idx)}>Excluir</FE.SmallInlineButton>
-                    </FE.ActionsRow>
-                  </Td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </Table>
+        <CostsTable
+          acao={acao}
+          costs={acao.costs}
+          colaboradores={colaboradores}
+          onEdit={(c, idx) => { setCostInitial(c); setCostEditIndex(idx); setCostModalOpen(true); }}
+          onDelete={(idx) => deleteCost(idx)}
+        />
         <CostModal open={costModalOpen} onClose={() => setCostModalOpen(false)} onSubmit={saveCost} initial={costInitial} />
       </Section>
       {modalOpen && (

@@ -9,7 +9,7 @@ import ClienteModal from "../components/ClienteModal";
 import * as FE from "../components/FormElements";
 import DeleteModal from "../components/DeleteModal";
 import { useMemo } from "react";
-import { Table, Th, Td } from "../components/ui/Table";
+import ClientesTable from "./components/ClientesTable";
 
 const Wrapper = styled.div`
   padding: 16px;
@@ -187,64 +187,21 @@ export default function ClientesPage() {
         )}
       </div>
       {loading ? <p>Carregando...</p> : (
-        <Table>
-          <thead>
-            <tr>
-              <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('codigo')}>
-                Código {sortKey === 'codigo' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-              </Th>
-              <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('nome')}>
-                Cliente {sortKey === 'nome' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-              </Th>
-              <Th>Endereço</Th>
-              <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('cidade')}>
-                Cidade {sortKey === 'cidade' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-              </Th>
-              <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('uf')}>
-                UF {sortKey === 'uf' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-              </Th>
-              <Th>Telefone</Th>
-              <Th>Email</Th>
-              <Th>Contato</Th>
-              <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('tipo')}>
-                Tipo {sortKey === 'tipo' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-              </Th>
-              <Th>CNPJ/CPF</Th>
-              <Th>Opções</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {pageData.map((cliente) => (
-              <tr key={cliente._id}>
-                <Td>{cliente.codigo}</Td>
-                <Td style={{ textAlign: 'left' }}>
-                  <button onClick={() => router.push(`/clientes/${cliente._id}`)} style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer', textAlign: 'left' }}>
-                    {cliente.nome}
-                  </button>
-                </Td>
-                <Td>{cliente.endereco}</Td>
-                <Td>{cliente.cidade}</Td>
-                <Td>{cliente.uf}</Td>
-                <Td>{cliente.telefone}</Td>
-                <Td>{cliente.email}</Td>
-                <Td>{cliente.nomeContato}</Td>
-                <Td>{cliente.tipo}</Td>
-                <Td>{cliente.cnpjCpf}</Td>
-                <Td>
-                  <FE.ActionsRow>
-                    <FE.SmallSecondaryButton onClick={() => handleEdit(cliente)}>Editar</FE.SmallSecondaryButton>
-                    {isAdmin && (
-                      <FE.SmallInlineButton onClick={() => openDeleteModal(cliente)}>Excluir</FE.SmallInlineButton>
-                    )}
-                  </FE.ActionsRow>
-                </Td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
-      )}
-      {total > pageSize && (
-        <Pager page={page} pageSize={pageSize} total={total} onChangePage={setPage} />
+        <ClientesTable
+          rows={pageData}
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          onChangePage={setPage}
+          onChangePageSize={setPageSize}
+          sortKey={sortKey}
+          sortDir={sortDir}
+          onToggleSort={toggleSort}
+          onEdit={handleEdit}
+          onDelete={openDeleteModal}
+          onOpenDetails={(c) => router.push(`/clientes/${c._id}`)}
+          canDelete={isAdmin}
+        />
       )}
       <ClienteModal
         open={modalOpen}

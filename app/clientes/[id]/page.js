@@ -5,9 +5,7 @@ import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import ClienteModal from '../../components/ClienteModal';
 import * as FE from '../../components/FormElements';
-import { Table, Th, Td } from '../../components/ui/Table';
-import Pager from '../../components/ui/Pager';
-import { formatDateBR } from '@/lib/utils/dates';
+import ClienteAcoesTable from "../components/ClienteAcoesTable";
 
 // use shared Table/Th/Td for consistency
 
@@ -21,35 +19,7 @@ export default function ClienteDetailsPage() {
   const [error, setError] = useState("");
   const [editOpen, setEditOpen] = useState(false);
   const [acoes, setAcoes] = useState([]);
-  const [acoesSortKey, setAcoesSortKey] = useState('date'); // 'date' | 'name' | 'start' | 'end'
-  const [acoesSortDir, setAcoesSortDir] = useState('desc'); // 'asc' | 'desc'
-  const [acoesPage, setAcoesPage] = useState(1);
-  const [acoesPageSize, setAcoesPageSize] = useState(10);
-  const dateToTime = (v) => { if (!v) return 0; const d = new Date(v); return isNaN(d) ? 0 : d.getTime(); };
-  const sortedAcoes = (() => {
-    const list = Array.isArray(acoes) ? acoes.slice() : [];
-    const getVal = (a) => {
-      switch (acoesSortKey) {
-        case 'name': return String(a?.name || a?.event || '').toLowerCase();
-        case 'start': return dateToTime(a?.startDate);
-        case 'end': return dateToTime(a?.endDate);
-        case 'date': default: return dateToTime(a?.date || a?.createdAt);
-      }
-    };
-    list.sort((a, b) => {
-      const va = getVal(a), vb = getVal(b);
-      if (typeof va === 'number' && typeof vb === 'number') return acoesSortDir === 'asc' ? va - vb : vb - va;
-      const sa = String(va || ''), sb = String(vb || '');
-      const cmp = sa.localeCompare(sb);
-      return acoesSortDir === 'asc' ? cmp : -cmp;
-    });
-    return list;
-  })();
-  const acoesPageData = (() => {
-    const start = (acoesPage - 1) * acoesPageSize;
-    return sortedAcoes.slice(start, start + acoesPageSize);
-  })();
-  const toggleAcoesSort = (key) => { if (acoesSortKey === key) setAcoesSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setAcoesSortKey(key); setAcoesSortDir(key === 'name' ? 'asc' : 'desc'); } };
+  // Related actions table now handled by ClienteAcoesTable (sorting/pagination internal)
 
   useEffect(() => {
     if (!id) return;
@@ -101,56 +71,7 @@ export default function ClienteDetailsPage() {
       </div>
 
       <h2 style={{ marginTop: 16, marginBottom: 6 }}>Ações deste cliente</h2>
-      {Array.isArray(acoes) && acoes.length ? (
-        <Table>
-          <thead>
-            <tr>
-              <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleAcoesSort('date')}>
-                Data {acoesSortKey === 'date' ? (acoesSortDir === 'asc' ? '▲' : '▼') : ''}
-              </Th>
-              <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleAcoesSort('name')}>
-                Nome {acoesSortKey === 'name' ? (acoesSortDir === 'asc' ? '▲' : '▼') : ''}
-              </Th>
-              <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleAcoesSort('start')}>
-                Início {acoesSortKey === 'start' ? (acoesSortDir === 'asc' ? '▲' : '▼') : ''}
-              </Th>
-              <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleAcoesSort('end')}>
-                Fim {acoesSortKey === 'end' ? (acoesSortDir === 'asc' ? '▲' : '▼') : ''}
-              </Th>
-            </tr>
-          </thead>
-          <tbody>
-            {acoesPageData.map(a => (
-              <tr key={a._id}>
-                <Td>{formatDateBR(a.date)}</Td>
-                <Td style={{ textAlign: 'left' }}>
-                  <button onClick={() => router.push(`/acoes/${a._id}`)} style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer', textAlign: 'left' }}>
-                    {a.name || a.event}
-                  </button>
-                </Td>
-                <Td>{formatDateBR(a.startDate)}</Td>
-                <Td>{formatDateBR(a.endDate)}</Td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
-      ) : (
-        <div style={{ color: '#6B7280', fontSize: '0.95rem' }}>Nenhuma ação encontrada para este cliente.</div>
-      )}
-      {Array.isArray(acoes) && acoes.length > acoesPageSize && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8, justifyContent: 'space-between', flexWrap: 'wrap' }}>
-          <Pager page={acoesPage} pageSize={acoesPageSize} total={acoes.length} onChangePage={setAcoesPage} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontSize: '0.9rem', color: '#555' }}>Mostrar:</span>
-            <select value={acoesPageSize} onChange={(e) => { setAcoesPage(1); setAcoesPageSize(Number(e.target.value)); }}>
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-            </select>
-            <span style={{ fontSize: '0.9rem', color: '#555' }}>Total: {acoes.length}</span>
-          </div>
-        </div>
-      )}
+      <ClienteAcoesTable actions={acoes} />
 
       {editOpen && (
         <ClienteModal

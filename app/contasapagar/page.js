@@ -3,8 +3,6 @@
 import styled from "styled-components";
 import Pager from "../components/ui/Pager";
 import PageSizeSelector from "../components/ui/PageSizeSelector";
-import { Table, Th, Td } from "../components/ui/Table";
-import ColaboradorCell from "../components/ui/ColaboradorCell";
 import Filters from "./Filters";
 import ContasFixasTable from "./components/ContasFixasTable";
 
@@ -21,14 +19,13 @@ const Wrapper = styled.div`
 
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState, useRef } from "react";
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import * as FE from "../components/FormElements";
-import StatusSelect from "../components/ui/StatusSelect";
-import StatusBadge from "../components/ui/StatusBadge";
 import { formatBRL, parseCurrency } from "../utils/currency";
 import { formatDateBR } from "@/lib/utils/dates";
 import BRDateInput from "../components/BRDateInput";
 import BRCurrencyInput from "../components/BRCurrencyInput";
+import AcoesTable from "./components/AcoesTable";
+import { gerarPDFAcoes as gerarPDFAcoesUtil, gerarContasAPagarPDF } from "./utils/pdf";
 
 // Date preset UI moved to Filters component
 
@@ -39,7 +36,6 @@ export default function ContasAPagarPage() {
   const [reports, setReports] = useState([]);
   const [pageSizeAcoes, setPageSizeAcoes] = useState(10);
   const [pageAcoes, setPageAcoes] = useState(1);
-  const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
   // Use dueFrom/dueTo to reflect dueDate semantics (UI label remains "Vencimento")
   const [dueFrom, setDueFrom] = useState("");
@@ -67,7 +63,7 @@ export default function ContasAPagarPage() {
   };
 
   async function fetchReports() {
-    setLoading(true);
+    // optional loading state removed to avoid unused vars
     try {
       const params = new globalThis.URLSearchParams();
       if (dueFrom) params.set('vencFrom', dueFrom);
@@ -84,7 +80,7 @@ export default function ContasAPagarPage() {
       globalThis.alert(e.message || "Falha ao carregar contas a pagar");
       setReports([]);
     }
-    setLoading(false);
+    // no-op
   }
 
   // currency formatting now imported from utils
@@ -273,115 +269,13 @@ export default function ContasAPagarPage() {
     return filtered.slice(start, start + pageSizeAcoes);
   }, [filtered, pageAcoes, pageSizeAcoes]);
 
-  // Generate PDF for Custos ações only (ignores Contas Fixas regardless of search)
-  async function gerarPDFAcoes() {
-    const rows = filtered;
-    if (!rows.length) {
+  // Generate PDF for Custos ações only via utils
+  async function onGerarPDFAcoes() {
+    if (!filtered.length) {
       globalThis.alert("Nenhum resultado para gerar o relatório");
       return;
     }
-    const firstDate = rows[0]?.reportDate ? new Date(rows[0].reportDate) : null;
-    const lastDate = rows[rows.length - 1]?.reportDate ? new Date(rows[rows.length - 1].reportDate) : null;
-
-    let totalApagar = 0;
-    let totalPago = 0;
-    let totalLines = 0;
-    for (const r of rows) {
-      const staff = Array.isArray(r?.actionId?.staff) ? r.actionId.staff : [];
-      const st = staff.find(s => s.name === r?.staffName);
-      const v = Number(st?.value || 0);
-      totalApagar += v;
-      if ((r?.status || 'ABERTO').toUpperCase() === 'PAGO') totalPago += v;
-      totalLines += 1;
-    }
-
-    const doc = await PDFDocument.create();
-    const font = await doc.embedFont(StandardFonts.Helvetica);
-    const pageWidth = 900;
-    const rowHeight = 18;
-    const headerHeight = 28;
-    const margin = 30;
-    const colWidths = [70, 150, 150, 140, 90, 80, 50, 180, 80];
-    const pageHeight = margin + headerHeight + (totalLines + 6) * rowHeight + 120;
-    const page = doc.addPage([pageWidth, pageHeight]);
-    let y = margin;
-    const drawText = (text, x, size = 10) => {
-      page.drawText(String(text ?? ""), { x, y: page.getHeight() - y, size, font });
-    };
-    const measure = (t, size = 10) => font.widthOfTextAtSize(String(t ?? ''), size);
-    const clip = (t, maxW, size = 10) => {
-      const avail = Math.max(0, (maxW || 0) - 4);
-      let s = String(t ?? '');
-      if (!s) return '';
-      if (measure(s, size) <= avail) return s;
-      const ell = '…';
-      let lo = 0, hi = s.length;
-      while (lo < hi) {
-        const mid = Math.floor((lo + hi + 1) / 2);
-        if (measure(s.slice(0, mid) + ell, size) <= avail) lo = mid; else hi = mid - 1;
-      }
-      return s.slice(0, lo) + ell;
-    };
-    // Title
-    drawText("Custos ações", margin, 16);
-    y += 22;
-    const range = `${formatDateBR(firstDate)} - ${formatDateBR(lastDate)}`;
-    drawText(`Período: ${range}`, margin, 10);
-    y += 16;
-    // Totals
-    drawText(`Total a pagar (Valor total): R$ ${formatBRL(totalApagar)}`, margin, 11);
-    y += 16;
-    drawText(`Total pago: R$ ${formatBRL(totalPago)}`, margin, 11);
-    y += 20;
-
-    // Headers
-    const headers = ["Data", "Cliente", "Ação", "Colaborador", "Vencimento", "Valor total", "Pgt", "Banco/PIX", "Status"];
-    {
-      let cx = margin;
-      headers.forEach((h, i) => { drawText(h, cx, 9); cx += colWidths[i]; });
-    }
-    page.drawLine({ start: { x: margin, y: page.getHeight() - y - 4 }, end: { x: pageWidth - margin, y: page.getHeight() - y - 4 }, thickness: 1, color: rgb(0.7, 0.7, 0.7) });
-    y += rowHeight;
-
-    rows.forEach((r) => {
-      const data = r?.actionId?.date ? formatDateBR(r.actionId.date) : formatDateBR(r?.reportDate);
-      const cliente = r?.actionId?.clientName || r?.actionId?.client || '';
-      const acao = r?.actionId?.name || '';
-      const staff = Array.isArray(r?.actionId?.staff) ? r.actionId.staff : [];
-      const costs = Array.isArray(r?.actionId?.costs) ? r.actionId.costs : [];
-      const status = (r?.status || 'ABERTO').toUpperCase();
-      let cx = margin;
-      drawText(data, cx, 8.5); cx += colWidths[0];
-      drawText(clip(cliente, colWidths[1], 8.5), cx, 8.5); cx += colWidths[1];
-      drawText(clip(acao, colWidths[2], 8.5), cx, 8.5); cx += colWidths[2];
-      let sName = r?.staffName || '';
-      if (!sName && r?.costId) {
-        const ct = costs.find(c => String(c._id) === String(r.costId));
-        if (ct) sName = r?.colaboradorLabel ? `${ct.description || ''} - ${r.colaboradorLabel}` : (ct.description || '');
-      }
-      drawText(clip(sName, colWidths[3], 8.5), cx, 8.5); cx += colWidths[3];
-      const st = staff.find(s => s.name === r?.staffName);
-      const venci = formatDateBR(st?.vencimento);
-      drawText(venci, cx, 8.5); cx += colWidths[4];
-      const sVal = (st && typeof st.value !== 'undefined') ? formatBRL(Number(st.value)) : '';
-      drawText(sVal, cx, 8.5); cx += colWidths[5];
-      const sPgt = st?.pgt || '';
-      drawText(clip(sPgt, colWidths[6], 8.5), cx, 8.5); cx += colWidths[6];
-      const disp = (sPgt === 'PIX') ? (st?.pix || '') : (sPgt === 'TED' ? (st?.bank || '') : '');
-      drawText(clip(disp, colWidths[7], 8.5), cx, 8.5); cx += colWidths[7];
-      drawText(status, cx, 8.5);
-      page.drawLine({ start: { x: margin, y: page.getHeight() - y - 2 }, end: { x: pageWidth - margin, y: page.getHeight() - y - 2 }, thickness: 0.5, color: rgb(0.85, 0.85, 0.85) });
-      y += rowHeight;
-    });
-
-    const pdfBytes = await doc.save();
-    const blob = new globalThis.Blob([pdfBytes], { type: "application/pdf" });
-    const url = globalThis.URL.createObjectURL(blob);
-    const a = globalThis.document.createElement("a");
-    a.href = url;
-    a.download = `custos-acoes.pdf`;
-    a.click();
-    globalThis.URL.revokeObjectURL(url);
+    await gerarPDFAcoesUtil(filtered);
   }
 
   // Contas Fixas filtered by date presets and status presets (not by text search)
@@ -435,263 +329,28 @@ export default function ContasAPagarPage() {
     else { setSortKeyFixas(key); setSortDirFixas('asc'); setPageFixas(1); }
   };
 
-  async function gerarPDF() {
-    const rows = filtered;
-    const includeFixas = (query || '').trim().length === 0; // include Contas Fixas only when not searching
-    const fixasRows = includeFixas ? filteredFixas : [];
-    if (!rows.length && !(includeFixas && fixasRows.length)) {
-      globalThis.alert("Nenhum resultado para gerar o relatório");
-      return;
-    }
-    // Compute display range based on selected filters or available data
-    let firstDate = null;
-    let lastDate = null;
-    if (dueFrom || dueTo) {
-      firstDate = dueFrom ? new Date(`${dueFrom}T00:00:00`) : null;
-      lastDate = dueTo ? new Date(`${dueTo}T23:59:59`) : null;
-    } else if (rows.length) {
-      firstDate = rows[0]?.reportDate ? new Date(rows[0].reportDate) : null;
-      lastDate = rows[rows.length - 1]?.reportDate ? new Date(rows[rows.length - 1].reportDate) : null;
-    } else if (fixasRows.length) {
-      const dates = fixasRows.map(c => c.vencimento ? new Date(c.vencimento).getTime() : null).filter(Boolean);
-      if (dates.length) {
-        dates.sort((a, b) => a - b);
-        firstDate = new Date(dates[0]);
-        lastDate = new Date(dates[dates.length - 1]);
-      }
-    }
-
-    // compute insights per row (per-colaborador): total a pagar and total pago
-    let totalAcoesApagar = 0;
-    let totalAcoesPago = 0;
-    let totalLinesAcoes = 0;
-    for (const r of rows) {
-      const staff = Array.isArray(r?.actionId?.staff) ? r.actionId.staff : [];
-      const costs = Array.isArray(r?.actionId?.costs) ? r.actionId.costs : [];
-      const st = r?.staffName ? staff.find(s => s.name === r?.staffName) : null;
-      const ct = (!r?.staffName && r?.costId) ? costs.find(c => String(c._id) === String(r.costId)) : null;
-      const v = Number((st?.value ?? ct?.value) || 0);
-      totalAcoesApagar += v;
-      if ((r?.status || 'ABERTO').toUpperCase() === 'PAGO') totalAcoesPago += v;
-      totalLinesAcoes += 1; // one line per colaborador row
-    }
-
-    // Totals for Contas Fixas
-    let totalFixasApagar = 0;
-    let totalFixasPago = 0;
-    for (const c of fixasRows) {
-      const v = Number(c?.valor || 0);
-      totalFixasApagar += v;
-      if (getDisplayStatus(c) === 'PAGO') totalFixasPago += v;
-    }
-    const totalGeralApagar = totalAcoesApagar + (includeFixas ? totalFixasApagar : 0);
-
-    const doc = await PDFDocument.create();
-    const font = await doc.embedFont(StandardFonts.Helvetica);
-    const pageWidth = 900;
-    const rowHeight = 18;
-    const headerHeight = 28;
-    const margin = 30;
-    // Data, Cliente, Ação, Colaborador, Vencimento, Valor, Pgt, Banco/PIX, Status
-    const colWidths = [70, 150, 150, 140, 90, 80, 50, 180, 80];
-    // Estimate dynamic height: title + overall + acoes section + fixas section (if any)
-    let estHeight = margin;
-    estHeight += 22; // title
-    estHeight += 18; // overall total line
-    estHeight += 12; // gap
-    estHeight += 18; // 'Custos ações' label
-    estHeight += 36; // acoes totals
-    estHeight += headerHeight + Math.max(totalLinesAcoes, 1) * rowHeight + 16; // acoes table + gap
-    if (includeFixas) {
-      estHeight += 18; // 'Contas Fixas' label
-      estHeight += 36; // fixas totals
-      // Fixas table header + rows (6 columns)
-      estHeight += headerHeight + Math.max(fixasRows.length, 1) * rowHeight + 16;
-    }
-    estHeight += margin;
-    const pageHeight = Math.max(500, estHeight);
-    const page = doc.addPage([pageWidth, pageHeight]);
-    let y = margin;
-    const drawText = (text, x, size = 10) => {
-      page.drawText(String(text ?? ""), { x, y: page.getHeight() - y, size, font });
-    };
-    const measure = (t, size = 10) => font.widthOfTextAtSize(String(t ?? ''), size);
-    const clip = (t, maxW, size = 10) => {
-      const avail = Math.max(0, (maxW || 0) - 4);
-      let s = String(t ?? '');
-      if (!s) return '';
-      if (measure(s, size) <= avail) return s;
-      const ell = '…';
-      let lo = 0, hi = s.length;
-      while (lo < hi) {
-        const mid = Math.floor((lo + hi + 1) / 2);
-        if (measure(s.slice(0, mid) + ell, size) <= avail) lo = mid; else hi = mid - 1;
-      }
-      return s.slice(0, lo) + ell;
-    };
-
-    // Title and overall summary
-    drawText("Contas a pagar", margin, 16);
-    y += 22;
-    const range = `${formatDateBR(firstDate)} - ${formatDateBR(lastDate)}`;
-    drawText(`Período: ${range}`, margin, 10);
-    y += 16;
-    drawText(`Total geral (Valor total${includeFixas ? ' - ações + fixas' : ''}): R$ ${formatBRL(totalGeralApagar)}`, margin, 12);
-    y += 20;
-
-    // Section: Custos ações
-    drawText('Custos ações', margin, 14);
-    y += 18;
-    drawText(`Total a pagar (Valor total - ações): R$ ${formatBRL(totalAcoesApagar)}`, margin, 11);
-    y += 16;
-    drawText(`Total pago (ações): R$ ${formatBRL(totalAcoesPago)}`, margin, 11);
-    y += 20;
-
-    // Header aligned with Custos ações table
-    const headers = ["Data", "Cliente", "Ação", "Colaborador", "Vencimento", "Valor total", "Pgt", "Banco/PIX", "Status"];
-    // Draw headers row
-    {
-      let cx = margin;
-      headers.forEach((h, i) => {
-        drawText(h, cx, 9);
-        cx += colWidths[i];
-      });
-    }
-    page.drawLine({ start: { x: margin, y: page.getHeight() - y - 4 }, end: { x: pageWidth - margin, y: page.getHeight() - y - 4 }, thickness: 1, color: rgb(0.7, 0.7, 0.7) });
-    y += rowHeight;
-
-    // Rows: one line per colaborador entry
-    rows.forEach((r) => {
-      const data = r?.actionId?.date ? formatDateBR(r.actionId.date) : formatDateBR(r?.reportDate);
-      const cliente = r?.actionId?.clientName || r?.actionId?.client || '';
-      const acao = r?.actionId?.name || '';
-      const staff = Array.isArray(r?.actionId?.staff) ? r.actionId.staff : [];
-      const costs = Array.isArray(r?.actionId?.costs) ? r.actionId.costs : [];
-      const status = (r?.status || 'ABERTO').toUpperCase();
-      let cx = margin;
-      drawText(data, cx, 8.5); cx += colWidths[0];
-      drawText(clip(cliente, colWidths[1], 8.5), cx, 8.5); cx += colWidths[1];
-      drawText(clip(acao, colWidths[2], 8.5), cx, 8.5); cx += colWidths[2];
-      const st = r?.staffName ? staff.find(s => s.name === r?.staffName) : null;
-      const ct = (!r?.staffName && r?.costId) ? costs.find(c => String(c._id) === String(r.costId)) : null;
-      const sName = r?.staffName ? (r?.staffName || '') : (ct?.description || '');
-      drawText(clip(sName, colWidths[3], 8.5), cx, 8.5); cx += colWidths[3];
-      const venci = st?.vencimento ? formatDateBR(st.vencimento) : formatDateBR(ct?.vencimento);
-      drawText(venci, cx, 8.5); cx += colWidths[4];
-      const valNumber = (st && typeof st.value !== 'undefined') ? Number(st.value) : (ct && typeof ct.value !== 'undefined') ? Number(ct.value) : NaN;
-      const sVal = Number.isFinite(valNumber) ? formatBRL(valNumber) : '';
-      drawText(sVal, cx, 8.5); cx += colWidths[5];
-      const sPgt = (st?.pgt || ct?.pgt || '');
-      drawText(clip(sPgt, colWidths[6], 8.5), cx, 8.5); cx += colWidths[6];
-      const disp = (sPgt === 'PIX') ? (st?.pix || ct?.pix || '') : (sPgt === 'TED' ? (st?.bank || ct?.bank || '') : '');
-      drawText(clip(disp, colWidths[7], 8.5), cx, 8.5); cx += colWidths[7];
-      drawText(status, cx, 8.5);
-      page.drawLine({ start: { x: margin, y: page.getHeight() - y - 2 }, end: { x: pageWidth - margin, y: page.getHeight() - y - 2 }, thickness: 0.5, color: rgb(0.85, 0.85, 0.85) });
-      y += rowHeight;
+  // Full PDF (ações + fixas when no search)
+  async function onGerarPDF() {
+    const includeFixas = (query || '').trim().length === 0;
+    await gerarContasAPagarPDF({
+      rows: filtered,
+      fixasRows: includeFixas ? filteredFixas : [],
+      dueFrom,
+      dueTo,
+      includeFixas,
+      getDisplayStatus,
     });
-
-    // Optional Section: Contas Fixas
-    if (includeFixas) {
-      y += 8;
-      drawText('Contas Fixas', margin, 14);
-      y += 18;
-      drawText(`Total a pagar (Valor total - fixas): R$ ${formatBRL(totalFixasApagar)}`, margin, 11);
-      y += 16;
-      drawText(`Total pago (fixas): R$ ${formatBRL(totalFixasPago)}`, margin, 11);
-      y += 20;
-
-      // Headers for fixas table: Nome, Empresa, Tipo, Valor, Vencimento, Status
-      const fHeaders = ["Nome", "Empresa", "Tipo", "Valor total", "Vencimento", "Status"];
-      const fColWidths = [180, 180, 90, 90, 110, 100];
-      {
-        let cx = margin;
-        fHeaders.forEach((h, i) => { drawText(h, cx, 9); cx += fColWidths[i]; });
-      }
-      page.drawLine({ start: { x: margin, y: page.getHeight() - y - 4 }, end: { x: pageWidth - margin, y: page.getHeight() - y - 4 }, thickness: 1, color: rgb(0.7, 0.7, 0.7) });
-      y += rowHeight;
-      fixasRows.forEach(c => {
-        let cx = margin;
-        drawText(clip(c.name || '', fColWidths[0], 8.5), cx, 8.5); cx += fColWidths[0];
-        drawText(clip(c.empresa || '', fColWidths[1], 8.5), cx, 8.5); cx += fColWidths[1];
-        drawText(clip(String(c.tipo || ''), fColWidths[2], 8.5), cx, 8.5); cx += fColWidths[2];
-        const fVal = (c.valor != null) ? formatBRL(Number(c.valor)) : '';
-        drawText(fVal, cx, 8.5); cx += fColWidths[3];
-        const fVenc = formatDateBR(c.vencimento);
-        drawText(fVenc, cx, 8.5); cx += fColWidths[4];
-        drawText(getDisplayStatus(c), cx, 8.5);
-        page.drawLine({ start: { x: margin, y: page.getHeight() - y - 2 }, end: { x: pageWidth - margin, y: page.getHeight() - y - 2 }, thickness: 0.5, color: rgb(0.85, 0.85, 0.85) });
-        y += rowHeight;
-      });
-    }
-
-    const pdfBytes = await doc.save();
-    const blob = new globalThis.Blob([pdfBytes], { type: "application/pdf" });
-    const url = globalThis.URL.createObjectURL(blob);
-    const a = globalThis.document.createElement("a");
-    a.href = url;
-    a.download = `contas-a-pagar.pdf`;
-    a.click();
-    globalThis.URL.revokeObjectURL(url);
   }
 
+  // Contas fixas CRUD helpers
   async function fetchFixas() {
     try {
       const res = await globalThis.fetch('/api/contafixa');
       if (!res.ok) throw new Error('Falha ao carregar contas fixas');
       const data = await res.json();
       setFixas(Array.isArray(data) ? data : []);
-    } catch { setFixas([]); }
-  }
-
-  async function saveFixa() {
-    const parsedValor = parseCurrency(fixaForm.valor);
-    const hasValor = typeof parsedValor === 'number';
-    const payload = {
-      name: fixaForm.name,
-      empresa: fixaForm.empresa,
-      tipo: fixaForm.tipo,
-      valor: hasValor ? parsedValor : undefined,
-      status: (fixaForm.status || 'ABERTO').toUpperCase(),
-      vencimento: fixaForm.vencimento || undefined,
-    };
-    try {
-      let res;
-      if (fixaEditing && fixaEditing._id) {
-        // Editing: control lastPaidAt based on chosen status
-        if (payload.status === 'PAGO') {
-          payload.lastPaidAt = new Date().toISOString();
-        } else {
-          payload.lastPaidAt = null; // clear prior payments
-        }
-        res = await globalThis.fetch('/api/contafixa', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ id: fixaEditing._id, ...payload })
-        });
-      } else {
-        if (payload.status === 'PAGO') {
-          payload.lastPaidAt = new Date().toISOString();
-        }
-        res = await globalThis.fetch('/api/contafixa', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify(payload)
-        });
-      }
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || 'Falha ao salvar conta fixa');
-      }
-      // Consume JSON response (ignored) without showing alerts
-      await res.json().catch(() => null);
-      setShowFixaModal(false);
-      setFixaEditing(null);
-      setFixaForm({ name: '', empresa: '', tipo: 'mensal', valor: '', status: 'ABERTO', vencimento: '' });
-      fetchFixas();
-    } catch (e) {
-      globalThis.alert(e.message || 'Erro ao salvar conta fixa');
+    } catch {
+      setFixas([]);
     }
   }
 
@@ -709,15 +368,58 @@ export default function ContasAPagarPage() {
       tipo: c.tipo || 'mensal',
       valor: c.valor != null ? formatBRL(Number(c.valor)) : '',
       status: (c.status || 'ABERTO').toUpperCase(),
-      vencimento: c.vencimento ? new Date(c.vencimento).toISOString().slice(0, 10) : '',
+      vencimento: c.vencimento ? new Date(c.vencimento).toISOString().slice(0, 10) : ''
     });
     setShowFixaModal(true);
+  }
+
+  async function saveFixa() {
+    const parsedValor = parseCurrency(fixaForm.valor);
+    const payload = {
+      name: (fixaForm.name || '').trim(),
+      empresa: (fixaForm.empresa || '').trim(),
+      tipo: (fixaForm.tipo || '').trim(),
+      valor: typeof parsedValor === 'number' ? parsedValor : undefined,
+      status: (fixaForm.status || 'ABERTO').toUpperCase(),
+      vencimento: fixaForm.vencimento || undefined,
+    };
+    try {
+      let res;
+      if (fixaEditing && fixaEditing._id) {
+        if (payload.status === 'PAGO') payload.lastPaidAt = new Date().toISOString(); else payload.lastPaidAt = null;
+        res = await globalThis.fetch('/api/contafixa', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ id: fixaEditing._id, ...payload })
+        });
+      } else {
+        if (payload.status === 'PAGO') payload.lastPaidAt = new Date().toISOString();
+        res = await globalThis.fetch('/api/contafixa', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(payload)
+        });
+      }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Falha ao salvar conta fixa');
+      }
+      setShowFixaModal(false);
+      setFixaEditing(null);
+      fetchFixas();
+    } catch (e) {
+      globalThis.alert(e.message || 'Erro ao salvar conta fixa');
+    }
   }
 
   async function deleteFixa(id) {
     if (!globalThis.confirm('Tem certeza que deseja excluir esta conta fixa?')) return;
     try {
-      const res = await globalThis.fetch('/api/contafixa', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
+      const res = await globalThis.fetch('/api/contafixa', {
+        method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id })
+      });
       if (!res.ok) throw new Error('Falha ao excluir');
       fetchFixas();
     } catch (e) {
@@ -725,37 +427,14 @@ export default function ContasAPagarPage() {
     }
   }
 
-  if (status === "loading") return <div>Loading...</div>;
-  if (!session) return <Wrapper><Title>Acesso restrito</Title><p>Faça login para acessar.</p></Wrapper>;
+  if (status === "loading") return (<Wrapper>Carregando…</Wrapper>);
 
   return (
     <Wrapper>
-      <Title>Contas a Pagar</Title>
-      <Filters
-        dueFrom={dueFrom}
-        dueTo={dueTo}
-        onChangeDueFrom={setDueFrom}
-        onChangeDueTo={setDueTo}
-        statusFilter={statusFilter}
-        onChangeStatus={setStatusFilter}
-        onClear={clearAll}
-        inputSx={inputSx}
-      />
-      <div style={{ marginTop: '0.5rem', display: 'flex', gap: 8 }}>
-        <FE.TopSecondaryButton onClick={gerarPDF} disabled={loading}>Gerar PDF</FE.TopSecondaryButton>
-      </div>
-      <h2 style={{ marginTop: 16 }}>Custos ações</h2>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {totalAcoes > pageSizeAcoes && (
-            <Pager page={pageAcoes} pageSize={pageSizeAcoes} total={totalAcoes} onChangePage={setPageAcoes} compact />
-          )}
-          <PageSizeSelector pageSize={pageSizeAcoes} total={totalAcoes} onChange={(n) => { setPageAcoes(1); setPageSizeAcoes(n); }} />
-        </div>
-      </div>
-      {/* Search limited to Custos ações + PDF for actions only */}
-      <div style={{ display: 'flex', gap: 8, alignItems: 'end', marginTop: 6, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 280, flex: '1 1 320px' }}>
+      <Title>Contas a pagar</Title>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'end', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 280, flex: '1 1 320px' }}>
           <label>Buscar</label>
           <FE.Input
             ref={inputRef}
@@ -765,104 +444,41 @@ export default function ContasAPagarPage() {
             style={{ ...inputSx }}
           />
         </div>
-        <FE.SecondaryButton onClick={gerarPDFAcoes} style={{ height: 40 }}>Gerar PDF</FE.SecondaryButton>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <FE.SecondaryButton onClick={onGerarPDFAcoes} style={{ height: 40 }}>Gerar PDF (ações)</FE.SecondaryButton>
+          <FE.SecondaryButton onClick={onGerarPDF} style={{ height: 40 }}>Gerar PDF (com fixas)</FE.SecondaryButton>
+        </div>
       </div>
-      <Table>
-        <thead>
-          <tr>
-            <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSortAcoes('created')}>
-              Data {sortKeyAcoes === 'created' ? (sortDirAcoes === 'asc' ? '▲' : '▼') : ''}
-            </Th>
-            <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSortAcoes('acao')}>
-              Ação {sortKeyAcoes === 'acao' ? (sortDirAcoes === 'asc' ? '▲' : '▼') : ''}
-            </Th>
-            <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSortAcoes('colaborador')}>
-              Colaborador/Empresa {sortKeyAcoes === 'colaborador' ? (sortDirAcoes === 'asc' ? '▲' : '▼') : ''}
-            </Th>
-            <Th>Descrição</Th>
-            <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSortAcoes('due')}>
-              Vencimento {sortKeyAcoes === 'due' ? (sortDirAcoes === 'asc' ? '▲' : '▼') : ''}
-            </Th>
-            <Th>Valor</Th>
-            <Th>Pgt</Th>
-            <Th>Banco/PIX</Th>
-            <Th>Status</Th>
-          </tr>
-        </thead>
-        <tbody>
-          {pageDataAcoes.map(report => (
-            <tr key={report._id}>
-              <Td>{report.actionId?.date ? formatDateBR(report.actionId.date) : formatDateBR(report.reportDate)}</Td>
-              <Td>
-                {report?.actionId?._id ? (
-                  <button
-                    onClick={() => globalThis.location.assign(`/acoes/${report.actionId._id}`)}
-                    style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer' }}
-                  >
-                    {report.actionId?.name || ""}
-                  </button>
-                ) : (report.actionId?.name || "")}
-              </Td>
-              <Td><ColaboradorCell report={report} /></Td>
-              <Td>{(() => {
-                // Descrição: staff rows empty, cost rows show description
-                const costs = Array.isArray(report.actionId?.costs) ? report.actionId.costs : [];
-                const ct = (!report.staffName && report.costId) ? costs.find(c => String(c._id) === String(report.costId)) : null;
-                return ct?.description || '';
-              })()}</Td>
-              <Td>{(() => {
-                const staff = Array.isArray(report.actionId?.staff) ? report.actionId.staff : [];
-                const costs = Array.isArray(report.actionId?.costs) ? report.actionId.costs : [];
-                const st = report.staffName ? staff.find(s => s.name === report.staffName) : null;
-                const ct = (!report.staffName && report.costId) ? costs.find(c => String(c._id) === String(report.costId)) : null;
-                const d = st?.vencimento || ct?.vencimento;
-                return formatDateBR(d);
-              })()}</Td>
-              <Td>{(() => {
-                const staff = Array.isArray(report.actionId?.staff) ? report.actionId.staff : [];
-                const costs = Array.isArray(report.actionId?.costs) ? report.actionId.costs : [];
-                const st = report.staffName ? staff.find(s => s.name === report.staffName) : null;
-                const ct = (!report.staffName && report.costId) ? costs.find(c => String(c._id) === String(report.costId)) : null;
-                const val = (st && typeof st.value !== 'undefined') ? Number(st.value) : (ct && typeof ct.value !== 'undefined') ? Number(ct.value) : null;
-                return (val != null) ? formatBRL(val) : '';
-              })()}</Td>
-              <Td>{(() => {
-                const staff = Array.isArray(report.actionId?.staff) ? report.actionId.staff : [];
-                const costs = Array.isArray(report.actionId?.costs) ? report.actionId.costs : [];
-                const st = report.staffName ? staff.find(s => s.name === report.staffName) : null;
-                const ct = (!report.staffName && report.costId) ? costs.find(c => String(c._id) === String(report.costId)) : null;
-                return st?.pgt || ct?.pgt || '';
-              })()}</Td>
-              <Td>{(() => {
-                const staff = Array.isArray(report.actionId?.staff) ? report.actionId.staff : [];
-                const costs = Array.isArray(report.actionId?.costs) ? report.actionId.costs : [];
-                const st = report.staffName ? staff.find(s => s.name === report.staffName) : null;
-                const ct = (!report.staffName && report.costId) ? costs.find(c => String(c._id) === String(report.costId)) : null;
-                const method = (st?.pgt || ct?.pgt || '').toUpperCase();
-                if (method === 'PIX') return st?.pix || ct?.pix || '';
-                if (method === 'TED') return st?.bank || ct?.bank || '';
-                return '';
-              })()}</Td>
-              <Td>
-                {session.user.role === "admin" ? (
-                  <StatusSelect
-                    value={(report.status || "ABERTO").toUpperCase()}
-                    options={[{ value: 'ABERTO', label: 'ABERTO' }, { value: 'PAGO', label: 'PAGO' }]}
-                    onChange={(e) => handleStatusChange(report._id, e.target.value, report.status || "ABERTO")}
-                  />
-                ) : (
-                  <StatusBadge value={(report.status || "ABERTO").toUpperCase()} />
-                )}
-              </Td>
-            </tr>
-          ))}
-        </tbody>
-      </Table>
-      {totalAcoes > pageSizeAcoes && (
-        <Pager page={pageAcoes} pageSize={pageSizeAcoes} total={totalAcoes} onChangePage={setPageAcoes} compact />
-      )}
 
-      {/* Contas Fixas section */}
+      <div style={{ marginTop: 12 }}>
+        <Filters
+          dueFrom={dueFrom}
+          dueTo={dueTo}
+          onChangeDueFrom={setDueFrom}
+          onChangeDueTo={setDueTo}
+          statusFilter={statusFilter}
+          onChangeStatus={setStatusFilter}
+          onClear={clearAll}
+          inputSx={inputSx}
+        />
+      </div>
+
+      <div style={{ marginTop: 12 }}>
+        <AcoesTable
+          rows={pageDataAcoes}
+          page={pageAcoes}
+          pageSize={pageSizeAcoes}
+          total={totalAcoes}
+          onChangePage={setPageAcoes}
+          onChangePageSize={setPageSizeAcoes}
+          sortKey={sortKeyAcoes}
+          sortDir={sortDirAcoes}
+          onToggleSort={toggleSortAcoes}
+          onChangeStatus={handleStatusChange}
+          session={session}
+        />
+      </div>
+
       <h2 style={{ marginTop: 24 }}>Contas Fixas</h2>
       {session?.user?.role === 'admin' && (
         <div style={{ marginTop: 8 }}>
@@ -896,7 +512,6 @@ export default function ContasAPagarPage() {
         onStatusChange={handleFixaStatusChange}
       />
 
-      {/* Modal Nova Conta Fixa */}
       {showFixaModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
           <div style={{ background: '#fff', padding: 16, borderRadius: 8, width: 420, maxWidth: '90%' }}>

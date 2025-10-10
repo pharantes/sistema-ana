@@ -1,8 +1,7 @@
 "use client";
 import { useMemo } from "react";
 import { Table, Th, Td } from "../../components/ui/Table";
-import Pager from "../../components/ui/Pager";
-import PageSizeSelector from "../../components/ui/PageSizeSelector";
+import HeaderControls from "../../components/ui/HeaderControls";
 import StatusSelect from "../../components/ui/StatusSelect";
 import * as FE from "../../components/FormElements";
 import { formatMonthYearBR } from "@/lib/utils/dates";
@@ -91,12 +90,13 @@ export default function ContasFixasTable({
           )}
         </tbody>
       </Table>
-      {total > pageSize && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8, justifyContent: 'space-between', flexWrap: 'wrap' }}>
-          <Pager page={page} pageSize={pageSize} total={total} onChangePage={onChangePage} compact />
-          <PageSizeSelector pageSize={pageSize} total={total} onChange={(n) => { onChangePage?.(1); onChangePageSize?.(n); }} />
-        </div>
-      )}
+      <HeaderControls
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        onChangePage={onChangePage}
+        onChangePageSize={(n) => { onChangePage?.(1); onChangePageSize?.(n); }}
+      />
     </>
   );
 }

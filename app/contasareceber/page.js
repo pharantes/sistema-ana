@@ -2,17 +2,11 @@
 /* eslint-env browser */
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import styled from "styled-components";
-import Pager from "../components/ui/Pager";
-import PageSizeSelector from "../components/ui/PageSizeSelector";
-import { Table, Th, Td } from "../components/ui/Table";
-import { formatDateBR } from "@/lib/utils/dates";
-import { formatBRL } from "../utils/currency";
-import * as FE from "../components/FormElements";
-import StatusSelect from "../components/ui/StatusSelect";
 import Filters from "./Filters";
 import ContasReceberModal from "./ContasReceberModal";
+import AcoesTable from "./components/AcoesTable";
+import { gerarContasAReceberPDF } from "./utils/pdf";
 
 // Pager now centralized in components/ui/Pager
 
@@ -77,7 +71,7 @@ export default function ContasAReceberPage() {
   // totalPages not needed here since Pager computes it internally
 
   async function gerarPDF() {
-    // Fetch all rows with current filters to generate full report
+    // Busca todos os itens com os filtros atuais para gerar o relatório completo
     const apiUrl = new URL('/api/contasareceber', globalThis.location.origin);
     if (query) apiUrl.searchParams.set('q', query);
     if (mode === 'venc') {
@@ -95,86 +89,7 @@ export default function ContasAReceberPage() {
     const resAll = await fetch(apiUrl.toString());
     const dataAll = await resAll.json();
     const rows = Array.isArray(dataAll?.items) ? dataAll.items : (Array.isArray(dataAll) ? dataAll : []);
-    if (!rows.length) {
-      globalThis.alert("Nenhum resultado para gerar o relatório");
-      return;
-    }
-    const firstDate = rows[0]?.date ? new Date(rows[0].date) : null;
-    const lastDate = rows[rows.length - 1]?.date ? new Date(rows[rows.length - 1].date) : null;
-
-    let totalReceber = 0;
-    let totalLines = 0;
-    for (const a of rows) {
-      totalReceber += Number(a?.receivable?.valor ?? 0);
-      const staffLen = Array.isArray(a?.staff) ? a.staff.length : 0;
-      totalLines += Math.max(1, staffLen);
-    }
-
-    const doc = await PDFDocument.create();
-    const font = await doc.embedFont(StandardFonts.Helvetica);
-    const pageWidth = 900;
-    const rowHeight = 18;
-    const headerHeight = 28;
-    const margin = 30;
-    // Evento, Cliente, Data, Colaboradores, PIX, Valor
-    const colWidths = [160, 200, 100, 180, 150, 100];
-    const pageHeight = margin + headerHeight + (totalLines + 5) * rowHeight + 80;
-    const page = doc.addPage([pageWidth, pageHeight]);
-    let y = margin;
-    const drawText = (text, x, size = 10) => {
-      page.drawText(String(text ?? ""), { x, y: page.getHeight() - y, size, font });
-    };
-
-    // Title and range
-    drawText("Relatório - Contas a Receber", margin, 16);
-    y += 22;
-    const range = `${formatDateBR(firstDate)} - ${formatDateBR(lastDate)}`;
-    drawText(`Período: ${range}`, margin, 10);
-    y += 20;
-
-    // Insights
-    drawText(`Total a receber (período): R$ ${formatBRL(totalReceber)}`, margin, 11);
-    y += 24;
-
-    // Header
-    const headers = ["Evento", "Cliente", "Data", "Colaboradores", "PIX", "Valor total (R$)"];
-    let x = margin;
-    headers.forEach((h, i) => { drawText(h, x, 10); x += colWidths[i]; });
-    page.drawLine({ start: { x: margin, y: page.getHeight() - y - 4 }, end: { x: pageWidth - margin, y: page.getHeight() - y - 4 }, thickness: 1, color: rgb(0.7, 0.7, 0.7) });
-    y += rowHeight;
-
-    // Rows: colaboradores/PIX on aligned multiple lines; only first line shows Evento/Cliente/Data/Valor
-    rows.forEach((a) => {
-      const evento = a?.name || '';
-      const cliente = a?.client || '';
-      const data = formatDateBR(a?.date);
-      const valor = (a?.receivable?.valor != null) ? `R$ ${formatBRL(Number(a.receivable.valor))}` : '-';
-      const staff = Array.isArray(a?.staff) ? a.staff : [];
-      const lines = Math.max(1, staff.length);
-
-      for (let i = 0; i < lines; i++) {
-        let cx = margin;
-        if (i === 0) drawText(evento, cx, 8.5); cx += colWidths[0];
-        if (i === 0) drawText(cliente, cx, 8.5); cx += colWidths[1];
-        if (i === 0) drawText(data, cx, 8.5); cx += colWidths[2];
-        const sName = staff[i]?.name || '';
-        drawText(sName, cx, 8.5); cx += colWidths[3];
-        const sPix = staff[i]?.pix || '';
-        drawText(sPix, cx, 8.5); cx += colWidths[4];
-        if (i === 0) drawText(valor, cx, 8.5);
-        page.drawLine({ start: { x: margin, y: page.getHeight() - y - 2 }, end: { x: pageWidth - margin, y: page.getHeight() - y - 2 }, thickness: 0.5, color: rgb(0.85, 0.85, 0.85) });
-        y += rowHeight;
-      }
-    });
-
-    const pdfBytes = await doc.save();
-    const blob = new globalThis.Blob([pdfBytes], { type: "application/pdf" });
-    const url = globalThis.URL.createObjectURL(blob);
-    const a = globalThis.document.createElement("a");
-    a.href = url;
-    a.download = `contas-a-receber.pdf`;
-    a.click();
-    globalThis.URL.revokeObjectURL(url);
+    await gerarContasAReceberPDF(rows);
   }
 
   const toggleSort = (key) => {
@@ -205,99 +120,36 @@ export default function ContasAReceberPage() {
         onChangeStatus={setStatusFilter}
         onClear={clearFilters}
       />
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', marginTop: 8 }}>
-        <Pager page={page} pageSize={pageSize} total={total} onChangePage={setPage} compact inline />
-        <PageSizeSelector pageSize={pageSize} total={total} onChange={(n) => { setPage(1); setPageSize(n); }} />
-      </div>
-      <Table>
-        <thead>
-          <tr>
-            <Th style={{ cursor: 'pointer' }} onClick={() => toggleSort('date')}>
-              Data {sortKey === 'date' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-            </Th>
-            <Th style={{ cursor: 'pointer' }} onClick={() => toggleSort('acao')}>
-              Ação {sortKey === 'acao' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-            </Th>
-            <Th style={{ cursor: 'pointer' }} onClick={() => toggleSort('cliente')}>
-              Cliente {sortKey === 'cliente' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-            </Th>
-            <Th>Descrição</Th>
-            <Th>Qtde Parcela</Th>
-            <Th>Valor Parcela</Th>
-            <Th>Valor total</Th>
-            <Th style={{ cursor: 'pointer' }} onClick={() => toggleSort('venc')}>
-              Data Vencimento {sortKey === 'venc' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-            </Th>
-            <Th style={{ cursor: 'pointer' }} onClick={() => toggleSort('receb')}>
-              Data Recebimento {sortKey === 'receb' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-            </Th>
-            <Th>Status</Th>
-            <Th>Opções</Th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map(row => {
-            const r = row.receivable || {};
-            const venc = formatDateBR(r?.dataVencimento);
-            const receb = formatDateBR(r?.dataRecebimento);
-            const data = formatDateBR(row?.date);
-            return (
-              <tr key={row._id} onClick={() => globalThis.location.assign(`/contasareceber/${row._id}`)} style={{ cursor: 'pointer' }}>
-                <Td>{data}</Td>
-                <Td style={{ textAlign: 'left' }}>
-                  <span style={{ display: 'inline-block', textAlign: 'left' }}>{row.name}</span>
-                </Td>
-                <Td>{row.clientName || ''}</Td>
-                <Td>{r?.descricao || ''}</Td>
-                <Td>{r?.qtdeParcela ?? ''}</Td>
-                <Td>{r?.valorParcela != null ? `R$ ${formatBRL(Number(r.valorParcela))}` : ''}</Td>
-                <Td>{r?.valor != null ? `R$ ${formatBRL(Number(r.valor))}` : ''}</Td>
-                <Td>{venc}</Td>
-                <Td>{receb}</Td>
-                <Td>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <StatusSelect
-                      value={(r?.status || 'ABERTO')}
-                      options={[{ value: 'ABERTO', label: 'ABERTO' }, { value: 'RECEBIDO', label: 'RECEBIDO' }]}
-                      onChange={async (e) => {
-                        const next = e.target.value;
-                        e.stopPropagation();
-                        // optimistic UI
-                        setItems(prev => prev.map(it => it._id === row._id ? { ...it, receivable: { ...(it.receivable || {}), status: next } } : it));
-                        try {
-                          const payload = {
-                            id: r?._id,
-                            actionId: row._id,
-                            clientId: row.clientId,
-                            status: next,
-                          };
-                          const res = await fetch('/api/contasareceber', {
-                            method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-                          });
-                          if (!res.ok) throw new Error('Falha ao atualizar status');
-                        } catch (err) {
-                          alert(err.message || 'Erro ao atualizar status');
-                          // revert on error
-                          setItems(prev => prev.map(it => it._id === row._id ? { ...it, receivable: { ...(it.receivable || {}), status: (r?.status || 'ABERTO') } } : it));
-                        }
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  </div>
-                </Td>
-                <Td>
-                  <FE.ActionsRow>
-                    <FE.SmallSecondaryButton onClick={(e) => { e.stopPropagation(); setSelectedAction(row); setModalOpen(true); }}>Editar</FE.SmallSecondaryButton>
-                  </FE.ActionsRow>
-                </Td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </Table>
-      {total > pageSize && (
-        <Pager page={page} pageSize={pageSize} total={total} onChangePage={setPage} compact />
-      )}
+      <AcoesTable
+        rows={items}
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        onChangePage={setPage}
+        onChangePageSize={setPageSize}
+        sortKey={sortKey}
+        sortDir={sortDir}
+        onToggleSort={toggleSort}
+        onChangeStatus={async (row, next, opts) => {
+          if (opts?.openModal) {
+            setSelectedAction(row);
+            setModalOpen(true);
+            return;
+          }
+          const r = row.receivable || {};
+          // optimistic UI
+          setItems(prev => prev.map(it => it._id === row._id ? { ...it, receivable: { ...(it.receivable || {}), status: next } } : it));
+          try {
+            const payload = { id: r?._id, actionId: row._id, clientId: row.clientId, status: next };
+            const res = await fetch('/api/contasareceber', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            if (!res.ok) throw new Error('Falha ao atualizar status');
+          } catch (err) {
+            alert(err.message || 'Erro ao atualizar status');
+            // revert on error
+            setItems(prev => prev.map(it => it._id === row._id ? { ...it, receivable: { ...(it.receivable || {}), status: (r?.status || 'ABERTO') } } : it));
+          }
+        }}
+      />
       <ContasReceberModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}

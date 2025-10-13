@@ -36,7 +36,7 @@ export default function Home() {
 
   return (
     <div style={{ padding: "2rem" }}>
-      <h1>Bem-vindo ao Sistema Ana</h1>
+      <h1>Bem-vindo ao Sistema</h1>
       <p>Você está logado como: {session.user?.username || session.user?.name}</p>
       <DashboardClient />
       <div style={{ marginTop: "2rem" }}>

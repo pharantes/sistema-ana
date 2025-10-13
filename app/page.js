@@ -3,6 +3,7 @@
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import DashboardClient from "./dashboard/DashboardClient";
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -37,7 +38,7 @@ export default function Home() {
     <div style={{ padding: "2rem" }}>
       <h1>Bem-vindo ao Sistema Ana</h1>
       <p>Você está logado como: {session.user?.username || session.user?.name}</p>
-
+      <DashboardClient />
       <div style={{ marginTop: "2rem" }}>
         <button
           onClick={() => router.push("/acoes")}

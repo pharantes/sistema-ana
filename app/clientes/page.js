@@ -67,12 +67,22 @@ function getClienteSortValue(cliente, sortKey) {
       return String(cliente?.codigo ?? '').padStart(4, '0');
     case 'nome':
       return String(cliente?.nome ?? '').toLowerCase();
+    case 'endereco':
+      return String(cliente?.endereco ?? '').toLowerCase();
     case 'cidade':
       return String(cliente?.cidade ?? '').toLowerCase();
     case 'uf':
       return String(cliente?.uf ?? '').toLowerCase();
+    case 'telefone':
+      return String(cliente?.telefone ?? '').toLowerCase();
+    case 'email':
+      return String(cliente?.email ?? '').toLowerCase();
+    case 'contato':
+      return String(cliente?.nomeContato ?? '').toLowerCase();
     case 'tipo':
       return String(cliente?.tipo ?? '').toLowerCase();
+    case 'cnpjcpf':
+      return String(cliente?.cnpjCpf ?? '').toLowerCase();
     case 'createdAt':
     default:
       return cliente?.createdAt ? new Date(cliente.createdAt).getTime() : 0;

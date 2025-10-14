@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import styled from 'styled-components';
-import { Label, RowGap6, ActionsInline } from "../components/ui/primitives";
+import { Label, RowGap6, ActionsInline, PresetButton, Note, RowWrap } from "../components/ui/primitives";
 import * as FE from "../components/FormElements";
 import BRDateInput from "../components/BRDateInput";
 import Select from "react-select";
@@ -27,6 +27,63 @@ const ButtonsRow = styled(ActionsInline)`
   margin-left: var(--space-xxs, var(--gap-xs, var(--gap-xs, 6px)));
   & > button { height: calc(var(--control-height, 36px) - 2px); padding: var(--space-xxs, var(--gap-xs, var(--gap-xs, 6px))) var(--space-sm, 10px); font-size: 0.86rem; }
 `;
+
+const PresetsRow = styled(RowWrap)`
+  margin-top: var(--space-lg, 24px);
+  flex-wrap: wrap;
+  gap: var(--gap-xs, 6px);
+  align-items: center;
+`;
+
+/**
+ * Formats a date to YYYY-MM-DD
+ * @param {Date} date - Date to format
+ * @returns {string} Formatted date string
+ */
+function formatDateISO(date) {
+  try {
+    return date.toISOString().slice(0, 10);
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Gets the start and end dates for the current week (Monday to Sunday)
+ * @returns {[Date, Date]} Array of [startDate, endDate]
+ */
+function getCurrentWeekRange() {
+  const today = new Date();
+  const dayOfWeek = today.getDay();
+  const daysToMonday = (dayOfWeek === 0 ? -6 : 1 - dayOfWeek);
+  const startDate = new Date(today);
+  startDate.setDate(today.getDate() + daysToMonday);
+  const endDate = new Date(startDate);
+  endDate.setDate(startDate.getDate() + 6);
+  return [startDate, endDate];
+}
+
+/**
+ * Gets the start and end dates for the current month
+ * @returns {[Date, Date]} Array of [startDate, endDate]
+ */
+function getCurrentMonthRange() {
+  const today = new Date();
+  const startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+  const endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  return [startDate, endDate];
+}
+
+/**
+ * Gets the start and end dates for the next 15 days
+ * @returns {[Date, Date]} Array of [startDate, endDate]
+ */
+function getNext15DaysRange() {
+  const startDate = new Date();
+  const endDate = new Date();
+  endDate.setDate(startDate.getDate() + 15);
+  return [startDate, endDate];
+}
 
 /**
  * Formats cliente for display in select option
@@ -142,6 +199,60 @@ export default function FiltersClient({
     if (onApply) onApply();
   };
 
+  // Preset handlers
+  const handleToday = () => {
+    const today = formatDateISO(new Date());
+    const isActive = filterFrom === today && filterTo === today;
+    setFilterFrom(isActive ? '' : today);
+    setFilterTo(isActive ? '' : today);
+  };
+
+  const handleThisWeek = () => {
+    const [start, end] = getCurrentWeekRange();
+    const startStr = formatDateISO(start);
+    const endStr = formatDateISO(end);
+    const isActive = filterFrom === startStr && filterTo === endStr;
+    setFilterFrom(isActive ? '' : startStr);
+    setFilterTo(isActive ? '' : endStr);
+  };
+
+  const handleThisMonth = () => {
+    const [start, end] = getCurrentMonthRange();
+    const startStr = formatDateISO(start);
+    const endStr = formatDateISO(end);
+    const isActive = filterFrom === startStr && filterTo === endStr;
+    setFilterFrom(isActive ? '' : startStr);
+    setFilterTo(isActive ? '' : endStr);
+  };
+
+  const handleNext15Days = () => {
+    const [start, end] = getNext15DaysRange();
+    const startStr = formatDateISO(start);
+    const endStr = formatDateISO(end);
+    const isActive = filterFrom === startStr && filterTo === endStr;
+    setFilterFrom(isActive ? '' : startStr);
+    setFilterTo(isActive ? '' : endStr);
+  };
+
+  // Check if presets are active
+  const today = formatDateISO(new Date());
+  const isTodayActive = filterFrom === today && filterTo === today;
+
+  const [weekStart, weekEnd] = getCurrentWeekRange();
+  const weekStartStr = formatDateISO(weekStart);
+  const weekEndStr = formatDateISO(weekEnd);
+  const isWeekActive = filterFrom === weekStartStr && filterTo === weekEndStr;
+
+  const [monthStart, monthEnd] = getCurrentMonthRange();
+  const monthStartStr = formatDateISO(monthStart);
+  const monthEndStr = formatDateISO(monthEnd);
+  const isMonthActive = filterFrom === monthStartStr && filterTo === monthEndStr;
+
+  const [next15Start, next15End] = getNext15DaysRange();
+  const next15StartStr = formatDateISO(next15Start);
+  const next15EndStr = formatDateISO(next15End);
+  const isNext15Active = filterFrom === next15StartStr && filterTo === next15EndStr;
+
   return (
     <FilterRow>
       <ClientField>
@@ -177,6 +288,22 @@ export default function FiltersClient({
           </FE.Button>
         </ButtonsRow>
       </DateRow>
+
+      <PresetsRow>
+        <Note>Atalhos:</Note>
+        <PresetButton type="button" aria-pressed={isTodayActive} onClick={handleToday}>
+          Hoje
+        </PresetButton>
+        <PresetButton type="button" aria-pressed={isWeekActive} onClick={handleThisWeek}>
+          Esta semana
+        </PresetButton>
+        <PresetButton type="button" aria-pressed={isMonthActive} onClick={handleThisMonth}>
+          Este mês
+        </PresetButton>
+        <PresetButton type="button" aria-pressed={isNext15Active} onClick={handleNext15Days}>
+          Próximos 15 dias
+        </PresetButton>
+      </PresetsRow>
     </FilterRow>
   );
 }

@@ -1,5 +1,5 @@
 "use client";
-import { CompactTable as Table, ThClickable, Th, Td } from "../../components/ui/Table";
+import { CompactTable as Table, ThClickable, Td } from "../../components/ui/Table";
 import HeaderControls from "../../components/ui/HeaderControls";
 import ColaboradorCell from "../../components/ui/ColaboradorCell";
 import StatusSelect from "../../components/ui/StatusSelect";
@@ -131,14 +131,24 @@ export default function AcoesTable({
             <ThClickable onClick={() => onToggleSort('colaborador')}>
               Colaborador/Empresa {sortKey === 'colaborador' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
             </ThClickable>
-            <Th>Descrição</Th>
+            <ThClickable onClick={() => onToggleSort('descricao')}>
+              Descrição {sortKey === 'descricao' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+            </ThClickable>
             <ThClickable onClick={() => onToggleSort('due')}>
               Vencimento {sortKey === 'due' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
             </ThClickable>
-            <Th>Valor</Th>
-            <Th>Pgt</Th>
-            <Th>Banco/PIX</Th>
-            <Th>Status</Th>
+            <ThClickable onClick={() => onToggleSort('valor')}>
+              Valor {sortKey === 'valor' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+            </ThClickable>
+            <ThClickable onClick={() => onToggleSort('pgt')}>
+              Pgt {sortKey === 'pgt' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+            </ThClickable>
+            <ThClickable onClick={() => onToggleSort('banco')}>
+              Banco/PIX {sortKey === 'banco' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+            </ThClickable>
+            <ThClickable onClick={() => onToggleSort('status')}>
+              Status {sortKey === 'status' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+            </ThClickable>
           </tr>
         </thead>
         <tbody>

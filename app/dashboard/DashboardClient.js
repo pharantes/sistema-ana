@@ -278,7 +278,6 @@ export default function DashboardClient() {
   const [pagar, setPagar] = useState([]);
   const [receber, setReceber] = useState({ items: [], total: 0 });
   const [clientes, setClientes] = useState([]);
-  const [colabs, setColabs] = useState([]);
   // UI filters
   const [filterClient, setFilterClient] = useState(""); // client ID
   const [filterFrom, setFilterFrom] = useState("");
@@ -335,12 +334,11 @@ export default function DashboardClient() {
         if (qpTo) setFilterTo(qpTo);
       } catch { /* ignore */ }
       try {
-        const [a, p, r, c, k] = await Promise.allSettled([
+        const [a, p, r, c] = await Promise.allSettled([
           fetchJson("/api/action"),
           fetchJson("/api/contasapagar"),
           fetchJson("/api/contasareceber?pageSize=1000"), // Request all items for dashboard
           fetchJson("/api/cliente"),
-          fetchJson("/api/colaborador"),
         ]);
         if (!mounted) return;
         setAcoes(Array.isArray(a.value) ? a.value : []);
@@ -349,7 +347,6 @@ export default function DashboardClient() {
 
         const clientsList = Array.isArray(c.value) ? c.value : [];
         setClientes(clientsList);
-        setColabs(Array.isArray(k.value) ? k.value : []);
 
         // Restore client filter from localStorage if not from URL
         if (!searchParams?.get?.('client') && globalThis?.localStorage) {
@@ -394,9 +391,10 @@ export default function DashboardClient() {
   }, [clientes]);
 
   const kpis = useMemo(() => {
-    const totalAcoes = acoes.length;
-    const totalClientes = clientes.length;
-    const totalColabs = colabs.length;
+    // Count unique filtered items
+    const uniqueActions = new Set();
+    const uniqueClients = new Set();
+    const uniqueColabs = new Set();
 
     let receitaPrevista = 0;
     let receitaRecebida = 0;
@@ -404,19 +402,51 @@ export default function DashboardClient() {
     (receber.items || []).forEach((item) => {
       const clientId = item?.clientId || item?.receivable?.clientId || item?.cliente?._id || "";
       const clientName = item?.clientName || item?.cliente?.name || "";
-      const date = item?.receivable?.dataRecebimento || item?.receivable?.dataVencimento || item?.date || item?.reportDate;
+      const actionId = item?.actionId || item?.receivable?.actionId || "";
 
-      if (!matchesClientFilter(clientId, clientName, filterClient) || !isDateInRange(date, filterFrom, filterTo)) {
-        return;
-      }
+      const receivableData = item?.receivable || item;
+      const installments = receivableData?.installments || [];
 
-      // Fix: API returns 'value', not 'valor'
-      const value = Number(item?.value ?? item?.receivable?.valor ?? 0) || 0;
-      receitaPrevista += value;
+      // If has installments, process each one individually
+      if (installments.length > 0) {
+        installments.forEach((inst) => {
+          const instDate = inst.dueDate || receivableData?.dataVencimento || item?.date || item?.reportDate;
 
-      const status = String(item?.receivable?.status ?? "").toUpperCase();
-      if (status === "RECEBIDO") {
-        receitaRecebida += value;
+          if (!matchesClientFilter(clientId, clientName, filterClient) || !isDateInRange(instDate, filterFrom, filterTo)) {
+            return;
+          }
+
+          const instValue = Number(inst.value || 0);
+          receitaPrevista += instValue;
+
+          if (String(inst.status || "").toUpperCase() === "RECEBIDO") {
+            receitaRecebida += instValue;
+          }
+
+          // Track unique entities
+          if (actionId) uniqueActions.add(String(actionId));
+          if (clientId) uniqueClients.add(String(clientId));
+        });
+      } else {
+        // Single payment - use original logic
+        const date = receivableData?.dataRecebimento || receivableData?.dataVencimento || item?.date || item?.reportDate;
+
+        if (!matchesClientFilter(clientId, clientName, filterClient) || !isDateInRange(date, filterFrom, filterTo)) {
+          return;
+        }
+
+        // Fix: API returns 'value', not 'valor'
+        const value = Number(item?.value ?? receivableData?.valor ?? 0) || 0;
+        receitaPrevista += value;
+
+        const status = String(receivableData?.status ?? "").toUpperCase();
+        if (status === "RECEBIDO") {
+          receitaRecebida += value;
+        }
+
+        // Track unique entities
+        if (actionId) uniqueActions.add(String(actionId));
+        if (clientId) uniqueClients.add(String(clientId));
       }
     });
 
@@ -430,6 +460,8 @@ export default function DashboardClient() {
       const clientId = String(action.client || '');
       const clientName = clientNameMap.get(clientId) || row?.clientName || "";
       const date = action.date || row?.reportDate;
+      const actionId = action._id || action.id;
+      const staffId = row.staffId;
 
       if (!matchesClientFilter(clientId, clientName, filterClient) || !isDateInRange(date, filterFrom, filterTo)) {
         return;
@@ -441,13 +473,18 @@ export default function DashboardClient() {
       if (String(row?.status || "ABERTO").toUpperCase() === "PAGO") {
         custosPagos += value;
       }
+
+      // Track unique entities
+      if (actionId) uniqueActions.add(String(actionId));
+      if (clientId) uniqueClients.add(clientId);
+      if (staffId) uniqueColabs.add(String(staffId));
     }); const lucroPrev = receitaPrevista - custosPrevistos;
     const lucroReal = receitaRecebida - custosPagos;
 
     return {
-      totalAcoes,
-      totalClientes,
-      totalColabs,
+      totalAcoes: uniqueActions.size,
+      totalClientes: uniqueClients.size,
+      totalColabs: uniqueColabs.size,
       receitaPrevista,
       receitaRecebida,
       custosPrevistos,
@@ -455,28 +492,67 @@ export default function DashboardClient() {
       lucroPrev,
       lucroReal,
     };
-  }, [acoes, clientes, colabs, pagar, receber, clientNameMap, filterClient, filterFrom, filterTo]);
+  }, [acoes, pagar, receber, clientNameMap, filterClient, filterFrom, filterTo]);
 
   const monthlySeries = useMemo(() => {
     const monthlyData = new Map();
 
-    // Aggregate receita by month
+    // Aggregate receita by month with filters
     (receber.items || []).forEach((item) => {
-      const date = item?.receivable?.dataRecebimento || item?.receivable?.dataVencimento || item?.date || item?.reportDate;
-      const monthKey = toMonthKey(date);
-      if (!monthKey) return;
+      const clientId = item?.clientId || item?.receivable?.clientId || item?.cliente?._id || "";
+      const clientName = item?.clientName || item?.cliente?.name || "";
+      const receivableData = item?.receivable || item;
+      const installments = receivableData?.installments || [];
 
-      // Fix: API returns 'value', not 'valor'
-      const value = Number(item?.value ?? item?.receivable?.valor ?? 0) || 0;
-      const accumulated = monthlyData.get(monthKey) || { r: 0, c: 0 };
-      accumulated.r += value;
-      monthlyData.set(monthKey, accumulated);
+      // If has installments, aggregate each one by its due date
+      if (installments.length > 0) {
+        installments.forEach((inst) => {
+          const date = inst.dueDate || receivableData?.dataVencimento || item?.date || item?.reportDate;
+
+          if (!matchesClientFilter(clientId, clientName, filterClient) || !isDateInRange(date, filterFrom, filterTo)) {
+            return;
+          }
+
+          const monthKey = toMonthKey(date);
+          if (!monthKey) return;
+
+          const value = Number(inst.value || 0);
+          const accumulated = monthlyData.get(monthKey) || { r: 0, c: 0 };
+          accumulated.r += value;
+          monthlyData.set(monthKey, accumulated);
+        });
+      } else {
+        // Single payment
+        const date = receivableData?.dataRecebimento || receivableData?.dataVencimento || item?.date || item?.reportDate;
+
+        if (!matchesClientFilter(clientId, clientName, filterClient) || !isDateInRange(date, filterFrom, filterTo)) {
+          return;
+        }
+
+        const monthKey = toMonthKey(date);
+        if (!monthKey) return;
+
+        // Fix: API returns 'value', not 'valor'
+        const value = Number(item?.value ?? receivableData?.valor ?? 0) || 0;
+        const accumulated = monthlyData.get(monthKey) || { r: 0, c: 0 };
+        accumulated.r += value;
+        monthlyData.set(monthKey, accumulated);
+      }
     });
 
-    // Aggregate custos by month
+    // Aggregate custos by month with filters
     (pagar || []).forEach((row) => {
       const action = getActionForContaPagar(row, acoes);
+      if (!action) return;
+
+      const clientId = String(action.client || '');
+      const clientName = clientNameMap.get(clientId) || row?.clientName || "";
       const date = action?.date || row?.reportDate;
+
+      if (!matchesClientFilter(clientId, clientName, filterClient) || !isDateInRange(date, filterFrom, filterTo)) {
+        return;
+      }
+
       const monthKey = toMonthKey(date);
       if (!monthKey) return;
 
@@ -509,44 +585,83 @@ export default function DashboardClient() {
     };
 
     return [receitaSeries, custosSeries];
-  }, [receber, pagar, acoes]);
+  }, [receber, pagar, acoes, clientNameMap, filterClient, filterFrom, filterTo]);
 
   const topClientes = useMemo(() => {
     const acc = new Map();
-    (receber.items || []).forEach((r) => {
-      const name = r?.clientName || r?.cliente?.name || "Cliente";
-      const val = Number(r?.valor ?? r?.receivable?.valor ?? 0) || 0;
-      acc.set(name, (acc.get(name) || 0) + val);
+
+    (receber.items || []).forEach((item) => {
+      const clientId = item?.clientId || item?.receivable?.clientId || item?.cliente?._id || "";
+      const clientName = item?.clientName || item?.cliente?.name || "Cliente";
+      const receivableData = item?.receivable || item;
+      const installments = receivableData?.installments || [];
+
+      // If has installments, aggregate each one
+      if (installments.length > 0) {
+        installments.forEach((inst) => {
+          const date = inst.dueDate || receivableData?.dataVencimento || item?.date || item?.reportDate;
+
+          if (!matchesClientFilter(clientId, clientName, filterClient) || !isDateInRange(date, filterFrom, filterTo)) {
+            return;
+          }
+
+          const value = Number(inst.value || 0);
+          acc.set(clientName, (acc.get(clientName) || 0) + value);
+        });
+      } else {
+        // Single payment
+        const date = receivableData?.dataRecebimento || receivableData?.dataVencimento || item?.date || item?.reportDate;
+
+        if (!matchesClientFilter(clientId, clientName, filterClient) || !isDateInRange(date, filterFrom, filterTo)) {
+          return;
+        }
+
+        const val = Number(item?.value ?? receivableData?.valor ?? 0) || 0;
+        acc.set(clientName, (acc.get(clientName) || 0) + val);
+      }
     });
+
     const entries = Array.from(acc.entries())
       .sort((a, b) => b[1] - a[1])
       .slice(0, 8);
     return entries.map(([name, v]) => ({ cliente: name, valor: v }));
-  }, [receber]);
+  }, [receber, filterClient, filterFrom, filterTo]);
 
   const marginsByClient = useMemo(() => {
     const receitaByClient = new Map();
     const custosByClient = new Map();
 
-    // Helper to match client by name only (used for margins)
-    const matchClientByName = (clientName) => {
-      if (!filterClient) return true;
-      if (!clientName) return false;
-      return String(clientName).toLowerCase() === String(filterClient).toLowerCase();
-    };
-
     // Aggregate receita by client
     (receber.items || []).forEach((item) => {
+      const clientId = item?.clientId || item?.receivable?.clientId || item?.cliente?._id || "";
       const clientName = item?.clientName || item?.cliente?.name || "Cliente";
-      const date = item?.receivable?.dataRecebimento || item?.receivable?.dataVencimento || item?.date || item?.reportDate;
+      const receivableData = item?.receivable || item;
+      const installments = receivableData?.installments || [];
 
-      if (!matchClientByName(clientName) || !isDateInRange(date, filterFrom, filterTo)) {
-        return;
+      // If has installments, aggregate each one
+      if (installments.length > 0) {
+        installments.forEach((inst) => {
+          const date = inst.dueDate || receivableData?.dataVencimento || item?.date || item?.reportDate;
+
+          if (!matchesClientFilter(clientId, clientName, filterClient) || !isDateInRange(date, filterFrom, filterTo)) {
+            return;
+          }
+
+          const value = Number(inst.value || 0);
+          receitaByClient.set(clientName, (receitaByClient.get(clientName) || 0) + value);
+        });
+      } else {
+        // Single payment
+        const date = receivableData?.dataRecebimento || receivableData?.dataVencimento || item?.date || item?.reportDate;
+
+        if (!matchesClientFilter(clientId, clientName, filterClient) || !isDateInRange(date, filterFrom, filterTo)) {
+          return;
+        }
+
+        // Fix: API returns 'value', not 'valor'
+        const value = Number(item?.value ?? receivableData?.valor ?? 0) || 0;
+        receitaByClient.set(clientName, (receitaByClient.get(clientName) || 0) + value);
       }
-
-      // Fix: API returns 'value', not 'valor'
-      const value = Number(item?.value ?? item?.receivable?.valor ?? 0) || 0;
-      receitaByClient.set(clientName, (receitaByClient.get(clientName) || 0) + value);
     });
 
     // Aggregate custos by client
@@ -558,7 +673,7 @@ export default function DashboardClient() {
       const clientName = clientNameMap.get(clientId) || row?.clientName || "Cliente";
       const date = action.date || row?.reportDate;
 
-      if (!matchClientByName(clientName) || !isDateInRange(date, filterFrom, filterTo)) {
+      if (!matchesClientFilter(clientId, clientName, filterClient) || !isDateInRange(date, filterFrom, filterTo)) {
         return;
       }
 
@@ -589,13 +704,70 @@ export default function DashboardClient() {
 
   const statusDistrib = useMemo(() => {
     const pagarCounts = { ABERTO: 0, PAGO: 0 };
-    (pagar || []).forEach((r) => {
-      pagarCounts[String(r?.status || "ABERTO").toUpperCase()]++;
+
+    // Filter contas a pagar
+    (pagar || []).forEach((row) => {
+      const action = getActionForContaPagar(row, acoes);
+      if (!action) return;
+
+      const clientId = String(action.client || '');
+      const clientName = clientNameMap.get(clientId) || row?.clientName || "";
+      const date = action.date || row?.reportDate;
+
+      if (!matchesClientFilter(clientId, clientName, filterClient) || !isDateInRange(date, filterFrom, filterTo)) {
+        return;
+      }
+
+      const status = String(row?.status || "ABERTO").toUpperCase();
+      if (status === "PAGO") {
+        pagarCounts.PAGO++;
+      } else {
+        pagarCounts.ABERTO++;
+      }
     });
+
     const recCounts = { ABERTO: 0, RECEBIDO: 0 };
-    (receber.items || []).forEach((r) => {
-      recCounts[String(r?.receivable?.status || "ABERTO").toUpperCase()]++;
+
+    // Filter contas a receber
+    (receber.items || []).forEach((item) => {
+      const clientId = item?.clientId || item?.receivable?.clientId || item?.cliente?._id || "";
+      const clientName = item?.clientName || item?.cliente?.name || "";
+      const receivableData = item?.receivable || item;
+      const installments = receivableData?.installments || [];
+
+      // If has installments, count each one
+      if (installments.length > 0) {
+        installments.forEach((inst) => {
+          const date = inst.dueDate || receivableData?.dataVencimento || item?.date || item?.reportDate;
+
+          if (!matchesClientFilter(clientId, clientName, filterClient) || !isDateInRange(date, filterFrom, filterTo)) {
+            return;
+          }
+
+          const status = String(inst.status || "ABERTO").toUpperCase();
+          if (status === "RECEBIDO") {
+            recCounts.RECEBIDO++;
+          } else {
+            recCounts.ABERTO++;
+          }
+        });
+      } else {
+        // Single payment
+        const date = receivableData?.dataRecebimento || receivableData?.dataVencimento || item?.date || item?.reportDate;
+
+        if (!matchesClientFilter(clientId, clientName, filterClient) || !isDateInRange(date, filterFrom, filterTo)) {
+          return;
+        }
+
+        const status = String(receivableData?.status || "ABERTO").toUpperCase();
+        if (status === "RECEBIDO") {
+          recCounts.RECEBIDO++;
+        } else {
+          recCounts.ABERTO++;
+        }
+      }
     });
+
     return {
       pagar: [
         { id: "ABERTO", label: "ABERTO", value: pagarCounts.ABERTO },
@@ -606,7 +778,7 @@ export default function DashboardClient() {
         { id: "RECEBIDO", label: "RECEBIDO", value: recCounts.RECEBIDO },
       ],
     };
-  }, [pagar, receber]);
+  }, [pagar, receber, acoes, clientNameMap, filterClient, filterFrom, filterTo]);
 
   // show placeholders inline while loading, and an inline error banner if any
   const showPlaceholder = loading;
@@ -672,6 +844,19 @@ export default function DashboardClient() {
                 colors={(d) => d.color}
                 pointSize={6}
                 useMesh
+                tooltip={({ point }) => (
+                  <div style={{
+                    background: 'white',
+                    padding: '9px 12px',
+                    border: '1px solid #ccc',
+                    borderRadius: '4px',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                  }}>
+                    <strong>{point.serieId}</strong>
+                    <div>Mês: {point.data.xFormatted}</div>
+                    <div>Valor: R$ {Number(point.data.yFormatted).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                  </div>
+                )}
               />
             )}
           </ChartBox>

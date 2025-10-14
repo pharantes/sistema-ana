@@ -210,6 +210,16 @@ function getColaboradorSortValue(colaborador, sortKey) {
       return String(colaborador?.uf ?? '').toLowerCase();
     case 'tipo':
       return String(colaborador?.tipo ?? '').toLowerCase();
+    case 'cnpjcpf':
+      return String(colaborador?.cnpj || colaborador?.cpf || '').toLowerCase();
+    case 'telefone':
+      return String(colaborador?.telefone || '').toLowerCase();
+    case 'email':
+      return String(colaborador?.email || '').toLowerCase();
+    case 'banco':
+      return String(colaborador?.banco || '').toLowerCase();
+    case 'pix':
+      return String(colaborador?.pix || '').toLowerCase();
     case 'createdAt':
     default:
       return colaborador?.createdAt ? new Date(colaborador.createdAt).getTime() : 0;
@@ -455,14 +465,24 @@ export default function ColaboradoresClient({ initialColaboradores = [], isAdmin
               <ThClickable onClick={() => handleToggleSort('empresa')}>
                 Empresa {sortKey === 'empresa' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
               </ThClickable>
-              <Th>CNPJ/CPF</Th>
-              <Th>Telefone</Th>
-              <Th>Email</Th>
+              <ThClickable onClick={() => handleToggleSort('cnpjcpf')}>
+                CNPJ/CPF {sortKey === 'cnpjcpf' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
+              </ThClickable>
+              <ThClickable onClick={() => handleToggleSort('telefone')}>
+                Telefone {sortKey === 'telefone' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
+              </ThClickable>
+              <ThClickable onClick={() => handleToggleSort('email')}>
+                Email {sortKey === 'email' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
+              </ThClickable>
               <ThClickable onClick={() => handleToggleSort('uf')}>
                 UF {sortKey === 'uf' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
               </ThClickable>
-              <Th>Banco</Th>
-              <Th>PIX</Th>
+              <ThClickable onClick={() => handleToggleSort('banco')}>
+                Banco {sortKey === 'banco' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
+              </ThClickable>
+              <ThClickable onClick={() => handleToggleSort('pix')}>
+                PIX {sortKey === 'pix' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
+              </ThClickable>
               <Th>Opções</Th>
             </tr>
           </thead>

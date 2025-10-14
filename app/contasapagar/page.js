@@ -230,10 +230,51 @@ function valueForSortKey(reportRow, sortKey) {
       if (reportRow?.staffName) return String(reportRow?.colaboradorLabel || reportRow?.staffName || '').toLowerCase();
       if (reportRow?.costId) return String(reportRow?.colaboradorLabel || '').toLowerCase();
       return '';
+    case 'descricao': {
+      // Get description from cost item
+      if (!reportRow.staffName && reportRow.costId) {
+        const costsList = Array.isArray(reportRow.actionId?.costs) ? reportRow.actionId.costs : [];
+        const costItem = costsList.find(c => String(c._id) === String(reportRow.costId));
+        return String(costItem?.description || '').toLowerCase();
+      }
+      return '';
+    }
     case 'due': {
       const dueDate = getRowDueDate(reportRow);
       return dateToTime(dueDate);
     }
+    case 'valor': {
+      // Get value from staff or cost
+      const staffList = Array.isArray(reportRow.actionId?.staff) ? reportRow.actionId.staff : [];
+      const costsList = Array.isArray(reportRow.actionId?.costs) ? reportRow.actionId.costs : [];
+      const staffItem = reportRow.staffName ? staffList.find(s => s.name === reportRow.staffName) : null;
+      const costItem = (!reportRow.staffName && reportRow.costId)
+        ? costsList.find(c => String(c._id) === String(reportRow.costId))
+        : null;
+      const valueAmount = (staffItem && typeof staffItem.value !== 'undefined')
+        ? Number(staffItem.value)
+        : (costItem && typeof costItem.value !== 'undefined')
+          ? Number(costItem.value)
+          : 0;
+      return valueAmount;
+    }
+    case 'pgt': {
+      // Get payment type from staff or cost
+      const staffList = Array.isArray(reportRow.actionId?.staff) ? reportRow.actionId.staff : [];
+      const costsList = Array.isArray(reportRow.actionId?.costs) ? reportRow.actionId.costs : [];
+      const staffItem = reportRow.staffName ? staffList.find(s => s.name === reportRow.staffName) : null;
+      const costItem = (!reportRow.staffName && reportRow.costId)
+        ? costsList.find(c => String(c._id) === String(reportRow.costId))
+        : null;
+      return String(staffItem?.pgt || costItem?.pgt || '').toLowerCase();
+    }
+    case 'banco': {
+      // Get bank/PIX from colaborador
+      const colaboradorInfo = reportRow?.colaboradorData;
+      return String(colaboradorInfo?.banco || colaboradorInfo?.pix || '').toLowerCase();
+    }
+    case 'status':
+      return String(reportRow?.status || 'ABERTO').toLowerCase();
     default:
       return '';
   }

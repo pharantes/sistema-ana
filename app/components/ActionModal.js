@@ -153,14 +153,14 @@ export default function ActionModal({ editing, form, onClose, onSubmit, loading 
   }
 
   useEffect(() => {
-    // whenever local.startDate changes, recompute dueDate automatically
-    if (local.startDate) {
-      const computed = computeDueDateFrom(local.startDate);
+    // whenever local.endDate changes, recompute dueDate automatically (15 days after end date)
+    if (local.endDate) {
+      const computed = computeDueDateFrom(local.endDate);
       setLocal(l => ({ ...l, dueDate: computed }));
     } else {
       setLocal(l => ({ ...l, dueDate: "" }));
     }
-  }, [local.startDate]);
+  }, [local.endDate]);
 
   // Keep colaboradores vencimento defaulted from automatic dueDate when they don't have a value yet
   useEffect(() => {

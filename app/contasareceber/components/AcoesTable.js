@@ -55,17 +55,27 @@ export default function AcoesTable({
             <ThClickable onClick={() => onToggleSort('cliente')}>
               Cliente {sortKey === 'cliente' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
             </ThClickable>
-            <ThClickable>Descrição</ThClickable>
-            <ThClickable>Qtde Parcela</ThClickable>
-            <ThClickable>Valor Parcela</ThClickable>
-            <ThClickable>Valor total</ThClickable>
+            <ThClickable onClick={() => onToggleSort('descricao')}>
+              Descrição {sortKey === 'descricao' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+            </ThClickable>
+            <ThClickable onClick={() => onToggleSort('qtdeParcela')}>
+              Qtde Parcela {sortKey === 'qtdeParcela' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+            </ThClickable>
+            <ThClickable onClick={() => onToggleSort('valorParcela')}>
+              Valor Parcela {sortKey === 'valorParcela' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+            </ThClickable>
+            <ThClickable onClick={() => onToggleSort('valor')}>
+              Valor total {sortKey === 'valor' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+            </ThClickable>
             <ThClickable onClick={() => onToggleSort('venc')}>
               Data Vencimento {sortKey === 'venc' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
             </ThClickable>
             <ThClickable onClick={() => onToggleSort('receb')}>
               Data Recebimento {sortKey === 'receb' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
             </ThClickable>
-            <ThClickable>Status</ThClickable>
+            <ThClickable onClick={() => onToggleSort('status')}>
+              Status {sortKey === 'status' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+            </ThClickable>
             <ThClickable>Opções</ThClickable>
           </tr>
         </thead>
@@ -97,6 +107,8 @@ export default function AcoesTable({
               onChangeStatus(actionRow, event.target.value);
             };
 
+            const hasInstallments = receivableData?.qtdeParcela && Number(receivableData.qtdeParcela) > 1;
+
             return (
               <tr key={actionRow._id} onClick={handleRowClick}>
                 <Td>{actionDate}</Td>
@@ -112,15 +124,21 @@ export default function AcoesTable({
                 <Td>{receivedDate}</Td>
                 <Td>
                   <RowInline>
-                    <StatusSelect
-                      value={currentStatus}
-                      options={[
-                        { value: 'ABERTO', label: 'ABERTO' },
-                        { value: 'RECEBIDO', label: 'RECEBIDO' }
-                      ]}
-                      onChange={handleStatusChange}
-                      onClick={(e) => e.stopPropagation()}
-                    />
+                    {hasInstallments ? (
+                      <StatusBadge status={currentStatus} title="Status calculado automaticamente pelas parcelas">
+                        {currentStatus}
+                      </StatusBadge>
+                    ) : (
+                      <StatusSelect
+                        value={currentStatus}
+                        options={[
+                          { value: 'ABERTO', label: 'ABERTO' },
+                          { value: 'RECEBIDO', label: 'RECEBIDO' }
+                        ]}
+                        onChange={handleStatusChange}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    )}
                   </RowInline>
                 </Td>
                 <Td>
@@ -165,4 +183,16 @@ const ClickableTable = styled(Table)`
   tbody tr :is(button, select, input, a) {
     cursor: auto;
   }
+`;
+
+const StatusBadge = styled.span`
+  display: inline-block;
+  padding: var(--space-xxs, 4px) var(--space-xs, 8px);
+  border-radius: var(--radius-sm, 4px);
+  font-size: var(--font-size-sm, 0.875rem);
+  font-weight: 500;
+  background-color: ${props => props.status === 'RECEBIDO' ? '#d4edda' : '#fff3cd'};
+  color: ${props => props.status === 'RECEBIDO' ? '#155724' : '#856404'};
+  border: 1px solid ${props => props.status === 'RECEBIDO' ? '#c3e6cb' : '#ffeeba'};
+  cursor: help;
 `;

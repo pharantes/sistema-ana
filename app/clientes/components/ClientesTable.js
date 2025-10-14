@@ -55,20 +55,30 @@ export default function ClientesTable({
             <ThClickable onClick={() => onToggleSort('nome')}>
               Cliente {sortKey === 'nome' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
             </ThClickable>
-            <Th>Endereço</Th>
+            <ThClickable onClick={() => onToggleSort('endereco')}>
+              Endereço {sortKey === 'endereco' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+            </ThClickable>
             <ThClickable onClick={() => onToggleSort('cidade')}>
               Cidade {sortKey === 'cidade' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
             </ThClickable>
             <ThClickable onClick={() => onToggleSort('uf')}>
               UF {sortKey === 'uf' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
             </ThClickable>
-            <Th>Telefone</Th>
-            <Th>Email</Th>
-            <Th>Contato</Th>
+            <ThClickable onClick={() => onToggleSort('telefone')}>
+              Telefone {sortKey === 'telefone' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+            </ThClickable>
+            <ThClickable onClick={() => onToggleSort('email')}>
+              Email {sortKey === 'email' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+            </ThClickable>
+            <ThClickable onClick={() => onToggleSort('contato')}>
+              Contato {sortKey === 'contato' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+            </ThClickable>
             <ThClickable onClick={() => onToggleSort('tipo')}>
               Tipo {sortKey === 'tipo' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
             </ThClickable>
-            <Th>CNPJ/CPF</Th>
+            <ThClickable onClick={() => onToggleSort('cnpjcpf')}>
+              CNPJ/CPF {sortKey === 'cnpjcpf' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+            </ThClickable>
             <Th>Opções</Th>
           </tr>
         </thead>

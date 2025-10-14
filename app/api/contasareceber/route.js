@@ -88,6 +88,7 @@ async function buildActionsQuery(params) {
   }
 
   if (searchQuery) {
+    // eslint-disable-next-line security/detect-non-literal-regexp -- input is escaped via escapeRegex
     const searchRegex = new RegExp(escapeRegex(searchQuery), 'i');
     orConditions.push({ name: searchRegex }, { event: searchRegex });
 
@@ -222,6 +223,16 @@ function getSortValue(row, sortField) {
       return String(row?.name || '').toLowerCase();
     case 'cliente':
       return String(row?.clientName || '').toLowerCase();
+    case 'descricao':
+      return String(row?.description || '').toLowerCase();
+    case 'qtdeParcela':
+      return Number(row?.receivable?.qtdeParcela || 1);
+    case 'valorParcela':
+      return Number(row?.receivable?.valorParcela || row?.receivable?.valor || 0);
+    case 'valor':
+      return Number(row?.receivable?.valor || 0);
+    case 'status':
+      return String(row?.receivable?.status || 'ABERTO').toLowerCase();
     case 'venc':
       return row?.receivable?.dataVencimento
         ? new Date(row.receivable.dataVencimento).getTime()
@@ -271,7 +282,6 @@ function buildReceivablePayload(requestBody) {
   const payload = {
     actionId: requestBody.actionId,
     clientId: requestBody.clientId,
-    status: requestBody.status,
     banco: requestBody.banco,
     conta: requestBody.conta,
     formaPgt: requestBody.formaPgt,
@@ -282,6 +292,25 @@ function buildReceivablePayload(requestBody) {
     valorParcela: requestBody.valorParcela,
     valor: requestBody.valor,
   };
+
+  // Handle installments
+  if (requestBody.installments && Array.isArray(requestBody.installments) && requestBody.installments.length > 0) {
+    payload.installments = requestBody.installments.map(inst => ({
+      number: inst.number,
+      value: inst.value,
+      dueDate: inst.dueDate ? new Date(inst.dueDate) : undefined,
+      status: inst.status || 'ABERTO',
+      paidDate: inst.paidDate ? new Date(inst.paidDate) : undefined,
+    }));
+
+    // Auto-calculate status: RECEBIDO only if ALL installments are RECEBIDO
+    const allPaid = payload.installments.every(inst => inst.status === 'RECEBIDO');
+    payload.status = allPaid ? 'RECEBIDO' : 'ABERTO';
+  } else {
+    // For single payments, use the provided status
+    payload.status = requestBody.status;
+    payload.installments = [];
+  }
 
   if (requestBody.reportDate) {
     payload.reportDate = new Date(requestBody.reportDate);

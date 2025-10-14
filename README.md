@@ -4,8 +4,16 @@ A comprehensive business management system built with Next.js for managing clien
 
 ## 📚 Documentation
 
-- [CODE_ORGANIZATION.md](./CODE_ORGANIZATION.md) - Architecture, components, and best practices
-- [REFACTORING_PROGRESS.md](./REFACTORING_PROGRESS.md) - Refactoring history and progress
+**Quick Links:**
+- **[Documentation Index](./docs/README.md)** - Complete documentation catalog
+- **[CODE_ORGANIZATION.md](./CODE_ORGANIZATION.md)** - Architecture & patterns (START HERE)
+- **[Migration Examples](./docs/MIGRATION_EXAMPLE.js)** - Before/after refactoring examples
+- **[REFACTORING_SUMMARY.md](./REFACTORING_SUMMARY.md)** - Summary of improvements
+
+**Feature Guides:**
+- [Authentication Flow](./docs/AUTH_FLOW_FIX.md) - Login, session management
+- [Password Toggle](./docs/PASSWORD_TOGGLE_FEATURE.md) - Password visibility feature
+- [Dashboard Fixes](./docs/DASHBOARD_FIX_REPORT.md) - KPI and chart improvements
 
 ## 🚀 Getting Started
 

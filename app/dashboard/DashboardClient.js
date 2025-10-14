@@ -278,6 +278,7 @@ export default function DashboardClient() {
   const [pagar, setPagar] = useState([]);
   const [receber, setReceber] = useState({ items: [], total: 0 });
   const [clientes, setClientes] = useState([]);
+  const [colaboradores, setColaboradores] = useState([]);
   // UI filters
   const [filterClient, setFilterClient] = useState(""); // client ID
   const [filterFrom, setFilterFrom] = useState("");
@@ -334,11 +335,12 @@ export default function DashboardClient() {
         if (qpTo) setFilterTo(qpTo);
       } catch { /* ignore */ }
       try {
-        const [a, p, r, c] = await Promise.allSettled([
+        const [a, p, r, c, col] = await Promise.allSettled([
           fetchJson("/api/action"),
           fetchJson("/api/contasapagar"),
           fetchJson("/api/contasareceber?pageSize=1000"), // Request all items for dashboard
           fetchJson("/api/cliente"),
+          fetchJson("/api/colaborador"),
         ]);
         if (!mounted) return;
         setAcoes(Array.isArray(a.value) ? a.value : []);
@@ -347,6 +349,9 @@ export default function DashboardClient() {
 
         const clientsList = Array.isArray(c.value) ? c.value : [];
         setClientes(clientsList);
+
+        const colaboradoresList = Array.isArray(col.value) ? col.value : [];
+        setColaboradores(colaboradoresList);
 
         // Restore client filter from localStorage if not from URL
         if (!searchParams?.get?.('client') && globalThis?.localStorage) {
@@ -394,7 +399,6 @@ export default function DashboardClient() {
     // Count unique filtered items
     const uniqueActions = new Set();
     const uniqueClients = new Set();
-    const uniqueColabs = new Set();
 
     let receitaPrevista = 0;
     let receitaRecebida = 0;
@@ -461,7 +465,6 @@ export default function DashboardClient() {
       const clientName = clientNameMap.get(clientId) || row?.clientName || "";
       const date = action.date || row?.reportDate;
       const actionId = action._id || action.id;
-      const staffId = row.staffId;
 
       if (!matchesClientFilter(clientId, clientName, filterClient) || !isDateInRange(date, filterFrom, filterTo)) {
         return;
@@ -477,14 +480,13 @@ export default function DashboardClient() {
       // Track unique entities
       if (actionId) uniqueActions.add(String(actionId));
       if (clientId) uniqueClients.add(clientId);
-      if (staffId) uniqueColabs.add(String(staffId));
     }); const lucroPrev = receitaPrevista - custosPrevistos;
     const lucroReal = receitaRecebida - custosPagos;
 
     return {
       totalAcoes: uniqueActions.size,
       totalClientes: uniqueClients.size,
-      totalColabs: uniqueColabs.size,
+      totalColabs: colaboradores.length,
       receitaPrevista,
       receitaRecebida,
       custosPrevistos,
@@ -492,7 +494,7 @@ export default function DashboardClient() {
       lucroPrev,
       lucroReal,
     };
-  }, [acoes, pagar, receber, clientNameMap, filterClient, filterFrom, filterTo]);
+  }, [acoes, pagar, receber, colaboradores, clientNameMap, filterClient, filterFrom, filterTo]);
 
   const monthlySeries = useMemo(() => {
     const monthlyData = new Map();

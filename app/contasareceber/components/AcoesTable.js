@@ -82,7 +82,19 @@ export default function AcoesTable({
         <tbody>
           {rows.map((actionRow) => {
             const receivableData = actionRow.receivable || {};
-            const dueDate = formatDateBR(receivableData?.dataVencimento);
+
+            // Calculate the due date to display
+            let dueDateToShow = receivableData?.dataVencimento;
+
+            // If there are installments, find the next open one
+            if (receivableData?.installments && Array.isArray(receivableData.installments) && receivableData.installments.length > 0) {
+              const nextOpenInstallment = receivableData.installments.find(inst => inst.status === 'ABERTO');
+              if (nextOpenInstallment && nextOpenInstallment.dueDate) {
+                dueDateToShow = nextOpenInstallment.dueDate;
+              }
+            }
+
+            const dueDate = formatDateBR(dueDateToShow);
             const receivedDate = formatDateBR(receivableData?.dataRecebimento);
             const actionDate = formatDateBR(actionRow?.date);
             const currentStatus = receivableData?.status || 'ABERTO';

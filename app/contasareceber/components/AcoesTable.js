@@ -28,7 +28,7 @@ export default function AcoesTable({
         onChangePage={onChangePage}
         onChangePageSize={(n) => { onChangePage(1); onChangePageSize(n); }}
       />
-      <Table>
+      <ClickableTable>
         <thead>
           <tr>
             <ThClickable onClick={() => onToggleSort('date')}>
@@ -90,7 +90,7 @@ export default function AcoesTable({
             );
           })}
         </tbody>
-      </Table>
+      </ClickableTable>
     </>
   );
 }
@@ -107,4 +107,20 @@ const ActionButton = styled.button`
 
 const TruncateName = styled.span`
   display: inline-block;
+`;
+
+// Make rows visually indicate clickability on this page only
+const ClickableTable = styled(Table)`
+  tbody tr {
+    cursor: pointer;
+    transition: background-color 120ms ease;
+  }
+  tbody tr:hover {
+    /* soft hover that works with zebra striping */
+    background-color: rgba(0,0,0,0.03);
+  }
+  /* ensure interactive controls inside a row keep their native cursor */
+  tbody tr :is(button, select, input, a) {
+    cursor: auto;
+  }
 `;

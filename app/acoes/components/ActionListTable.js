@@ -1,9 +1,10 @@
 "use client";
 import { useMemo, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Table, Th, Td } from "../../components/ui/Table";
+import { Table, ThClickable, Th, Td } from "../../components/ui/Table";
 import HeaderControls from "../../components/ui/HeaderControls";
 import { ActionsRow, SmallSecondaryButton, SmallInlineButton } from '../../components/FormElements';
+import LinkButton from '../../components/ui/LinkButton';
 import { formatDateBR } from "@/lib/utils/dates";
 
 const columns = [
@@ -66,9 +67,9 @@ export default function ActionListTable({ actions = [], session, onEdit, onDelet
         <thead>
           <tr>
             {columns.map(c => (
-              <Th key={c.key} style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort(c.key)}>
+              <ThClickable key={c.key} onClick={() => toggleSort(c.key)}>
                 {c.label} {sortKey === c.key ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-              </Th>
+              </ThClickable>
             ))}
             <Th>Opções</Th>
           </tr>
@@ -77,17 +78,17 @@ export default function ActionListTable({ actions = [], session, onEdit, onDelet
           {pageData.map((a) => (
             <tr key={a._id}>
               <Td>{formatDateBR(a.date)}</Td>
-              <Td style={{ textAlign: 'left' }}>
-                <button onClick={() => router.push(`/acoes/${a._id}`)} style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer', textAlign: 'left' }}>
+              <Td>
+                <LinkButton onClick={() => router.push(`/acoes/${a._id}`)}>
                   {a.name || a.event}
-                </button>
+                </LinkButton>
               </Td>
               <Td>{formatDateBR(a.startDate)}</Td>
               <Td>{formatDateBR(a.endDate)}</Td>
-              <Td style={{ textAlign: 'left' }}>
-                <button onClick={() => router.push(`/clientes/${a.client}`)} style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer', textAlign: 'left' }}>
+              <Td>
+                <LinkButton onClick={() => router.push(`/clientes/${a.client}`)}>
                   {a.clientName || a.client}
-                </button>
+                </LinkButton>
               </Td>
               <Td onClick={(e) => e.stopPropagation()}>
                 {(session.user.role === "admin" || (Array.isArray(a.staff) && a.staff.map(x => x.name).includes(session.user.username))) ? (
@@ -103,7 +104,7 @@ export default function ActionListTable({ actions = [], session, onEdit, onDelet
           ))}
         </tbody>
       </Table>
-      {/* HeaderControls already renders pagination; no bottom duplicate needed */}
+      <HeaderControls page={page} pageSize={pageSize} total={total} onChangePage={setPage} onChangePageSize={setPageSize} />
     </>
   );
 }

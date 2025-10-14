@@ -1,7 +1,10 @@
 "use client";
-import { Table, Th, Td } from "../../components/ui/Table";
+import { ThClickable, Th, Td, CompactTable } from "../../components/ui/Table";
 import HeaderControls from "../../components/ui/HeaderControls";
 import * as FE from "../../components/FormElements";
+import LinkButton from "../../components/ui/LinkButton";
+
+// Use shared CompactTable for denser lists
 
 export default function ClientesTable({
   rows = [],
@@ -21,28 +24,28 @@ export default function ClientesTable({
   return (
     <>
       <HeaderControls page={page} pageSize={pageSize} total={total} onChangePage={onChangePage} onChangePageSize={onChangePageSize} />
-      <Table>
+      <CompactTable>
         <thead>
           <tr>
-            <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => onToggleSort('codigo')}>
+            <ThClickable onClick={() => onToggleSort('codigo')}>
               Código {sortKey === 'codigo' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-            </Th>
-            <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => onToggleSort('nome')}>
+            </ThClickable>
+            <ThClickable onClick={() => onToggleSort('nome')}>
               Cliente {sortKey === 'nome' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-            </Th>
+            </ThClickable>
             <Th>Endereço</Th>
-            <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => onToggleSort('cidade')}>
+            <ThClickable onClick={() => onToggleSort('cidade')}>
               Cidade {sortKey === 'cidade' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-            </Th>
-            <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => onToggleSort('uf')}>
+            </ThClickable>
+            <ThClickable onClick={() => onToggleSort('uf')}>
               UF {sortKey === 'uf' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-            </Th>
+            </ThClickable>
             <Th>Telefone</Th>
             <Th>Email</Th>
             <Th>Contato</Th>
-            <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => onToggleSort('tipo')}>
+            <ThClickable onClick={() => onToggleSort('tipo')}>
               Tipo {sortKey === 'tipo' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-            </Th>
+            </ThClickable>
             <Th>CNPJ/CPF</Th>
             <Th>Opções</Th>
           </tr>
@@ -51,10 +54,10 @@ export default function ClientesTable({
           {rows.map((cliente) => (
             <tr key={cliente._id}>
               <Td>{cliente.codigo}</Td>
-              <Td style={{ textAlign: 'left' }}>
-                <button onClick={() => onOpenDetails?.(cliente)} style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer', textAlign: 'left' }}>
+              <Td>
+                <LinkButton onClick={() => onOpenDetails?.(cliente)}>
                   {cliente.nome}
-                </button>
+                </LinkButton>
               </Td>
               <Td>{cliente.endereco}</Td>
               <Td>{cliente.cidade}</Td>
@@ -75,7 +78,17 @@ export default function ClientesTable({
             </tr>
           ))}
         </tbody>
-      </Table>
+      </CompactTable>
+    </>
+  );
+}
+
+// render bottom controls as well for consistency with other lists
+export function ClientesTableWithFooter(props) {
+  return (
+    <>
+      <ClientesTable {...props} />
+      <HeaderControls page={props.page} pageSize={props.pageSize} total={props.total} onChangePage={props.onChangePage} onChangePageSize={props.onChangePageSize} />
     </>
   );
 }

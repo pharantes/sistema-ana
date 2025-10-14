@@ -6,6 +6,9 @@ import { useSession } from 'next-auth/react';
 import ClienteModal from '../../components/ClienteModal';
 import * as FE from '../../components/FormElements';
 import ClienteAcoesTable from "../components/ClienteAcoesTable";
+import styled from 'styled-components';
+import { RowWrap, ActionsInline } from '../../components/ui/primitives';
+import { Loading } from '../../components/ui/primitives';
 
 // use shared Table/Th/Td for consistency
 
@@ -13,7 +16,7 @@ export default function ClienteDetailsPage() {
   const params = useParams();
   const id = params?.id;
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const [cliente, setCliente] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -43,21 +46,39 @@ export default function ClienteDetailsPage() {
     return () => { cancelled = true; };
   }, [id]);
 
-  if (status === 'loading' || loading) return <div style={{ padding: 24 }}>Carregando…</div>;
-  if (!session) return <div style={{ padding: 24 }}>Acesso restrito</div>;
-  if (error) return <div style={{ padding: 24 }}>Erro: {error}</div>;
-  if (!cliente) return <div style={{ padding: 24 }}>Cliente não encontrado</div>;
+  const PageWrap = styled.div`
+  padding: 0;
+  `;
+  const HeaderRow = styled(RowWrap)`
+    justify-content: space-between;
+    margin-bottom: var(--space-sm, var(--space-sm, var(--space-sm, 12px)));
+  `;
+  const ButtonGroup = ActionsInline;
+  const Grid2 = styled.div`
+    display: grid;
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+    gap: var(--gap-sm, var(--space-sm, var(--space-sm, 12px)));
+  `;
+  const H2 = styled.h2`
+    margin-top: var(--space-md, var(--space-md, var(--space-md, 16px)));
+    margin-bottom: var(--space-xxs, var(--gap-xs, var(--gap-xs, 6px)));
+  `;
+
+  if (status === 'loading' || loading) return <PageWrap>Carregando…</PageWrap>;
+  if (status === 'loading' || loading) return <PageWrap><Loading /></PageWrap>;
+  if (error) return <PageWrap>Erro: {error}</PageWrap>;
+  if (!cliente) return <PageWrap>Cliente não encontrado</PageWrap>;
 
   return (
-    <div style={{ padding: 24 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+    <PageWrap>
+      <HeaderRow>
         <h1>Cliente</h1>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <FE.SecondaryButton onClick={() => router.back()} style={{ height: 40 }}>Voltar</FE.SecondaryButton>
-          <FE.Button onClick={() => setEditOpen(true)} style={{ height: 40 }}>Editar</FE.Button>
-        </div>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(220px, 1fr))', gap: 12 }}>
+        <ButtonGroup>
+          <FE.SecondaryButton onClick={() => router.back()}>Voltar</FE.SecondaryButton>
+          <FE.Button onClick={() => setEditOpen(true)}>Editar</FE.Button>
+        </ButtonGroup>
+      </HeaderRow>
+      <Grid2>
         <div><strong>Código</strong><div>{cliente.codigo}</div></div>
         <div><strong>Nome</strong><div>{cliente.nome}</div></div>
         <div><strong>Endereço</strong><div>{cliente.endereco}</div></div>
@@ -68,9 +89,9 @@ export default function ClienteDetailsPage() {
         <div><strong>Contato</strong><div>{cliente.nomeContato}</div></div>
         <div><strong>Tipo</strong><div>{cliente.tipo}</div></div>
         <div><strong>CNPJ/CPF</strong><div>{cliente.cnpjCpf}</div></div>
-      </div>
+      </Grid2>
 
-      <h2 style={{ marginTop: 16, marginBottom: 6 }}>Ações deste cliente</h2>
+      <H2>Ações deste cliente</H2>
       <ClienteAcoesTable actions={acoes} />
 
       {editOpen && (
@@ -91,6 +112,6 @@ export default function ClienteDetailsPage() {
           }}
         />
       )}
-    </div>
+    </PageWrap>
   );
 }

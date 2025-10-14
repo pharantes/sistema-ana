@@ -2,6 +2,7 @@
 /* eslint-env browser */
 import { useEffect, useRef, useState } from "react";
 import * as FL from './FormLayout';
+import { Note } from './ui/primitives';
 // ensure FL is considered used by linter in module scope
 void FL;
 
@@ -64,7 +65,7 @@ export default function ClienteDropdown({ items, value, onSelect }) {
                 {`${c.codigo || ''} ${c.nome || c.name}`}
               </FL.OptionItem>
             ))}
-            {filtered.length === 0 && <FL.EmptyMessage>Nenhum cliente</FL.EmptyMessage>}
+            {filtered.length === 0 && <Note>Nenhum cliente</Note>}
           </div>
         </FL.DropdownPanel>
       )}

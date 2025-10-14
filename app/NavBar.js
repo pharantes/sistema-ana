@@ -6,20 +6,23 @@ import styled from "styled-components";
 
 const Navbar = styled.nav`
   background: var(--color-primary, #6c2bb0);
-  padding: var(--space-md, 16px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 0; /* horizontal padding applied in NavInner for consistent centering */
+  box-shadow: 0 2px var(--space-xxs, var(--space-xxs, var(--space-xxs, 4px))) rgba(0, 0, 0, 0.1);
 `;
 const NavInner = styled.div`
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  padding: var(--space-xs, 8px) 16px;
 `;
 const NavList = styled.ul`
   display: flex;
-  gap: var(--space-lg, 24px);
+  gap: var(--gap-md, var(--space-lg, 24px));
   list-style: none;
   margin: 0;
   padding: 0;
+  align-items: center;
 `;
 const NavItem = styled.li`
   display: flex;
@@ -30,8 +33,8 @@ const NavLink = styled(Link)`
   text-decoration: none;
   font-weight: 600;
   font-size: var(--font-size-sm, 0.875rem);
-  padding: var(--space-xs, 8px) var(--space-sm, 12px);
-  border-radius: var(--radius-sm, 4px);
+  padding: var(--space-xs, var(--space-xs, var(--space-xs, 8px))) var(--space-sm, var(--space-sm, var(--space-sm, 12px)));
+  border-radius: var(--radius-sm, var(--space-xxs, var(--space-xxs, 4px)));
   transition: background-color 0.3s, color 0.3s;
 
   &:hover {
@@ -41,17 +44,21 @@ const NavLink = styled(Link)`
 `;
 const RightArea = styled.div`
   display: flex;
-  gap: 12px;
+  gap: var(--gap-sm, var(--space-sm, var(--space-sm, 12px)));
   align-items: center;
+  margin-left: auto;
 `;
 const SignOutButton = styled.button`
   background: transparent;
   border: 1px solid rgba(255,255,255,0.2);
   color: #fff;
-  padding: 6px 10px;
-  border-radius: 6px;
+  padding: var(--space-xxs, var(--gap-xs, var(--gap-xs, 6px))) var(--space-sm, 10px);
+  border-radius: var(--radius-sm, var(--gap-xs, var(--gap-xs, 6px)));
   cursor: pointer;
   font-weight: 600;
+  height: var(--control-height, 36px);
+  display: inline-flex;
+  align-items: center;
   &:hover { background: rgba(255,255,255,0.06); }
 `;
 
@@ -62,6 +69,9 @@ export default function NavBar() {
     <Navbar>
       <NavInner>
         <NavList>
+          <NavItem>
+            <NavLink href="/">Dashboard</NavLink>
+          </NavItem>
           {role === "admin" && (
             <NavItem>
               <NavLink href="/contasareceber">Contas a receber</NavLink>

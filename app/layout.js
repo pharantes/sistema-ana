@@ -1,4 +1,5 @@
 // app/layout.js
+import './globals.css';
 import { getServerSession } from "next-auth";
 import baseOptions from "../lib/auth/authOptionsBase";
 import NextAuthProvider from "./sessionProvider"; // Your client component

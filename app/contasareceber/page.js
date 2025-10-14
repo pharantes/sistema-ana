@@ -11,11 +11,11 @@ import { gerarContasAReceberPDF } from "./utils/pdf";
 // Pager now centralized in components/ui/Pager
 
 const Title = styled.h1`
-  font-size: 2rem;
-  margin-bottom: 1rem;
+  font-size: var(--font-h1, 2rem);
+  margin-bottom: var(--space-md, var(--space-md, var(--space-md, 16px)));
 `;
 const Wrapper = styled.div`
-  padding: 24px;
+  padding: var(--page-padding);
 `;
 
 // Table, Th, Td imported from components/ui/Table for consistency

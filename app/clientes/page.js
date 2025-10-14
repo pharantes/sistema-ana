@@ -1,25 +1,24 @@
 "use client";
 /* eslint-env browser */
 import styled from "styled-components";
+import { RowWrap } from '../components/ui/primitives';
 import { useRouter } from 'next/navigation';
-import Pager from "../components/ui/Pager";
 import { SearchBar } from "../components/ui";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import ClienteModal from "../components/ClienteModal";
 import * as FE from "../components/FormElements";
 import DeleteModal from "../components/DeleteModal";
-import { useMemo } from "react";
-import ClientesTable from "./components/ClientesTable";
+import { ClientesTableWithFooter } from "./components/ClientesTable";
 
 const Wrapper = styled.div`
-  padding: 16px;
+  padding: var(--page-padding);
 `;
 const Title = styled.h1`
-  font-size: 1.6rem;
-  margin-bottom: 0.5rem;
+  font-size: var(--font-h3, 1.6rem);
+  margin-bottom: var(--space-xs, var(--space-xs, var(--space-xs, 8px)));
 `;
-// Use shared Table, Th, Td (with zebra striping)
-
+const TopControls = RowWrap;
+// SmallNote imported from primitives
 
 export default function ClientesPage() {
   const router = useRouter();
@@ -166,28 +165,12 @@ export default function ClientesPage() {
   return (
     <Wrapper>
       <Title>Clientes</Title>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+      <TopControls>
         <FE.TopButton onClick={() => setModalOpen(true)}>Novo Cliente</FE.TopButton>
         <SearchBar value={q} onChange={e => { setPage(1); setQ(e.target.value); }} placeholder="Buscar por nome, contato, email ou cidade..." />
-        {total > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              <Pager page={page} pageSize={pageSize} total={total} onChangePage={setPage} compact inline />
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span style={{ fontSize: '0.9rem', color: '#555' }}>Mostrar:</span>
-              <select value={pageSize} onChange={(e) => { setPage(1); setPageSize(Number(e.target.value)); }}>
-                <option value={10}>10</option>
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-              </select>
-              <span style={{ fontSize: '0.9rem', color: '#555' }}>Total: {total}</span>
-            </div>
-          </div>
-        )}
-      </div>
+      </TopControls>
       {loading ? <p>Carregando...</p> : (
-        <ClientesTable
+        <ClientesTableWithFooter
           rows={pageData}
           page={page}
           pageSize={pageSize}
@@ -223,4 +206,3 @@ export default function ClientesPage() {
     </Wrapper>
   );
 }
-// ...existing code...

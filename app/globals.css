@@ -20,19 +20,41 @@
   --space-md: 16px;
   --space-lg: 24px;
   --space-xl: 32px;
+  /* Page-level layout tokens - small gutter for full-bleed feel but with spacing */
+  --page-gutter: 12px;
+  --page-padding: var(--page-gutter);
+  --page-gap: 16px;
+  --cta-height: 48px;
+  --cta-padding-x: 20px;
+  /* Gap tokens (semantic aliases for grid/flex gaps) */
+  --gap-xs: 6px;
+  --gap-sm: 12px;
+  --gap-md: 16px;
+
+  /* Control sizing */
+  --control-height: 36px;
 
   /* Border radius */
   --radius-sm: 6px;
   --radius-md: 10px;
+  --radius-pill: 999px;
+  /* Compact page rail height used for small header/footer tracks */
+  --page-rail-height: 20px;
+  /* Extra-large rounded radius used for pill-ish roundings (fallback: 128px) */
+  --radius-round: 128px;
 
   /* Typography */
   --font-family-base: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
   --font-size-sm: 0.85rem;
   /* ~14px */
   --font-size-base: 1rem;
-  /* 16px */
+  /* var(--space-md, 16px) */
   --font-size-lg: 1.125rem;
   /* 18px */
+  /* Headline scale */
+  --font-h1: 2rem;
+  --font-h2: 1.8rem;
+  --font-h3: 1.6rem;
 }
 
 html,
@@ -88,8 +110,8 @@ table td {
 .btn {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
   border-radius: var(--radius-sm);
   font-size: var(--font-size-base);
   cursor: pointer;

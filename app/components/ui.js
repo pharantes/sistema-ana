@@ -1,10 +1,10 @@
 import styled, { css } from 'styled-components';
 
 export const inputCss = css`
-  height: 36px;
-  padding: 6px 10px;
+  height: var(--control-height);
+  padding: var(--space-xs) var(--space-md);
   border: 1px solid #d1d5db;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   outline: none;
   background: #fff;
   color: #111827;
@@ -15,16 +15,16 @@ export const inputCss = css`
 `;
 
 export const buttonCss = css`
-  height: 36px;
-  padding: 6px 12px;
-  border-radius: 6px;
+  height: var(--control-height);
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius-sm);
   border: 1px solid transparent;
   cursor: pointer;
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--gap-xs);
 `;
 
 export const Button = styled.button`
@@ -65,16 +65,16 @@ export const DateInput = styled.input.attrs({ type: 'date' })`
 
 export const Toolbar = styled.div`
   display: flex;
-  gap: 8px;
+  gap: var(--gap-xs);
   align-items: center;
   flex-wrap: wrap;
 `;
 
-export const PresetButton = styled.button`
-  ${buttonCss}
-  background: #fff; border-color: #d1d5db; color: #111827;
-  &:hover { background: #f9fafb; }
-  &[aria-pressed="true"] {
-    background: #2563eb; color: #fff; border-color: #2563eb;
-  }
-`;
+// Re-export the PresetButton from the centralized primitives so callers
+// importing from `components/ui` keep working while the implementation
+// lives in `components/ui/primitives.js`.
+export { PresetButton } from "./ui/primitives";
+
+// NOTE: PresetButton is also provided in `./ui/primitives.js` to centralize
+// small, reusable UI tokens used across filters and modals. Prefer using
+// `import { PresetButton } from './ui/primitives'` instead of this local copy.

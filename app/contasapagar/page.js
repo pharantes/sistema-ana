@@ -1,6 +1,7 @@
 "use client";
 /* eslint-env browser */
 import styled from "styled-components";
+import { Note as SmallNote, InputWrap, RowWrap, RowEnd, RowTopGap, RowInline } from '../components/ui/primitives';
 import Filters from "./Filters";
 import ContasFixasTable from "./components/ContasFixasTable";
 
@@ -8,12 +9,57 @@ import ContasFixasTable from "./components/ContasFixasTable";
 
 
 const Title = styled.h1`
-  font-size: 1.6rem;
-  margin-bottom: 0.5rem;
+  font-size: var(--font-h3, 1.6rem);
+  margin-bottom: var(--space-xs, var(--space-xs, var(--space-xs, 8px)));
 `;
 const Wrapper = styled.div`
-  padding: 16px;
+  padding: 0;
 `;
+const PageSection = styled.div`
+  margin-top: var(--space-sm);
+`;
+// use shared RowEnd primitive from ui/primitives
+const SearchRow = styled(RowWrap)`
+  justify-content: space-between;
+  gap: var(--gap-sm);
+  align-items: end;
+  flex-wrap: wrap;
+  margin-top: var(--space-xxs, var(--space-xxs, var(--space-xxs, 4px)));
+`;
+const SearchCol = styled.div`
+  display:flex;
+  flex-direction: column;
+  gap: var(--gap-xs);
+  min-width: var(--min-col-width, 280px);
+  flex: 1 1 320px;
+`;
+const ModalOverlay = styled.div`
+  position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+  display:flex; align-items:center; justify-content:center; z-index:50;
+`;
+const ModalCard = styled.div`
+  background: #fff; padding: var(--space-md, var(--space-md, 16px)); border-radius: var(--radius-md); width: var(--modal-min-width, 420px); max-width: 90%;
+`;
+const ModalGrid = styled.div`
+  display: grid; grid-template-columns: 1fr; gap: var(--gap-xs); margin-top: var(--space-xs);
+`;
+const ModalField = styled(InputWrap)`
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xxs, var(--space-xxs, var(--space-xxs, 4px)));
+`;
+const H2 = styled.h2`
+  margin-top: var(--space-sm);
+`;
+const H2Large = styled.h2`
+  margin-top: var(--space-lg);
+`;
+// compact container for small buttons removed — use shared RowInline directly
+const SmallSecondaryButton = styled(FE.SecondaryButton)`
+  height: var(--control-height, 36px);
+`;
+// SmallNote and PresetButton imported from primitives
+// TopGap removed — use RowInline with margin when needed
 
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState, useRef } from "react";
@@ -48,7 +94,7 @@ export default function ContasAPagarPage() {
   const [fixaForm, setFixaForm] = useState({ name: '', empresa: '', tipo: 'mensal', valor: '', status: 'ABERTO', vencimento: '' });
   const [fixaEditing, setFixaEditing] = useState(null);
   const inputRef = useRef(null);
-  const inputSx = { height: 40 };
+  const inputSx = { height: 36 };
 
   useEffect(() => {
     try { inputRef.current?.focus(); } catch { /* noop */ }
@@ -431,7 +477,7 @@ export default function ContasAPagarPage() {
     <Wrapper>
       <Title>Contas a pagar</Title>
 
-      <div style={{ marginTop: 12 }}>
+      <PageSection>
         <Filters
           dueFrom={dueFrom}
           dueTo={dueTo}
@@ -441,28 +487,27 @@ export default function ContasAPagarPage() {
           onChangeStatus={setStatusFilter}
           onClear={clearAll}
           inputSx={inputSx}
-          rightActions={<FE.SecondaryButton onClick={onGerarPDFFixas} style={{ height: 36 }}>Gerar PDF (com fixas)</FE.SecondaryButton>}
+          rightActions={<SmallSecondaryButton onClick={onGerarPDFFixas}>Gerar PDF (com fixas)</SmallSecondaryButton>}
         />
-      </div>
+      </PageSection>
 
-      <h2 style={{ marginTop: 12 }}>Custos ações</h2>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'end', flexWrap: 'wrap', marginTop: 4 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 280, flex: '1 1 320px' }}>
+      <H2>Custos ações</H2>
+      <SearchRow>
+        <SearchCol>
           <label>Buscar</label>
           <FE.Input
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Buscar por Cliente, Ação ou Colaborador (somente Custos ações)"
-            style={{ ...inputSx }}
           />
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <FE.SecondaryButton onClick={onGerarPDFAcoes} style={{ height: 40 }}>Gerar PDF (ações)</FE.SecondaryButton>
-        </div>
-      </div>
+        </SearchCol>
+        <RowInline>
+          <SmallSecondaryButton onClick={onGerarPDFAcoes}>Gerar PDF (ações)</SmallSecondaryButton>
+        </RowInline>
+      </SearchRow>
 
-      <div style={{ marginTop: 12 }}>
+      <PageSection>
         <AcoesTable
           rows={pageDataAcoes}
           page={pageAcoes}
@@ -476,17 +521,17 @@ export default function ContasAPagarPage() {
           onChangeStatus={handleStatusChange}
           session={session}
         />
-      </div>
+      </PageSection>
 
-      <h2 style={{ marginTop: 24 }}>Contas Fixas</h2>
+      <H2Large>Contas Fixas</H2Large>
       {session?.user?.role === 'admin' && (
-        <div style={{ marginTop: 8 }}>
+        <RowTopGap>
           <FE.TopButton onClick={openNewFixa}>Nova Conta Fixa</FE.TopButton>
-        </div>
+        </RowTopGap>
       )}
-      <div style={{ color: '#666', fontSize: '0.9rem', marginTop: 4 }}>
+      <SmallNote>
         Quando o status estiver "PAGO", mostramos o mês/ano do pagamento e ele volta para "ABERTO" automaticamente após o ciclo (15 dias para quinzenal, 30 dias para mensal).
-      </div>
+      </SmallNote>
       <ContasFixasTable
         rows={sortedFixas}
         sortKey={sortKeyFixas}
@@ -504,51 +549,50 @@ export default function ContasAPagarPage() {
       />
 
       {showFixaModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-          <div style={{ background: '#fff', padding: 16, borderRadius: 8, width: 420, maxWidth: '90%' }}>
+        <ModalOverlay>
+          <ModalCard>
             <h3>{fixaEditing ? 'Editar Conta Fixa' : 'Nova Conta Fixa'}</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8, marginTop: 8 }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <ModalGrid>
+              <ModalField>
                 <label>Nome</label>
                 <FE.Input value={fixaForm.name} onChange={e => setFixaForm(f => ({ ...f, name: e.target.value }))} />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              </ModalField>
+              <ModalField>
                 <label>Empresa</label>
                 <FE.Input value={fixaForm.empresa} onChange={e => setFixaForm(f => ({ ...f, empresa: e.target.value }))} />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              </ModalField>
+              <ModalField>
                 <label>Tipo</label>
                 <FE.Select value={fixaForm.tipo} onChange={e => setFixaForm(f => ({ ...f, tipo: e.target.value }))}>
                   <option value="quizenal">Quinzenal</option>
                   <option value="mensal">Mensal</option>
                 </FE.Select>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              </ModalField>
+              <ModalField>
                 <label>Status</label>
                 <FE.Select value={fixaForm.status} onChange={e => setFixaForm(f => ({ ...f, status: e.target.value }))}>
                   <option value="ABERTO">ABERTO</option>
                   <option value="PAGO">PAGO</option>
                 </FE.Select>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              </ModalField>
+              <ModalField>
                 <label>Vencimento</label>
                 <BRDateInput
                   value={fixaForm.vencimento}
                   onChange={(iso) => setFixaForm(f => ({ ...f, vencimento: iso }))}
-                  style={{ height: 40, width: '100%' }}
                 />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              </ModalField>
+              <ModalField>
                 <label>Valor</label>
                 <BRCurrencyInput value={fixaForm.valor} onChange={(val) => setFixaForm(f => ({ ...f, valor: val }))} />
-              </div>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
+              </ModalField>
+            </ModalGrid>
+            <RowEnd>
               <FE.SecondaryButton onClick={() => setShowFixaModal(false)}>Cancelar</FE.SecondaryButton>
               <FE.Button onClick={saveFixa}>Salvar</FE.Button>
-            </div>
-          </div>
-        </div>
+            </RowEnd>
+          </ModalCard>
+        </ModalOverlay>
       )}
     </Wrapper>
   );

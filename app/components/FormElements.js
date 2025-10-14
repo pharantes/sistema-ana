@@ -1,8 +1,9 @@
 import styled from 'styled-components';
+import { ActionsInline } from './ui/primitives';
 
 export const Button = styled.button`
-  padding: var(--space-xs, 8px) var(--space-md, 12px);
-  border-radius: var(--radius-sm, 6px);
+  padding: var(--space-xs, var(--space-xs, var(--space-xs, 8px))) var(--space-md, var(--space-sm, var(--space-sm, 12px)));
+  border-radius: var(--radius-sm, var(--gap-xs, var(--gap-xs, 6px)));
   border: 1px solid transparent; /* keep same box model as secondary */
   box-sizing: border-box;
   cursor: pointer;
@@ -11,7 +12,7 @@ export const Button = styled.button`
   font-size: var(--font-size-base, 1rem);
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--gap-xs);
   &:disabled { opacity: 0.6; cursor: not-allowed; }
 `;
 
@@ -22,7 +23,7 @@ export const SecondaryButton = styled(Button)`
 `;
 
 export const InlineButton = styled.button`
-  margin-left: var(--space-xs, 8px);
+  margin-left: var(--space-xs, var(--space-xs, var(--space-xs, 8px)));
   background: transparent;
   border: none;
   cursor: pointer;
@@ -31,58 +32,52 @@ export const InlineButton = styled.button`
 `;
 
 export const TopButton = styled(Button)`
-  margin-bottom: var(--space-md, 16px);
+  margin-bottom: var(--space-md, var(--space-md, var(--space-md, 16px)));
 `;
 
 export const TopSecondaryButton = styled(SecondaryButton)`
-  margin-bottom: var(--space-md, 16px);
+  margin-bottom: var(--space-md, var(--space-md, var(--space-md, 16px)));
 `;
 
 export const Input = styled.input`
-  padding: var(--space-xs, 8px);
+  padding: var(--space-xs, var(--space-xs, var(--space-xs, 8px)));
   font-size: var(--font-size-base, 1rem);
   width: 100%;
   box-sizing: border-box;
   border: 1px solid rgba(0,0,0,0.08);
-  border-radius: var(--radius-sm, 6px);
+  border-radius: var(--radius-sm, var(--gap-xs, var(--gap-xs, 6px)));
   background: var(--color-surface, #fff);
   color: var(--color-text-primary);
   &:focus { outline: 2px solid rgba(108,43,176,0.12); }
 `;
 
 export const Select = styled.select`
-  padding: var(--space-xs, 8px);
+  padding: var(--space-xs, var(--space-xs, var(--space-xs, 8px)));
   font-size: var(--font-size-base, 1rem);
   width: 100%;
   box-sizing: border-box;
   border: 1px solid rgba(0,0,0,0.08);
-  border-radius: var(--radius-sm, 6px);
+  border-radius: var(--radius-sm, var(--gap-xs, var(--gap-xs, 6px)));
   background: var(--color-surface, #fff);
   color: var(--color-text-primary);
   &:focus { outline: 2px solid rgba(108,43,176,0.12); }
 `;
 
 // Compact actions row to keep Editar/Excluir on one line
-export const ActionsRow = styled.div`
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: nowrap;
-  white-space: nowrap;
-`;
+export const ActionsRow = ActionsInline;
 
 // Compact button variants for Opções columns
 export const SmallSecondaryButton = styled(SecondaryButton)`
-  padding: 4px 8px;
-  font-size: 0.9rem;
-  height: 28px;
+  padding: var(--space-xxs, var(--space-xxs, var(--space-xxs, 4px))) var(--space-xs, var(--space-xs, var(--space-xs, 8px)));
+  font-size: var(--font-size-sm, 0.9rem);
+  height: calc(var(--control-height, 36px) - var(--space-xs, var(--space-xs, 8px)));
   line-height: 1;
 `;
 
 export const SmallInlineButton = styled(InlineButton)`
   margin-left: 0;
-  font-size: 0.9rem;
-  height: 28px;
+  font-size: var(--font-size-sm, 0.9rem);
+  height: calc(var(--control-height, 36px) - var(--space-xs, var(--space-xs, 8px)));
   line-height: 1;
 `;
 

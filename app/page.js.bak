@@ -14,27 +14,27 @@ const CenterFull = styled.div`
 `;
 
 const PagePad = styled.div`
-  padding: var(--page-padding);
+  padding: var(--page-padding, 2rem);
 `;
 
 const ButtonPrimary = styled.button`
   height: var(--control-height, 36px);
-  padding: 0 var(--space-md, var(--space-md, var(--space-md, 16px)));
-  margin-right: var(--space-md, var(--space-md, var(--space-md, 16px)));
+  padding: 0 var(--space-md, var(--space-md, 16px));
+  margin-right: var(--space-md, var(--space-md, 16px));
   background: #0070f3;
   color: white;
   border: none;
-  border-radius: var(--radius-sm, var(--space-xxs, var(--space-xxs, 4px)));
+  border-radius: var(--radius-sm, var(--space-xxs, 4px));
   cursor: pointer;
 `;
 
 const ButtonDanger = styled.button`
   height: var(--control-height, 36px);
-  padding: 0 var(--space-md, var(--space-md, var(--space-md, 16px)));
+  padding: 0 var(--space-md, var(--space-md, 16px));
   background: #f56565;
   color: white;
   border: none;
-  border-radius: var(--radius-sm, var(--space-xxs, var(--space-xxs, 4px)));
+  border-radius: var(--radius-sm, var(--space-xxs, 4px));
   cursor: pointer;
 `;
 

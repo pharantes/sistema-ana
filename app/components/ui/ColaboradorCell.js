@@ -1,16 +1,14 @@
 "use client";
+import LinkButton from './LinkButton';
 
 export default function ColaboradorCell({ report }) {
   if (!report) return null;
   // staff row with colaboradorId
   if (report.staffName && report?.colaboradorId) {
     return (
-      <button
-        onClick={() => globalThis.location.assign(`/colaboradores/${report.colaboradorId}`)}
-        style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer' }}
-      >
+      <LinkButton onClick={() => globalThis.location.assign(`/colaboradores/${report.colaboradorId}`)}>
         {report.staffName}
-      </button>
+      </LinkButton>
     );
   }
   // staff row without id
@@ -18,12 +16,9 @@ export default function ColaboradorCell({ report }) {
   // cost row possibly with colaboradorId and label
   if (report.colaboradorLabel && report?.colaboradorId) {
     return (
-      <button
-        onClick={() => globalThis.location.assign(`/colaboradores/${report.colaboradorId}`)}
-        style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer' }}
-      >
+      <LinkButton onClick={() => globalThis.location.assign(`/colaboradores/${report.colaboradorId}`)}>
         {report.colaboradorLabel}
-      </button>
+      </LinkButton>
     );
   }
   // fallback: cost description vendor name/empresa

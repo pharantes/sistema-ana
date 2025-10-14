@@ -5,7 +5,10 @@ import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import ColaboradorModal from '../../components/ColaboradorModal';
 import * as FE from '../../components/FormElements';
-import { Table, Th, Td } from '../../components/ui/Table';
+import { Table, ThClickable, Td } from '../../components/ui/Table';
+import styled from 'styled-components';
+import { Note, RowWrap, ActionsInline } from '../../components/ui/primitives';
+import LinkButton from '../../components/ui/LinkButton';
 import Pager from '../../components/ui/Pager';
 import { formatDateBR } from '@/lib/utils/dates';
 
@@ -74,21 +77,56 @@ export default function ColaboradorDetailsPage() {
     return () => { cancelled = true; };
   }, [id]);
 
-  if (status === 'loading' || loading) return <div style={{ padding: 24 }}>Carregando…</div>;
-  if (!session) return <div style={{ padding: 24 }}>Acesso restrito</div>;
-  if (error) return <div style={{ padding: 24 }}>Erro: {error}</div>;
-  if (!colaborador) return <div style={{ padding: 24 }}>Colaborador não encontrado</div>;
+  const PageWrap = styled.div`
+    padding: var(--space-lg, 24px);
+  `;
+  const Grid2 = styled.div`
+    display: grid;
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+    gap: var(--gap-sm, var(--space-sm, var(--space-sm, 12px)));
+  `;
+  const HeaderRow = styled.div`
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-sm, var(--space-sm, var(--space-sm, 12px)));
+  `;
+  const MsgWrap = styled.div`
+    padding: var(--space-lg);
+  `;
+  // use shared ActionsInline primitive for compact action buttons
+  const ActionButtons = ActionsInline;
+
+  const H2 = styled.h2`
+    margin-top: var(--space-md, var(--space-md, var(--space-md, 16px)));
+    margin-bottom: var(--space-xxs, var(--gap-xs, var(--gap-xs, 6px)));
+  `;
+
+  const ControlsRow = RowWrap;
+
+  const ControlsInner = styled.div`
+    display:flex;
+    align-items:center;
+    gap:var(--gap-sm, var(--space-sm, var(--space-sm, 12px)));
+  `;
+
+  // using shared Note from primitives
+
+  if (status === 'loading' || loading) return <MsgWrap>Carregando…</MsgWrap>;
+  if (!session) return <MsgWrap>Acesso restrito</MsgWrap>;
+  if (error) return <MsgWrap>Erro: {error}</MsgWrap>;
+  if (!colaborador) return <MsgWrap>Colaborador não encontrado</MsgWrap>;
 
   return (
-    <div style={{ padding: 24 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+    <PageWrap>
+      <HeaderRow>
         <h1>Colaborador</h1>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <FE.SecondaryButton onClick={() => router.back()} style={{ height: 40 }}>Voltar</FE.SecondaryButton>
-          <FE.Button onClick={() => setEditOpen(true)} style={{ height: 40 }}>Editar</FE.Button>
-        </div>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(220px, 1fr))', gap: 12 }}>
+        <ActionButtons>
+          <FE.SecondaryButton onClick={() => router.back()}>Voltar</FE.SecondaryButton>
+          <FE.Button onClick={() => setEditOpen(true)}>Editar</FE.Button>
+        </ActionButtons>
+      </HeaderRow>
+      <Grid2>
         <div><strong>Código</strong><div>{colaborador.codigo}</div></div>
         <div><strong>Nome</strong><div>{colaborador.nome}</div></div>
         <div><strong>Empresa</strong><div>{colaborador.empresa}</div></div>
@@ -99,37 +137,37 @@ export default function ColaboradorDetailsPage() {
         <div><strong>Email</strong><div>{colaborador.email}</div></div>
         <div><strong>Tipo</strong><div>{colaborador.tipo}</div></div>
         <div><strong>CNPJ/CPF</strong><div>{colaborador.cnpjCpf}</div></div>
-      </div>
-      <h2 style={{ marginTop: 16, marginBottom: 6 }}>Ações deste colaborador</h2>
+      </Grid2>
+      <H2>Ações deste colaborador</H2>
       {Array.isArray(acoes) && acoes.length ? (
         <Table>
           <thead>
             <tr>
-              <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleAcoesSort('date')}>
+              <ThClickable onClick={() => toggleAcoesSort('date')}>
                 Data {acoesSortKey === 'date' ? (acoesSortDir === 'asc' ? '▲' : '▼') : ''}
-              </Th>
-              <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleAcoesSort('name')}>
+              </ThClickable>
+              <ThClickable onClick={() => toggleAcoesSort('name')}>
                 Nome {acoesSortKey === 'name' ? (acoesSortDir === 'asc' ? '▲' : '▼') : ''}
-              </Th>
-              <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleAcoesSort('client')}>
+              </ThClickable>
+              <ThClickable onClick={() => toggleAcoesSort('client')}>
                 Cliente {acoesSortKey === 'client' ? (acoesSortDir === 'asc' ? '▲' : '▼') : ''}
-              </Th>
-              <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleAcoesSort('start')}>
+              </ThClickable>
+              <ThClickable onClick={() => toggleAcoesSort('start')}>
                 Início {acoesSortKey === 'start' ? (acoesSortDir === 'asc' ? '▲' : '▼') : ''}
-              </Th>
-              <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleAcoesSort('end')}>
+              </ThClickable>
+              <ThClickable onClick={() => toggleAcoesSort('end')}>
                 Fim {acoesSortKey === 'end' ? (acoesSortDir === 'asc' ? '▲' : '▼') : ''}
-              </Th>
+              </ThClickable>
             </tr>
           </thead>
           <tbody>
             {acoesPageData.map(a => (
               <tr key={a._id}>
                 <Td>{formatDateBR(a.date)}</Td>
-                <Td style={{ textAlign: 'left' }}>
-                  <button onClick={() => router.push(`/acoes/${a._id}`)} style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer', textAlign: 'left' }}>
+                <Td>
+                  <LinkButton onClick={() => router.push(`/acoes/${a._id}`)}>
                     {a.name || a.event}
-                  </button>
+                  </LinkButton>
                 </Td>
                 <Td>{a.clientName || a.client}</Td>
                 <Td>{formatDateBR(a.startDate)}</Td>
@@ -139,21 +177,21 @@ export default function ColaboradorDetailsPage() {
           </tbody>
         </Table>
       ) : (
-        <div style={{ color: '#6B7280', fontSize: '0.95rem' }}>Nenhuma ação encontrada para este colaborador.</div>
+        <Note>Nenhuma ação encontrada para este colaborador.</Note>
       )}
       {Array.isArray(acoes) && acoes.length > acoesPageSize && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8, justifyContent: 'space-between', flexWrap: 'wrap' }}>
+        <ControlsRow>
           <Pager page={acoesPage} pageSize={acoesPageSize} total={acoes.length} onChangePage={setAcoesPage} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ fontSize: '0.9rem', color: '#555' }}>Mostrar:</span>
+          <ControlsInner>
+            <Note>Mostrar:</Note>
             <select value={acoesPageSize} onChange={(e) => { setAcoesPage(1); setAcoesPageSize(Number(e.target.value)); }}>
               <option value={10}>10</option>
               <option value={25}>25</option>
               <option value={50}>50</option>
             </select>
-            <span style={{ fontSize: '0.9rem', color: '#555' }}>Total: {acoes.length}</span>
-          </div>
-        </div>
+            <Note>Total: {acoes.length}</Note>
+          </ControlsInner>
+        </ControlsRow>
       )}
       {editOpen && (
         <ColaboradorModal
@@ -173,6 +211,6 @@ export default function ColaboradorDetailsPage() {
           }}
         />
       )}
-    </div>
+    </PageWrap>
   );
 }

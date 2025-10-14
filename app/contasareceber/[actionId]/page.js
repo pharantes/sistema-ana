@@ -3,31 +3,36 @@
 import { useEffect, useState, use as useUnwrap } from 'react';
 import { useRouter } from 'next/navigation';
 import styled from 'styled-components';
+import { RowWrap, ActionsInline, Loading } from '../../components/ui/primitives';
 import ContasReceberModal from '../ContasReceberModal';
 import { formatDateBR, formatDateTimeBR } from '@/lib/utils/dates';
 import { formatBRL } from '../../utils/currency';
 import * as FE from '../../components/FormElements';
 
 const Wrapper = styled.div`
-  padding: 24px;
+  padding: var(--page-padding);
 `;
 const Title = styled.h1`
-  font-size: 1.6rem;
-  margin-bottom: 12px;
+  font-size: var(--font-h3, 1.6rem);
+  margin-bottom: var(--space-sm, var(--space-sm, var(--space-sm, 12px)));
 `;
-const HeaderRow = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-`;
+const HeaderRow = RowWrap;
+const ActionButtons = ActionsInline;
 const Grid = styled.div`
   display: grid;
   grid-template-columns: repeat(2, minmax(220px, 1fr));
-  gap: 12px 24px;
+  gap: var(--gap-sm, var(--space-sm, var(--space-sm, 12px))) var(--space-lg, 24px);
 `;
 const Label = styled.div` font-weight: 600; `;
 const Value = styled.div` color: #222; `;
+const ClientSection = styled.div`
+  margin-top: var(--space-sm);
+`;
+const ClientGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: var(--gap-sm) var(--space-lg);
+`;
 
 export default function RecebivelDetailPage({ params }) {
   const { actionId } = useUnwrap(params);
@@ -59,7 +64,7 @@ export default function RecebivelDetailPage({ params }) {
     return () => { cancelled = true; };
   }, [actionId]);
 
-  if (loading) return <Wrapper>Carregando…</Wrapper>;
+  if (loading) return <Wrapper><Loading /></Wrapper>;
   if (error) return <Wrapper>Erro: {error}</Wrapper>;
   if (!row) return <Wrapper>Nada encontrado.</Wrapper>;
 
@@ -75,10 +80,10 @@ export default function RecebivelDetailPage({ params }) {
     <Wrapper>
       <HeaderRow>
         <Title>Recebível</Title>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <FE.SecondaryButton onClick={() => router.push('/contasareceber')} style={{ height: 40 }}>Voltar</FE.SecondaryButton>
-          <FE.Button onClick={() => setModalOpen(true)} style={{ height: 40 }}>Editar</FE.Button>
-        </div>
+        <ActionButtons>
+          <FE.SecondaryButton onClick={() => router.push('/contasareceber')}>Voltar</FE.SecondaryButton>
+          <FE.Button onClick={() => setModalOpen(true)}>Editar</FE.Button>
+        </ActionButtons>
       </HeaderRow>
       <Grid>
         <div><Label>ID</Label><Value>{row?._id || ''}</Value></div>
@@ -99,15 +104,15 @@ export default function RecebivelDetailPage({ params }) {
         <div><Label>Criado em</Label><Value>{criado}</Value></div>
         <div><Label>Atualizado em</Label><Value>{atualizado}</Value></div>
       </Grid>
-      <div style={{ marginTop: 16 }}>
+      <ClientSection>
         <h3>Dados do Cliente (atual)</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(220px, 1fr))', gap: '12px 24px' }}>
+        <ClientGrid>
           <div><Label>PIX</Label><Value>{row?.clienteDetails?.pix || ''}</Value></div>
           <div><Label>Banco</Label><Value>{row?.clienteDetails?.banco || ''}</Value></div>
           <div><Label>Conta</Label><Value>{row?.clienteDetails?.conta || ''}</Value></div>
           <div><Label>Forma Pgt</Label><Value>{row?.clienteDetails?.formaPgt || ''}</Value></div>
-        </div>
-      </div>
+        </ClientGrid>
+      </ClientSection>
       <ContasReceberModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}

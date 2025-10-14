@@ -2,6 +2,7 @@
 /* eslint-env browser */
 import { useEffect, useRef, useState } from "react";
 import * as FL from './FormLayout';
+import { Note } from './ui/primitives';
 void FL;
 
 export default function ColaboradorDropdown({ items, onSelect }) {
@@ -62,7 +63,7 @@ export default function ColaboradorDropdown({ items, onSelect }) {
                 {`${s.codigo || ''} ${s.nome || s.name}`}
               </FL.OptionItem>
             ))}
-            {filtered.length === 0 && <FL.EmptyMessage>Nenhum colaborador</FL.EmptyMessage>}
+            {filtered.length === 0 && <Note>Nenhum colaborador</Note>}
           </div>
         </FL.DropdownPanel>
       )}

@@ -1,50 +1,32 @@
 "use client";
 import React, { useRef, useEffect } from "react";
 import styled from "styled-components";
+import { InputWrap, Label, PresetButton, Note, RowWrap, RowTopGap } from "./ui/primitives";
 import * as FE from "./FormElements";
 import BRDateInput from "../components/BRDateInput";
 
 const FiltersWrapper = styled.section`
   width: 100%;
-  margin-top: 16px;
+  margin-top: var(--space-md, var(--space-md, var(--space-md, 16px)));
 `;
 const Grid = styled.div`
   display: grid;
   grid-template-columns: 2fr 1fr 1fr 1fr;
-  gap: 8px;
+  gap: var(--gap-xs, var(--space-xs, var(--space-xs, 8px)));
   align-items: end;
 `;
 const Field = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 4px;
-`;
-const Label = styled.label`
-  font-size: 0.85rem;
-  color: #444;
+  gap: var(--space-xxs, var(--space-xxs, var(--space-xxs, 4px)));
 `;
 
-const PresetsRow = styled.div`
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-  align-items: center;
-  flex-wrap: wrap;
-`;
-const PresetButton = styled.button`
-  padding: 6px 10px;
-  border: 1px solid rgba(0,0,0,0.15);
-  border-radius: 6px;
-  background: #fff;
-  cursor: pointer;
-  font-size: 0.9rem;
-  &:hover { background: #f7f7f7; }
-  &[aria-pressed="true"] {
-    background: var(--color-primary, #6C2BB0);
-    color: #fff;
-    border-color: var(--color-primary, #6C2BB0);
-  }
-`;
+const PresetsRow = RowTopGap;
+const PresetGroup = RowWrap;
+
+// Note, Label, InputWrap and PresetButton are imported from ui/primitives
+
+// Spacer not needed in this component
 
 function FiltersComponent({
   q, setQ,
@@ -53,7 +35,6 @@ function FiltersComponent({
   rangeTo, setRangeTo,
 }) {
   const inputRef = useRef(null);
-  const inputSx = { height: 40 };
   // One-time controlled autofocus on mount
   useEffect(() => {
     const el = inputRef.current;
@@ -134,44 +115,58 @@ function FiltersComponent({
       <Grid>
         <Field>
           <Label>Buscar</Label>
-          <FE.Input ref={inputRef} placeholder="Buscar por Cliente ou Evento" value={q} onChange={e => setQ(e.target.value)} style={inputSx} />
+          <InputWrap>
+            <FE.Input ref={inputRef} placeholder="Buscar por Cliente ou Evento" value={q} onChange={e => setQ(e.target.value)} />
+          </InputWrap>
         </Field>
 
         <Field>
           <Label>Período por</Label>
-          <FE.Select value={rangeMode} onChange={e => setRangeMode(e.target.value)} style={inputSx}>
-            <option value="inicio">Início Ação</option>
-            <option value="fim">Fim Ação</option>
-          </FE.Select>
+          <InputWrap>
+            <FE.Select value={rangeMode} onChange={e => setRangeMode(e.target.value)}>
+              <option value="inicio">Início Ação</option>
+              <option value="fim">Fim Ação</option>
+            </FE.Select>
+          </InputWrap>
         </Field>
+
         <Field>
           <Label>De</Label>
-          <BRDateInput value={rangeFrom} onChange={(iso) => setRangeFrom(iso)} style={inputSx} />
+          <InputWrap>
+            <BRDateInput value={rangeFrom} onChange={(iso) => setRangeFrom(iso)} />
+          </InputWrap>
         </Field>
+
         <Field>
           <Label>Até</Label>
-          <BRDateInput value={rangeTo} onChange={(iso) => setRangeTo(iso)} style={inputSx} />
+          <InputWrap>
+            <BRDateInput value={rangeTo} onChange={(iso) => setRangeTo(iso)} />
+          </InputWrap>
         </Field>
       </Grid>
+
       <PresetsRow>
-        <span style={{ color: '#666', fontSize: '0.9rem' }}>Atalhos:</span>
-        <PresetButton
-          type="button"
-          aria-pressed={(() => { const s = fmt(new Date()); return rangeFrom === s && rangeTo === s; })()}
-          onClick={applyHoje}
-        >Hoje</PresetButton>
-        <PresetButton
-          type="button"
-          aria-pressed={(() => { const [st, en] = getSemana(); const s = fmt(st), e = fmt(en); return rangeFrom === s && rangeTo === e; })()}
-          onClick={applySemana}
-        >Esta semana</PresetButton>
-        <PresetButton
-          type="button"
-          aria-pressed={(() => { const [st, en] = getMes(); const s = fmt(st), e = fmt(en); return rangeFrom === s && rangeTo === e; })()}
-          onClick={applyMes}
-        >Este mês</PresetButton>
-        <div style={{ flex: 1 }} />
-        <PresetButton type="button" onClick={clearAll}>Limpar filtros</PresetButton>
+        <PresetGroup>
+          <Note>Atalhos:</Note>
+          <PresetButton
+            type="button"
+            aria-pressed={(() => { const s = fmt(new Date()); return rangeFrom === s && rangeTo === s; })()}
+            onClick={applyHoje}
+          >Hoje</PresetButton>
+          <PresetButton
+            type="button"
+            aria-pressed={(() => { const [st, en] = getSemana(); const s = fmt(st), e = fmt(en); return rangeFrom === s && rangeTo === e; })()}
+            onClick={applySemana}
+          >Esta semana</PresetButton>
+          <PresetButton
+            type="button"
+            aria-pressed={(() => { const [st, en] = getMes(); const s = fmt(st), e = fmt(en); return rangeFrom === s && rangeTo === e; })()}
+            onClick={applyMes}
+          >Este mês</PresetButton>
+        </PresetGroup>
+        <div>
+          <PresetButton type="button" onClick={clearAll}>Limpar filtros</PresetButton>
+        </div>
       </PresetsRow>
     </FiltersWrapper>
   );

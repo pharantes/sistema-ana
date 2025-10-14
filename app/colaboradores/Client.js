@@ -11,49 +11,100 @@ import { Note } from "../components/FormLayout";
 import ColaboradorModal from "../components/ColaboradorModal";
 
 const Wrapper = styled.div`
-  padding: 16px;
+  padding: var(--page-padding);
 `;
 const Title = styled.h1`
-  font-size: 1.6rem;
-  margin-bottom: 0.5rem;
+  font-size: var(--font-h3, 1.6rem);
+  margin-bottom: var(--space-xs, var(--space-xs, var(--space-xs, 8px)));
 `;
-import { Table, Th, Td } from "../components/ui/Table";
+import { ThClickable, Th, Td, CompactTable } from "../components/ui/Table";
+import LinkButton from '../components/ui/LinkButton';
 
-// Make a compact, responsive variant to avoid horizontal scrolling on 15" screens
-const ResponsiveTable = styled(Table)`
-  font-size: 0.92rem;
-  th, td { padding: 4px 6px; }
-  table-layout: fixed;
-  th, td {
-    white-space: normal !important;
-    word-break: break-word;
-    overflow-wrap: anywhere;
-    max-width: 280px;
-  }
-  td button, td a { white-space: normal !important; }
 
-  @media (max-width: 1440px) {
-    font-size: 0.9rem;
-    th, td { padding: 4px 6px; }
-    /* Email */
-    th:nth-child(7), td:nth-child(7) { max-width: 220px; }
-    /* Empresa */
-    th:nth-child(4), td:nth-child(4) { max-width: 180px; }
-    /* Banco, PIX */
-    th:nth-child(9), td:nth-child(9), th:nth-child(10), td:nth-child(10) { max-width: 180px; }
-    /* Opções */
-    th:nth-child(11), td:nth-child(11) { max-width: 160px; }
-  }
-
-  @media (max-width: 1366px) {
-    font-size: 0.88rem;
-    th, td { padding: 3px 5px; }
-    th:nth-child(7), td:nth-child(7) { max-width: 200px; }
-    th:nth-child(4), td:nth-child(4) { max-width: 160px; }
-    th:nth-child(9), td:nth-child(9), th:nth-child(10), td:nth-child(10) { max-width: 160px; }
-    th:nth-child(11), td:nth-child(11) { max-width: 140px; }
-  }
+// Local layout helpers
+const GridWrap = styled.div`
+  display: grid;
+  gap: var(--gap-xs);
+  margin-bottom: var(--space-xxs);
+  .search-wrap { min-width: var(--search-min-width, 260px); }
 `;
+
+const ControlsRow = styled.div`
+  display: flex;
+  align-items: baseline;
+  gap: var(--gap-sm);
+  justify-content: flex-end;
+  margin-bottom: var(--space-xs);
+  flex-wrap: wrap;
+  .info-row { display: inline-flex; align-items: baseline; gap: var(--gap-sm); }
+  .label { font-size: 0.9rem; color: #555; }
+`;
+
+const TdLeft = styled(Td)`
+  text-align: left;
+`;
+const TdCap = styled(Td)`
+  text-transform: capitalize;
+`;
+const EmailTd = styled(Td)`
+  max-width: 220px;
+  /* prevent long emails from pushing into adjacent columns */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  /* ensure the inner content (links/buttons) respect truncation */
+  a, span, div { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+`;
+const UFTd = styled(Td)`
+  /* very small, fixed column for state (UF) to avoid overlap with email */
+  width: 56px;
+  max-width: 56px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+const BankTd = styled(Td)`
+  max-width: 200px;
+`;
+const OptionsTd = styled(Td)`
+  max-width: 160px;
+  /* Align the cell content vertically; don't force children width so buttons keep their natural size */
+  display: flex;
+  align-items: center;
+  justify-content: flex-end; /* align buttons to right so they don't overflow the table edge */
+  /* allow this flex table cell to shrink correctly and not force overflow */
+  min-width: 0;
+  /* hide the table divider just under the action buttons so they don't appear to have a line beneath */
+  border-bottom: none !important;
+  padding-right: var(--space-xs);
+  /* ensure ActionsRow inside this cell keeps inline layout and gap consistent with other lists */
+  ${FE.ActionsRow} {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--gap-xs);
+    min-width: 0;
+  }
+  /* ensure the small action buttons inside this cell use the same compact height as elsewhere */
+  ${FE.SmallSecondaryButton}, ${FE.SmallInlineButton} {
+    height: calc(var(--control-height, 36px) - var(--space-xs, 8px));
+    padding: var(--space-xxs, 4px) var(--space-xs, 8px);
+    font-size: var(--font-size-sm, 0.9rem);
+    line-height: 1;
+    box-sizing: border-box;
+  }
+  /* prevent accidental overflow from inner elements */
+  overflow: hidden;
+`;
+
+// Helper to normalize collaborator type to PF / PJ
+function tipoToShort(tipo) {
+  if (!tipo && tipo !== 0) return '';
+  const t = String(tipo).toLowerCase();
+  if (t.includes('jurid') || t.includes('pj') || t.includes('pessoa juridica')) return 'PJ';
+  if (t.includes('fisic') || t.includes('pf') || t.includes('pessoa fisica')) return 'PF';
+  // fallback: return first two uppercase letters
+  return String(tipo).slice(0, 2).toUpperCase();
+}
 
 function useColaboradorApi(initial = []) {
   const [colaboradores, setColaboradores] = useState(Array.isArray(initial) ? initial : []);
@@ -165,53 +216,53 @@ export default function ColaboradoresClient({ initialColaboradores = [], isAdmin
   return (
     <Wrapper>
       <Title>Colaboradores</Title>
-      <div style={{ display: 'grid', gap: 8, marginBottom: 4 }}>
+      <GridWrap>
         <div>
           <FE.TopButton onClick={() => setModalOpen(true)}>Novo Colaborador</FE.TopButton>
         </div>
-        <div style={{ minWidth: 260 }}>
+        <div className="search-wrap">
           <SearchBar value={q} onChange={e => { setPage(1); setQ(e.target.value); }} placeholder="Buscar por nome, empresa, email, UF, telefone..." />
         </div>
-      </div>
+      </GridWrap>
       {colaboradores.length > 0 && (
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, justifyContent: 'flex-end', marginBottom: 8, flexWrap: 'wrap' }}>
-          <div style={{ display: 'inline-flex', gap: 6, alignItems: 'baseline' }}>
+        <ControlsRow>
+          <div>
             <Pager page={page} pageSize={pageSize} total={colaboradores.length} onChangePage={setPage} compact inline />
           </div>
-          <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: 12 }}>
-            <span style={{ fontSize: '0.9rem', color: '#555' }}>Mostrar:</span>
+          <div className="info-row">
+            <span className="label">Mostrar:</span>
             <select value={pageSize} onChange={(e) => { setPage(1); setPageSize(Number(e.target.value)); }}>
               <option value={10}>10</option>
               <option value={25}>25</option>
               <option value={50}>50</option>
             </select>
-            <span style={{ fontSize: '0.9rem', color: '#555' }}>Total: {colaboradores.length}</span>
+            <span className="label">Total: {colaboradores.length}</span>
           </div>
-        </div>
+        </ControlsRow>
       )}
       {error && <Note $error>{error}</Note>}
       {loading ? <p>Carregando...</p> : (
-        <ResponsiveTable>
+        <CompactTable>
           <thead>
             <tr>
-              <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('codigo')}>
+              <ThClickable onClick={() => toggleSort('codigo')}>
                 Código {sortKey === 'codigo' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-              </Th>
-              <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('nome')}>
+              </ThClickable>
+              <ThClickable onClick={() => toggleSort('nome')}>
                 Nome {sortKey === 'nome' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-              </Th>
-              <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('tipo')}>
+              </ThClickable>
+              <ThClickable onClick={() => toggleSort('tipo')}>
                 Tipo {sortKey === 'tipo' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-              </Th>
-              <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('empresa')}>
+              </ThClickable>
+              <ThClickable onClick={() => toggleSort('empresa')}>
                 Empresa {sortKey === 'empresa' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-              </Th>
+              </ThClickable>
               <Th>CNPJ/CPF</Th>
               <Th>Telefone</Th>
               <Th>Email</Th>
-              <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('uf')}>
+              <ThClickable onClick={() => toggleSort('uf')}>
                 UF {sortKey === 'uf' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-              </Th>
+              </ThClickable>
               <Th>Banco</Th>
               <Th>PIX</Th>
               <Th>Opções</Th>
@@ -256,31 +307,31 @@ export default function ColaboradoresClient({ initialColaboradores = [], isAdmin
             )().map(colaborador => (
               <tr key={colaborador._id}>
                 <Td>{colaborador.codigo}</Td>
-                <Td style={{ textAlign: 'left' }}>
-                  <button onClick={() => router.push(`/colaboradores/${colaborador._id}`)} style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer', textAlign: 'left' }}>
+                <TdLeft>
+                  <LinkButton onClick={() => router.push(`/colaboradores/${colaborador._id}`)}>
                     {colaborador.nome}
-                  </button>
-                </Td>
-                <Td style={{ textTransform: 'capitalize' }}>{colaborador.tipo}</Td>
+                  </LinkButton>
+                </TdLeft>
+                <TdCap>{tipoToShort(colaborador.tipo)}</TdCap>
                 <Td>{colaborador.empresa || ''}</Td>
                 <Td>{colaborador.cnpjCpf}</Td>
                 <Td>{colaborador.telefone}</Td>
-                <Td style={{ maxWidth: 220 }}>{colaborador.email}</Td>
-                <Td>{colaborador.uf}</Td>
-                <Td style={{ maxWidth: 200 }}>{colaborador.banco}</Td>
-                <Td style={{ maxWidth: 200 }}>{colaborador.pix}</Td>
-                <Td style={{ maxWidth: 160 }}>
-                  <FE.ActionsRow style={{ flexWrap: 'wrap', gap: 6 }}>
+                <EmailTd title={colaborador.email}>{colaborador.email}</EmailTd>
+                <UFTd>{colaborador.uf}</UFTd>
+                <BankTd>{colaborador.banco}</BankTd>
+                <BankTd>{colaborador.pix}</BankTd>
+                <OptionsTd>
+                  <FE.ActionsRow>
                     <FE.SmallSecondaryButton onClick={() => handleEdit(colaborador)}>Editar</FE.SmallSecondaryButton>
                     {isAdmin && (
                       <FE.SmallInlineButton onClick={() => openDeleteModal(colaborador)}>Excluir</FE.SmallInlineButton>
                     )}
                   </FE.ActionsRow>
-                </Td>
+                </OptionsTd>
               </tr>
             ))}
           </tbody>
-        </ResponsiveTable>
+        </CompactTable>
       )}
       {colaboradores.length > pageSize && (
         <Pager page={page} pageSize={pageSize} total={colaboradores.length} onChangePage={setPage} />

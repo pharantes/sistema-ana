@@ -1,11 +1,12 @@
 "use client";
-import { Table, Th, Td } from "../../components/ui/Table";
+import { CompactTable as Table, ThClickable, Th, Td } from "../../components/ui/Table";
 import HeaderControls from "../../components/ui/HeaderControls";
 import ColaboradorCell from "../../components/ui/ColaboradorCell";
 import StatusSelect from "../../components/ui/StatusSelect";
 import StatusBadge from "../../components/ui/StatusBadge";
 import { formatBRL } from "../../utils/currency";
 import { formatDateBR } from "@/lib/utils/dates";
+import LinkButton from '../../components/ui/LinkButton';
 
 export default function AcoesTable({
   rows = [],
@@ -32,19 +33,19 @@ export default function AcoesTable({
       <Table>
         <thead>
           <tr>
-            <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => onToggleSort('created')}>
+            <ThClickable onClick={() => onToggleSort('created')}>
               Data {sortKey === 'created' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-            </Th>
-            <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => onToggleSort('acao')}>
+            </ThClickable>
+            <ThClickable onClick={() => onToggleSort('acao')}>
               Ação {sortKey === 'acao' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-            </Th>
-            <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => onToggleSort('colaborador')}>
+            </ThClickable>
+            <ThClickable onClick={() => onToggleSort('colaborador')}>
               Colaborador/Empresa {sortKey === 'colaborador' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-            </Th>
+            </ThClickable>
             <Th>Descrição</Th>
-            <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => onToggleSort('due')}>
+            <ThClickable onClick={() => onToggleSort('due')}>
               Vencimento {sortKey === 'due' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-            </Th>
+            </ThClickable>
             <Th>Valor</Th>
             <Th>Pgt</Th>
             <Th>Banco/PIX</Th>
@@ -57,12 +58,9 @@ export default function AcoesTable({
               <Td>{report.actionId?.date ? formatDateBR(report.actionId.date) : formatDateBR(report.reportDate)}</Td>
               <Td>
                 {report?.actionId?._id ? (
-                  <button
-                    onClick={() => globalThis.location.assign(`/acoes/${report.actionId._id}`)}
-                    style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer' }}
-                  >
+                  <LinkButton onClick={() => globalThis.location.assign(`/acoes/${report.actionId._id}`)}>
                     {report.actionId?.name || ""}
-                  </button>
+                  </LinkButton>
                 ) : (report.actionId?.name || "")}
               </Td>
               <Td><ColaboradorCell report={report} /></Td>

@@ -13,18 +13,19 @@ import CostModal from './CostModal';
 import BRDateInput from './BRDateInput';
 import { formatBRL, parseCurrency } from '../utils/currency';
 import BRCurrencyInput from './BRCurrencyInput';
+import { SmallInputWrap, Note as SmallNote, RowInline, Label } from './ui/primitives';
 
 const FormGrid = styled.div`
   display: grid;
-  gap: var(--space-md, 16px);
+  gap: var(--space-md);
 `;
 
 const Row = styled.div`
   display: flex;
-  gap: var(--space-sm, 12px);
+  gap: var(--space-sm);
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-xs, 8px) var(--space-sm, 12px);
+  padding: var(--space-xs) var(--space-sm);
   border-bottom: 1px solid rgba(0, 0, 0, 0.1);
   background-color: ${({ index }) => (index % 2 === 0 ? "#f9f9f9" : "#fff")};
 
@@ -33,10 +34,10 @@ const Row = styled.div`
     font-weight: bold;
   }
 
-  button {
-    padding: var(--space-xs, 6px) var(--space-sm, 10px);
-    font-size: var(--font-size-sm, 0.875rem);
-    border-radius: var(--radius-sm, 4px);
+    button {
+    padding: var(--space-xs) var(--space-sm);
+    font-size: var(--font-size-sm);
+    border-radius: var(--radius-sm);
     background-color: var(--color-primary, #6C2BB0);
     color: var(--color-surface, #fff);
     border: none;
@@ -53,9 +54,9 @@ const SelectedTable = styled.table`
   width: 100%;
   border-collapse: collapse;
   border: 1px solid rgba(0,0,0,0.1);
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-sm);
   overflow: hidden;
-  th, td { padding: 8px; border-bottom: 1px solid #eee; }
+  th, td { padding: var(--space-xs, var(--space-xs, var(--space-xs, 8px))); border-bottom: 1px solid #eee; }
   thead th { background: #f7f7f7; text-align: left; font-weight: 600; }
   tbody td { text-align: left; vertical-align: top; }
 `;
@@ -106,7 +107,7 @@ export default function ActionModal({ editing, form, onClose, onSubmit, loading 
           _id: s._id || s.id || "",
           nome: s.name || s.nome || "",
           codigo: s.codigo || s.code || "",
-          value: s.value || s.valor || "",
+          value: (s.value != null ? Number(s.value) : (s.valor != null ? Number(s.valor) : undefined)),
           pgt: s.pgt || editing.paymentMethod || "",
           pix: s.pix || '',
           bank: s.bank || '',
@@ -118,7 +119,7 @@ export default function ActionModal({ editing, form, onClose, onSubmit, loading 
         setSelectedCosts(editing.costs.map(c => ({
           _id: c._id,
           description: c.description || '',
-          value: (c.value ?? ''),
+          value: (c.value != null ? Number(c.value) : undefined),
           pgt: c.pgt || editing.paymentMethod || '',
           pix: c.pix || '',
           bank: c.bank || '',
@@ -194,7 +195,7 @@ export default function ActionModal({ editing, form, onClose, onSubmit, loading 
 
   // Costs helpers
   function addCostRow() {
-    setCostInitial({ description: '', value: '', pgt: '', pix: '', bank: '', vencimento: local.dueDate || '' });
+    setCostInitial({ description: '', value: undefined, pgt: '', pix: '', bank: '', vencimento: local.dueDate || '' });
     setCostModalOpen(true);
   }
   function removeCostAt(index) {
@@ -202,12 +203,9 @@ export default function ActionModal({ editing, form, onClose, onSubmit, loading 
   }
 
   function saveCostFromModal(payload) {
-    // payload comes numeric for value; keep editing UX consistent by formatting on insert
-    const formatted = {
-      ...payload,
-      value: formatBRL(Number(payload.value))
-    };
-    setSelectedCosts(prev => [...prev, formatted]);
+    // payload.value is numeric (or undefined). Store numeric to keep internal model consistent.
+    const normalized = { ...payload, value: (payload.value != null ? Number(payload.value) : undefined) };
+    setSelectedCosts(prev => [...prev, normalized]);
     setCostModalOpen(false);
     setCostInitial(null);
   }
@@ -308,7 +306,9 @@ export default function ActionModal({ editing, form, onClose, onSubmit, loading 
                           </select>
                         </TdServ>
                         <TdServ>
-                          <BRDateInput value={s.vencimento || ''} onChange={(iso) => updateColaboradorAt(idx, { vencimento: iso })} style={{ width: 120 }} />
+                          <SmallInputWrap>
+                            <BRDateInput value={s.vencimento || ''} onChange={(iso) => updateColaboradorAt(idx, { vencimento: iso })} />
+                          </SmallInputWrap>
                         </TdServ>
                         <TdServ>
                           <FL.DropdownButton as="button" type="button" onClick={() => removeColaboradorAt(idx)}>Remover</FL.DropdownButton>
@@ -323,9 +323,9 @@ export default function ActionModal({ editing, form, onClose, onSubmit, loading 
             {/* Extra Costs Section inside edit modal */}
             <div>
               <SelectedTitle>Custos extras</SelectedTitle>
-              <div style={{ marginBottom: 8 }}>
+              <RowInline>
                 <FL.DropdownButton as="button" type="button" onClick={addCostRow}>Adicionar custo</FL.DropdownButton>
-              </div>
+              </RowInline>
               {selectedCosts.length > 0 && (
                 <SelectedTable>
                   <thead>
@@ -350,7 +350,7 @@ export default function ActionModal({ editing, form, onClose, onSubmit, loading 
                       return (
                         <tr key={`cost-${idx}`}>
                           <TdServ>
-                            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            <RowInline>
                               <select
                                 value={c.colaboradorId || ''}
                                 onChange={(e) => {
@@ -376,9 +376,9 @@ export default function ActionModal({ editing, form, onClose, onSubmit, loading 
                                 ))}
                               </select>
                               {!(c.colaboradorId) && (
-                                <span style={{ fontSize: '0.85rem', color: '#666' }}>Livre</span>
+                                <SmallNote>Livre</SmallNote>
                               )}
-                            </div>
+                            </RowInline>
                           </TdServ>
                           <TdServ>
                             <BRCurrencyInput value={c.value} onChange={(val) => updateCostAt(idx, { value: val })} />
@@ -407,7 +407,9 @@ export default function ActionModal({ editing, form, onClose, onSubmit, loading 
                             />
                           </TdServ>
                           <TdServ>
-                            <BRDateInput value={c.vencimento || ''} onChange={(iso) => updateCostAt(idx, { vencimento: iso })} style={{ width: 120 }} />
+                            <SmallInputWrap>
+                              <BRDateInput value={c.vencimento || ''} onChange={(iso) => updateCostAt(idx, { vencimento: iso })} />
+                            </SmallInputWrap>
                           </TdServ>
                           <TdServ>
                             <FE.ActionsRow>
@@ -449,9 +451,9 @@ const Title = styled.h3`
 `;
 const DateInput = styled.input`
   flex: 1;
-  margin-bottom: var(--space-xs, 8px);
+  margin-bottom: var(--space-xs);
   cursor: pointer;
-  border-radius: var(--radius-sm, 6px);
+  border-radius: var(--radius-sm);
   border: 1px solid rgba(0,0,0,0.08);
   background: var(--color-surface);
   color: var(--color-text-primary);
@@ -460,23 +462,16 @@ const DateInput = styled.input`
 const DueDateInput = styled.input`
   width: 100%;
   background: var(--color-muted-surface, #f5f5f5);
-  margin-bottom: var(--space-xs, 8px);
-  border-radius: var(--radius-sm, 6px);
+  margin-bottom: var(--space-xs);
+  border-radius: var(--radius-sm);
   border: 1px solid rgba(0,0,0,0.08);
   color: var(--color-text-muted);
   font-size: var(--font-size-base);
 `;
-const SelectedTitle = styled.div`
-  font-weight: 600;
-  margin-bottom: var(--space-xs, 8px);
+const SelectedTitle = styled(Label)`
+  margin-bottom: var(--space-xs);
 `;
 // Removed old list layout styles (SelectedItem/SelectedLabel)
-const ValueInput = styled.input`
-  width: 120px;
-`;
-const FooterActions = styled.div`
-  display: flex;
-  gap: var(--space-sm, 8px);
-  justify-content: flex-end;
-`;
+// Use SmallInputWrap for compact inputs (ValueInput)
+// Reuse RowInline from primitives for inline groups
 

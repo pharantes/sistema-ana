@@ -1,5 +1,7 @@
 "use client";
-import { Table, Th, Td } from "../../components/ui/Table";
+import { CompactTable as Table, ThClickable, Td } from "../../components/ui/Table";
+import styled from 'styled-components';
+import { RowInline } from '../../components/ui/primitives';
 import HeaderControls from "../../components/ui/HeaderControls";
 import StatusSelect from "../../components/ui/StatusSelect";
 import { formatDateBR } from "@/lib/utils/dates";
@@ -29,27 +31,27 @@ export default function AcoesTable({
       <Table>
         <thead>
           <tr>
-            <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => onToggleSort('date')}>
+            <ThClickable onClick={() => onToggleSort('date')}>
               Data {sortKey === 'date' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-            </Th>
-            <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => onToggleSort('acao')}>
+            </ThClickable>
+            <ThClickable onClick={() => onToggleSort('acao')}>
               Ação {sortKey === 'acao' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-            </Th>
-            <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => onToggleSort('cliente')}>
+            </ThClickable>
+            <ThClickable onClick={() => onToggleSort('cliente')}>
               Cliente {sortKey === 'cliente' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-            </Th>
-            <Th>Descrição</Th>
-            <Th>Qtde Parcela</Th>
-            <Th>Valor Parcela</Th>
-            <Th>Valor total</Th>
-            <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => onToggleSort('venc')}>
+            </ThClickable>
+            <ThClickable>Descrição</ThClickable>
+            <ThClickable>Qtde Parcela</ThClickable>
+            <ThClickable>Valor Parcela</ThClickable>
+            <ThClickable>Valor total</ThClickable>
+            <ThClickable onClick={() => onToggleSort('venc')}>
               Data Vencimento {sortKey === 'venc' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-            </Th>
-            <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => onToggleSort('receb')}>
+            </ThClickable>
+            <ThClickable onClick={() => onToggleSort('receb')}>
               Data Recebimento {sortKey === 'receb' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-            </Th>
-            <Th>Status</Th>
-            <Th>Opções</Th>
+            </ThClickable>
+            <ThClickable>Status</ThClickable>
+            <ThClickable>Opções</ThClickable>
           </tr>
         </thead>
         <tbody>
@@ -59,10 +61,10 @@ export default function AcoesTable({
             const receb = formatDateBR(r?.dataRecebimento);
             const data = formatDateBR(row?.date);
             return (
-              <tr key={row._id} onClick={() => globalThis.location.assign(`/contasareceber/${row._id}`)} style={{ cursor: 'pointer' }}>
+              <tr key={row._id} onClick={() => globalThis.location.assign(`/contasareceber/${row._id}`)}>
                 <Td>{data}</Td>
-                <Td style={{ textAlign: 'left' }}>
-                  <span style={{ display: 'inline-block', textAlign: 'left' }}>{row.name}</span>
+                <Td>
+                  <TruncateName>{row.name}</TruncateName>
                 </Td>
                 <Td>{row.clientName || ''}</Td>
                 <Td>{r?.descricao || ''}</Td>
@@ -72,22 +74,17 @@ export default function AcoesTable({
                 <Td>{venc}</Td>
                 <Td>{receb}</Td>
                 <Td>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <RowInline>
                     <StatusSelect
                       value={(r?.status || 'ABERTO')}
                       options={[{ value: 'ABERTO', label: 'ABERTO' }, { value: 'RECEBIDO', label: 'RECEBIDO' }]}
                       onChange={(e) => onChangeStatus(row, e.target.value)}
                       onClick={(e) => e.stopPropagation()}
                     />
-                  </div>
+                  </RowInline>
                 </Td>
                 <Td>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onChangeStatus(row, null, { openModal: true }); }}
-                    style={{ background: 'none', border: '1px solid rgba(0,0,0,0.2)', borderRadius: 6, padding: '4px 8px', cursor: 'pointer' }}
-                  >
-                    Editar
-                  </button>
+                  <ActionButton onClick={(e) => { e.stopPropagation(); onChangeStatus(row, null, { openModal: true }); }}>Editar</ActionButton>
                 </Td>
               </tr>
             );
@@ -97,3 +94,17 @@ export default function AcoesTable({
     </>
   );
 }
+
+// Inline actions now use shared RowInline (default gap/alignment)
+
+const ActionButton = styled.button`
+  background: none;
+  border: 1px solid rgba(0,0,0,0.2);
+  border-radius: var(--radius-sm, var(--gap-xs, var(--gap-xs, 6px)));
+  padding: var(--space-xxs, var(--space-xxs, var(--space-xxs, 4px))) var(--space-xs, var(--space-xs, var(--space-xs, 8px)));
+  cursor: pointer;
+`;
+
+const TruncateName = styled.span`
+  display: inline-block;
+`;

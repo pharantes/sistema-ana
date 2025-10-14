@@ -1,21 +1,21 @@
 "use client";
 import styled from "styled-components";
+import { RowInline } from './primitives';
 
-const Row = styled.div`
-  display: ${p => (p.$inline ? 'inline-flex' : 'flex')};
-  gap: 6px;
-  align-items: ${p => (p.$compact ? 'baseline' : 'center')};
+const Row = styled(RowInline)`
   justify-content: flex-end;
-  margin-top: ${p => (p.$compact ? '0' : '8px')};
-  flex-wrap: wrap;
+  margin-top: ${p => (p.$compact ? '0' : 'var(--space-xs, var(--space-xs, var(--space-xs, 8px)))')};
+  display: ${p => (p.$inline ? 'inline-flex' : 'flex')};
+  align-items: ${p => (p.$compact ? 'baseline' : 'center')};
 `;
 
 const PageButton = styled.button`
-  padding: 4px 8px;
-  border-radius: 6px;
+  padding: var(--space-xxs, var(--space-xxs, var(--space-xxs, 4px))) var(--space-xs, var(--space-xs, var(--space-xs, 8px)));
+  border-radius: var(--radius-sm, var(--gap-xs, var(--gap-xs, 6px)));
   border: 1px solid #ddd;
   background: #fff;
   color: #111;
+  min-height: calc(var(--control-height, 36px) - var(--space-xs, var(--space-xs, 8px)));
   &[data-active="true"] {
     background: #2563eb;
     color: #fff;

@@ -3,22 +3,30 @@
 import styled from "styled-components";
 // import * as FE from "../components/FormElements"; // not needed now
 import BRDateInput from "../components/BRDateInput";
+import { InputWrap, Label, PresetButton, Note, RowWrap, RowTopGap, GridTwoGap } from "../components/ui/primitives";
 
-const PresetButton = styled.button`
-  padding: 6px 10px;
-  border: 1px solid rgba(0,0,0,0.15);
-  border-radius: 6px;
-  background: #fff;
-  cursor: pointer;
-  font-size: 0.9rem;
-  color: var(--color-text-primary, #222);
-  &:hover { background: #f7f7f7; }
-  &:disabled { opacity: 0.5; cursor: not-allowed; }
-  &[aria-pressed="true"] {
-    background: var(--color-primary, #6C2BB0);
-    color: #fff;
-    border-color: var(--color-primary, #6C2BB0);
-  }
+const Column = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs, var(--gap-xs, var(--gap-xs, 6px)));
+`;
+// GridTwoGap, InputWrap, Label, Note, PresetButton are provided by ui/primitives
+const ColStack = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xxs, var(--space-xxs, var(--space-xxs, 4px)));
+`;
+// ShortRow removed — use RowTopGap/RowWrap primitives
+// PresetsGroup replaced by shared RowWrap primitive
+
+
+// Using primitives for Label and Note
+
+const FlexWrap = styled.div`
+  display: flex;
+  gap: var(--gap-xs, var(--space-xs, var(--space-xs, 8px)));
+  align-items: center;
+  flex-wrap: wrap;
 `;
 
 function fmt(d) {
@@ -52,7 +60,6 @@ export default function Filters({
   statusFilter,
   onChangeStatus,
   onClear,
-  inputSx,
   rightActions,
 }) {
   const applyHoje = () => {
@@ -83,22 +90,26 @@ export default function Filters({
 
   return (
     <>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <label style={{ fontWeight: 600 }}>Vencimento</label>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, alignItems: 'end' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <Column>
+        <Label>Vencimento</Label>
+        <GridTwoGap>
+          <ColStack>
             <label>De</label>
-            <BRDateInput value={dueFrom} onChange={onChangeDueFrom} style={inputSx} />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <InputWrap>
+              <BRDateInput value={dueFrom} onChange={onChangeDueFrom} />
+            </InputWrap>
+          </ColStack>
+          <ColStack>
             <label>Até</label>
-            <BRDateInput value={dueTo} onChange={onChangeDueTo} style={inputSx} />
-          </div>
-        </div>
-      </div>
-      <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <span style={{ color: '#666', fontSize: '0.9rem' }}>Atalhos:</span>
+            <InputWrap>
+              <BRDateInput value={dueTo} onChange={onChangeDueTo} />
+            </InputWrap>
+          </ColStack>
+        </GridTwoGap>
+      </Column>
+      <RowTopGap>
+        <RowWrap>
+          <Note>Atalhos:</Note>
           <PresetButton
             type="button"
             aria-pressed={(() => { const s = fmt(new Date()); return dueFrom === s && dueTo === s; })()}
@@ -119,7 +130,7 @@ export default function Filters({
             aria-pressed={(() => { const start = new Date(); const end = new Date(); end.setDate(start.getDate() + 15); const s = fmt(start), e = fmt(end); return dueFrom === s && dueTo === e; })()}
             onClick={applyNext15}
           >Próximos 15 dias</PresetButton>
-          <span style={{ color: '#666', fontSize: '0.9rem', marginLeft: 8 }}>Status:</span>
+          <Note>Status:</Note>
           <PresetButton
             type="button"
             aria-pressed={statusFilter === 'ALL'}
@@ -135,12 +146,12 @@ export default function Filters({
             aria-pressed={statusFilter === 'PAGO'}
             onClick={() => onChangeStatus('PAGO')}
           >PAGO</PresetButton>
-        </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        </RowWrap>
+        <FlexWrap>
           {rightActions}
           <PresetButton onClick={onClear}>Limpar</PresetButton>
-        </div>
-      </div>
+        </FlexWrap>
+      </RowTopGap>
     </>
   );
 }

@@ -1,13 +1,15 @@
 import { useState, useEffect } from "react";
 import styled from "styled-components";
+import { GridTwoGap as GridTwo } from './ui/primitives';
 import Modal from './Modal';
 import * as FE from './FormElements';
 import * as FL from './FormLayout';
 
 const Title = styled.h2`
-  margin-bottom: var(--space-sm, 12px);
+  margin-bottom: var(--space-sm, var(--space-sm, var(--space-sm, 12px)));
 `;
-const Input = styled.input``;
+// using FE.Input instead of local Input
+// GridTwo imported from primitives
 
 export default function ColaboradorModal({ open, onClose, onSubmit, initial }) {
   const [form, setForm] = useState({
@@ -44,38 +46,38 @@ export default function ColaboradorModal({ open, onClose, onSubmit, initial }) {
     <Modal onClose={onClose} ariaLabel={initial ? "Editar Colaborador" : "Novo Colaborador"}>
       <Title>{initial ? "Editar Colaborador" : "Novo Colaborador"}</Title>
       <FL.FormGrid as="form" onSubmit={handleSubmit}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <GridTwo>
           <div>
             <FL.Label>Nome do Colaborador</FL.Label>
-            <Input name="nome" placeholder="Nome do Colaborador" value={form.nome} onChange={handleChange} required />
+            <FE.Input name="nome" placeholder="Nome do Colaborador" value={form.nome} onChange={handleChange} required />
           </div>
           <div>
             <FL.Label>Empresa</FL.Label>
-            <Input name="empresa" placeholder="Empresa (opcional)" value={form.empresa} onChange={handleChange} />
+            <FE.Input name="empresa" placeholder="Empresa (opcional)" value={form.empresa} onChange={handleChange} />
           </div>
           <div>
             <FL.Label>PIX</FL.Label>
-            <Input name="pix" placeholder="PIX" value={form.pix} onChange={handleChange} />
+            <FE.Input name="pix" placeholder="PIX" value={form.pix} onChange={handleChange} />
           </div>
           <div>
             <FL.Label>Banco</FL.Label>
-            <Input name="banco" placeholder="Banco" value={form.banco} onChange={handleChange} />
+            <FE.Input name="banco" placeholder="Banco" value={form.banco} onChange={handleChange} />
           </div>
           <div>
             <FL.Label>Conta</FL.Label>
-            <Input name="conta" placeholder="Conta (agência/conta)" value={form.conta} onChange={handleChange} />
+            <FE.Input name="conta" placeholder="Conta (agência/conta)" value={form.conta} onChange={handleChange} />
           </div>
           <div>
             <FL.Label>UF</FL.Label>
-            <Input name="uf" placeholder="UF" value={form.uf} onChange={handleChange} />
+            <FE.Input name="uf" placeholder="UF" value={form.uf} onChange={handleChange} />
           </div>
           <div>
             <FL.Label>Telefone</FL.Label>
-            <Input name="telefone" placeholder="Telefone" value={form.telefone} onChange={handleChange} />
+            <FE.Input name="telefone" placeholder="Telefone" value={form.telefone} onChange={handleChange} />
           </div>
           <div>
             <FL.Label>Email</FL.Label>
-            <Input name="email" placeholder="Email" value={form.email} onChange={handleChange} />
+            <FE.Input name="email" placeholder="Email" value={form.email} onChange={handleChange} />
           </div>
           <div>
             <FL.Label>Tipo</FL.Label>
@@ -87,9 +89,9 @@ export default function ColaboradorModal({ open, onClose, onSubmit, initial }) {
           </div>
           <div>
             <FL.Label>CNPJ/CPF</FL.Label>
-            <Input name="cnpjCpf" placeholder="CNPJ/CPF" value={form.cnpjCpf} onChange={handleChange} />
+            <FE.Input name="cnpjCpf" placeholder="CNPJ/CPF" value={form.cnpjCpf} onChange={handleChange} />
           </div>
-        </div>
+        </GridTwo>
         <FL.Actions>
           <FE.SecondaryButton type="button" onClick={onClose}>Cancelar</FE.SecondaryButton>
           <FE.Button type="submit">{initial ? "Salvar" : "Criar"}</FE.Button>

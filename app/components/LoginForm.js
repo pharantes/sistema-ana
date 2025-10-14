@@ -4,8 +4,8 @@ import styled from "styled-components";
 const Form = styled.form`
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  max-width: 320px;
+  gap: var(--gap-sm);
+  max-width: var(--login-card-width, 320px);
   margin: 0 auto;
 `;
 

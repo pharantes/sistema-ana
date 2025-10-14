@@ -3,19 +3,22 @@
 import { useState, useEffect } from 'react';
 import BRDateInput from './BRDateInput';
 import styled from 'styled-components';
+import { GridTwoGap, SmallInputWrap, ActionsInline } from './ui/primitives';
 import Modal from './Modal';
 import * as FE from './FormElements';
 import * as FL from './FormLayout';
 import ColaboradorModal from './ColaboradorModal';
-import { formatBRL, parseCurrency } from '../utils/currency';
+import { parseCurrency } from '../utils/currency';
 import BRCurrencyInput from './BRCurrencyInput';
 
 const Title = styled.h2`
-  margin-bottom: 12px;
+  margin-bottom: var(--space-sm, var(--space-sm, var(--space-sm, 12px)));
 `;
 
+// RowInline, GridTwoGap, SmallInputWrap imported from ui/primitives
+
 export default function CostModal({ open, onClose, onSubmit, initial }) {
-  const [form, setForm] = useState({ description: '', value: '', pix: '', bank: '', pgt: '', vencimento: '', colaboradorId: '', vendorName: '', vendorEmpresa: '' });
+  const [form, setForm] = useState({ description: '', value: undefined, pix: '', bank: '', pgt: '', vencimento: '', colaboradorId: '', vendorName: '', vendorEmpresa: '' });
   const [colaboradores, setColaboradores] = useState([]);
   const [colabModalOpen, setColabModalOpen] = useState(false);
   const [colabEditing, setColabEditing] = useState(null);
@@ -24,7 +27,7 @@ export default function CostModal({ open, onClose, onSubmit, initial }) {
     if (initial) {
       setForm({
         description: initial.description || '',
-        value: initial.value != null ? formatBRL(Number(initial.value)) : '',
+        value: initial.value != null ? Number(initial.value) : undefined,
         pix: initial.pix || '',
         bank: initial.bank || '',
         pgt: initial.pgt || '',
@@ -80,7 +83,7 @@ export default function CostModal({ open, onClose, onSubmit, initial }) {
       <FL.FormGrid as="form" onSubmit={handleSubmit}>
         <div>
           <FL.Label>Vincular a Colaborador</FL.Label>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <ActionsInline>
             <select value={form.colaboradorId} onChange={e => {
               const sid = e.target.value;
               const sel = colaboradores.find(s => String(s._id) === String(sid));
@@ -105,10 +108,10 @@ export default function CostModal({ open, onClose, onSubmit, initial }) {
               ))}
             </select>
             <FE.SecondaryButton type="button" onClick={() => { setColabEditing(null); setColabModalOpen(true); }}>Novo Colaborador</FE.SecondaryButton>
-          </div>
+          </ActionsInline>
         </div>
         {!form.colaboradorId && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <GridTwoGap>
             <div>
               <FL.Label>Nome</FL.Label>
               <input value={form.vendorName} onChange={e => setForm(f => ({ ...f, vendorName: e.target.value }))} placeholder="Nome do fornecedor" />
@@ -117,11 +120,11 @@ export default function CostModal({ open, onClose, onSubmit, initial }) {
               <FL.Label>Empresa</FL.Label>
               <input value={form.vendorEmpresa} onChange={e => setForm(f => ({ ...f, vendorEmpresa: e.target.value }))} placeholder="Empresa (opcional)" />
             </div>
-          </div>
+          </GridTwoGap>
         )}
         <div>
           <FL.Label>Descrição</FL.Label>
-          <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} required />
+          <FE.Input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} required />
         </div>
         <div>
           <FL.Label>Valor</FL.Label>
@@ -129,25 +132,27 @@ export default function CostModal({ open, onClose, onSubmit, initial }) {
         </div>
         <div>
           <FL.Label>PIX</FL.Label>
-          <input value={form.pix} onChange={e => setForm(f => ({ ...f, pix: e.target.value }))} />
+          <FE.Input value={form.pix} onChange={e => setForm(f => ({ ...f, pix: e.target.value }))} />
         </div>
         <div>
           <FL.Label>Banco</FL.Label>
-          <input value={form.bank} onChange={e => setForm(f => ({ ...f, bank: e.target.value }))} />
+          <FE.Input value={form.bank} onChange={e => setForm(f => ({ ...f, bank: e.target.value }))} />
         </div>
         <div>
           <FL.Label>Pgt</FL.Label>
-          <select value={form.pgt} onChange={e => setForm(f => ({ ...f, pgt: e.target.value }))}>
+          <FE.Select value={form.pgt} onChange={e => setForm(f => ({ ...f, pgt: e.target.value }))}>
             <option value="">Selecionar</option>
             <option value="PIX">PIX</option>
             <option value="TED">TED</option>
             <option value="DINHEIRO">DINHEIRO</option>
             <option value="BOLETO">BOLETO</option>
-          </select>
+          </FE.Select>
         </div>
         <div>
           <FL.Label>Vencimento</FL.Label>
-          <BRDateInput value={form.vencimento} onChange={(iso) => setForm(f => ({ ...f, vencimento: iso }))} />
+          <SmallInputWrap>
+            <BRDateInput value={form.vencimento} onChange={(iso) => setForm(f => ({ ...f, vencimento: iso }))} />
+          </SmallInputWrap>
         </div>
         <FL.Actions>
           <FE.SecondaryButton type="button" onClick={onClose}>Cancelar</FE.SecondaryButton>

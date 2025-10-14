@@ -7,38 +7,41 @@ import CostModal from '../../components/CostModal';
 import * as FE from '../../components/FormElements';
 import { useSession } from 'next-auth/react';
 import styled from 'styled-components';
+import { ActionsInline } from '../../components/ui/primitives';
 // Table extracted into components
 import StaffTable from "../components/StaffTable";
 import CostsTable from "../components/CostsTable";
 import { formatDateBR } from '@/lib/utils/dates';
-
+// Local styled value (avoid importing internals from react-select which breaks Next.js exports)
+const Value = styled.div` color: #222; `;
 const Wrapper = styled.div`
-  padding: 24px;
+  padding: var(--space-lg);
 `;
 const Title = styled.h1`
-  font-size: 1.8rem;
-  margin-bottom: 12px;
+  font-size: var(--font-h2);
+  margin-bottom: var(--space-sm);
 `;
 const HeaderRow = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--gap-sm);
 `;
+const ButtonGroup = ActionsInline;
 // Use shared FE buttons for consistent style
 const Section = styled.div`
-  margin: 16px 0;
+  margin: var(--space-sm) 0;
 `;
 const Grid = styled.div`
   display: grid;
   grid-template-columns: repeat(2, minmax(220px, 1fr));
-  gap: 12px 24px;
+  gap: var(--gap-sm) var(--space-lg);
 `;
 const Label = styled.div`
   font-weight: 600;
 `;
-const Value = styled.div`
-  color: #222;
+const ActionsWrap = styled(ActionsInline)`
+  margin-top: var(--space-xs);
 `;
 // Use shared Table, Th, Td (with zebra striping)
 
@@ -149,12 +152,12 @@ export default function ActionDetailsPage({ params }) {
     <Wrapper>
       <HeaderRow>
         <Title>Detalhes da Ação</Title>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <FE.SecondaryButton onClick={() => router.back()} style={{ height: 40 }}>Voltar</FE.SecondaryButton>
+        <ButtonGroup>
+          <FE.SecondaryButton onClick={() => router.back()}>Voltar</FE.SecondaryButton>
           {canEdit && (
-            <FE.Button onClick={openEdit} style={{ height: 40 }}>Editar</FE.Button>
+            <FE.Button onClick={openEdit}>Editar</FE.Button>
           )}
-        </div>
+        </ButtonGroup>
       </HeaderRow>
 
       <Section>
@@ -201,9 +204,9 @@ export default function ActionDetailsPage({ params }) {
 
       <Section>
         <h3>Custos extras</h3>
-        <div style={{ marginTop: 8 }}>
+        <ActionsWrap>
           <FE.TopButton onClick={() => { setCostInitial({ vencimento: acao.dueDate ? String(acao.dueDate).slice(0, 10) : '' }); setCostEditIndex(null); setCostModalOpen(true); }}>Novo Custo</FE.TopButton>
-        </div>
+        </ActionsWrap>
         <CostsTable
           acao={acao}
           costs={acao.costs}

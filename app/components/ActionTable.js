@@ -5,19 +5,20 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { actionListColumns } from "../utils/columns";
 import { formatDateBR } from "@/lib/utils/dates";
-import { Table, Th, Td } from "./ui/Table";
+import { Table, ThClickable, Th, Td } from "./ui/Table";
+import { RowEnd, RowTopGap } from './ui/primitives';
+import LinkButton from './ui/LinkButton';
 import Pager from "./ui/Pager";
 import PageSizeSelector from "./ui/PageSizeSelector";
 
 // Use shared Table, Th, Td (with zebra striping)
+// TopRow/BottomRow reuse the shared RowInline primitive for compact inline controls
 
-const TopRow = styled.div`
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 8px;
-  margin: 8px 0 4px;
+const TopRow = styled(RowEnd)`
+  margin: var(--space-xs) 0 var(--space-xxs);
 `;
+
+const BottomRow = RowTopGap;
 
 // Pagination now handled by shared Pager component
 
@@ -80,10 +81,10 @@ export default function ActionTable({ actions, session, onEdit, onDelete }) {
         <thead>
           <tr>
             {actionListColumns.map(c => (
-              <Th key={c.key} style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort(c.key)}>
+              <ThClickable key={c.key} onClick={() => toggleSort(c.key)}>
                 {c.label}{' '}
                 {sortKey === c.key ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-              </Th>
+              </ThClickable>
             ))}
             <Th>Opções</Th>
           </tr>
@@ -92,17 +93,13 @@ export default function ActionTable({ actions, session, onEdit, onDelete }) {
           {pageData.map((a) => (
             <tr key={a._id}>
               <Td>{formatDateBR(a.date)}</Td>
-              <Td style={{ textAlign: 'left' }}>
-                <button onClick={() => gotoAction(a._id)} style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer', textAlign: 'left' }}>
-                  {a.name || a.event}
-                </button>
+              <Td>
+                <LinkButton onClick={() => gotoAction(a._id)}>{a.name || a.event}</LinkButton>
               </Td>
               <Td>{formatDateBR(a.startDate)}</Td>
               <Td>{formatDateBR(a.endDate)}</Td>
-              <Td style={{ textAlign: 'left' }}>
-                <button onClick={() => gotoCliente(a.client)} style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer', textAlign: 'left' }}>
-                  {a.clientName || a.client}
-                </button>
+              <Td>
+                <LinkButton onClick={() => gotoCliente(a.client)}>{a.clientName || a.client}</LinkButton>
               </Td>
               <Td onClick={(e) => e.stopPropagation()}>
                 {(session.user.role === "admin" || (Array.isArray(a.staff) && a.staff.map(x => x.name).includes(session.user.username))) ? (
@@ -119,9 +116,9 @@ export default function ActionTable({ actions, session, onEdit, onDelete }) {
         </tbody>
       </Table>
       {total > pageSize && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+        <BottomRow>
           <Pager page={page} pageSize={pageSize} total={total} onChangePage={setPage} compact />
-        </div>
+        </BottomRow>
       )}
     </>
   );

@@ -5,29 +5,43 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import HeaderBar from "../components/HeaderBar";
+import styled from 'styled-components';
+import { Note, RowTopGap } from '../components/ui/primitives';
 import * as FE from "../components/FormElements";
 import ActionListTable from "./components/ActionListTable";
 import Filters from "../components/Filters";
 import dynamic from 'next/dynamic';
 const ActionModal = dynamic(() => import('../components/ActionModal'), { ssr: false });
 
+const TopWrap = styled.div`
+  padding: var(--page-padding);
+`;
+const SectionWrap = styled.div`
+  margin-top: var(--space-md, var(--space-md, var(--space-md, 16px)));
+`;
+const ButtonsRow = RowTopGap;
+// using shared Note from primitives
+
 export default function AcoesPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+
   const [acoes, setAcoes] = useState([]);
   const [initialLoading, setInitialLoading] = useState(true);
   const [isFetching, setIsFetching] = useState(false);
   const [q, setQ] = useState("");
-  // unified date range filters: rangeMode = 'inicio' | 'fim'
   const [rangeMode, setRangeMode] = useState('inicio');
   const [rangeFrom, setRangeFrom] = useState("");
   const [rangeTo, setRangeTo] = useState("");
 
-  // fetch actions respecting filters
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
+
   const fetchAcoesWithFilters = async (isInitial = false) => {
     try {
       if (isInitial) setInitialLoading(true);
       else setIsFetching(true);
+
       const params = new globalThis.URLSearchParams();
       if (q) params.set('q', q);
       if (rangeFrom || rangeTo) {
@@ -39,29 +53,24 @@ export default function AcoesPage() {
           if (rangeTo) params.set('endTo', rangeTo);
         }
       }
+
       const url = '/api/action' + (params.toString() ? `?${params.toString()}` : '');
-
-      const response = await globalThis.fetch(url);
-
-      // don't perform navigation here; session-based redirect is handled in the effect
-      if (response.status === 401) {
+      const res = await globalThis.fetch(url);
+      if (res.status === 401) {
         setAcoes([]);
         return;
       }
-
-      if (!response.ok) throw new Error('Failed to fetch actions');
-
-      const data = await response.json();
+      if (!res.ok) throw new Error('Failed to fetch actions');
+      const data = await res.json();
       setAcoes(data);
     } catch {
-      // swallow fetch error; UI shows loading state and retry on next change
+      // keep UI simple; user can retry by changing filters
     } finally {
       if (isInitial) setInitialLoading(false);
       else setIsFetching(false);
     }
   };
 
-  // separate session redirect from filter updates to avoid navigation while typing
   useEffect(() => {
     if (status === 'loading') return;
     if (!session) {
@@ -69,28 +78,20 @@ export default function AcoesPage() {
     }
   }, [session, status, router]);
 
-  // debounce filter-triggered fetches to avoid firing on every keystroke
   useEffect(() => {
     if (status === 'loading') return;
-    if (!session) return; // don't trigger fetches until session is present
-
-    const t = globalThis.setTimeout(() => {
-      fetchAcoesWithFilters(false);
-    }, 300);
-
+    if (!session) return;
+    const t = globalThis.setTimeout(() => fetchAcoesWithFilters(false), 300);
     return () => globalThis.clearTimeout(t);
   }, [q, rangeMode, rangeFrom, rangeTo, status, session]);
 
-  // initial fetch once session is available
   useEffect(() => {
     if (status === 'loading') return;
     if (!session) return;
     fetchAcoesWithFilters(true);
-    // run once when session becomes available
   }, [status, session]);
 
   const handleNew = () => {
-    // open in-page modal
     setEditing(null);
     setModalOpen(true);
   };
@@ -101,24 +102,19 @@ export default function AcoesPage() {
   };
 
   const handleDelete = async (acao) => {
-    if (!globalThis.confirm("Tem certeza que deseja excluir esta ação?")) return;
+    if (!globalThis.confirm('Tem certeza que deseja excluir esta ação?')) return;
     try {
-      const res = await globalThis.fetch(`/api/action/${acao._id}`, { method: "DELETE" });
+      const res = await globalThis.fetch(`/api/action/${acao._id}`, { method: 'DELETE' });
       if (res.ok) fetchAcoesWithFilters();
-      else globalThis.alert("Falha ao excluir ação");
+      else globalThis.alert('Falha ao excluir ação');
     } catch {
-      globalThis.alert("Erro ao excluir ação");
+      globalThis.alert('Erro ao excluir ação');
     }
   };
-
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState(null);
-
 
   const handleModalSubmit = async (payload) => {
     try {
       if (editing) {
-        // call PATCH
         const res = await globalThis.fetch('/api/action/edit', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: editing._id, ...payload }) });
         if (!res.ok) throw new Error('Failed to update');
       } else {
@@ -137,7 +133,6 @@ export default function AcoesPage() {
     try {
       const params = new globalThis.URLSearchParams();
       if (q) params.set('q', q);
-      // align with server report API: choose based on rangeMode
       if (rangeFrom || rangeTo) {
         if (rangeMode === 'inicio') {
           if (rangeFrom) params.set('startFrom', rangeFrom);
@@ -161,23 +156,21 @@ export default function AcoesPage() {
     }
   };
 
-  if (status === "loading" || initialLoading) {
+  if (status === 'loading' || initialLoading) {
     return (
-      <div style={{ padding: "2rem" }}>
+      <TopWrap>
         <div>Carregando...</div>
-      </div>
+      </TopWrap>
     );
   }
 
-  if (!session) {
-    return null; // Will redirect in useEffect
-  }
+  if (!session) return null;
 
   return (
-    <div style={{ padding: "2rem" }}>
+    <TopWrap>
       <HeaderBar username={session.user?.username || session.user?.name} role={session.user?.role} />
 
-      <div style={{ marginTop: "1rem" }}>
+      <SectionWrap>
         <Filters
           q={q} setQ={setQ}
           rangeMode={rangeMode} setRangeMode={setRangeMode}
@@ -185,18 +178,18 @@ export default function AcoesPage() {
           rangeTo={rangeTo} setRangeTo={setRangeTo}
         />
 
-        <div style={{ marginTop: "0.5rem", display: 'flex', gap: 8 }}>
+        <ButtonsRow>
           <FE.TopButton onClick={handleNew}>Nova Ação</FE.TopButton>
           {session?.user?.role === 'admin' && (
             <FE.TopSecondaryButton onClick={generatePdf}>Gerar PDF</FE.TopSecondaryButton>
           )}
-        </div>
+        </ButtonsRow>
 
-        <div style={{ marginTop: "1rem" }}>
+        <SectionWrap>
           <ActionListTable actions={acoes} session={session} onEdit={handleEdit} onDelete={handleDelete} />
-          {isFetching && <div style={{ marginTop: 8, color: '#666' }}>Atualizando…</div>}
-        </div>
-      </div>
+          {isFetching && <Note>Atualizando…</Note>}
+        </SectionWrap>
+      </SectionWrap>
 
       {modalOpen && (
         <ActionModal
@@ -205,6 +198,6 @@ export default function AcoesPage() {
           onSubmit={handleModalSubmit}
         />
       )}
-    </div>
+    </TopWrap>
   );
 }

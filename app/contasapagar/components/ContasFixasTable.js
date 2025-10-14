@@ -1,11 +1,14 @@
 "use client";
 import { useMemo } from "react";
-import { Table, Th, Td } from "../../components/ui/Table";
+import { Table, ThClickable, Th, Td } from "../../components/ui/Table";
+import styled from 'styled-components';
+import { RowInline } from '../../components/ui/primitives';
 import HeaderControls from "../../components/ui/HeaderControls";
 import StatusSelect from "../../components/ui/StatusSelect";
 import * as FE from "../../components/FormElements";
 import { formatMonthYearBR } from "@/lib/utils/dates";
 import { formatBRL } from "../../utils/currency";
+import { Note } from "../../components/ui/primitives";
 
 // Small, reusable Contas Fixas table with sorting and pagination
 export default function ContasFixasTable({
@@ -41,24 +44,24 @@ export default function ContasFixasTable({
       <Table>
         <thead>
           <tr>
-            <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => onToggleSort?.('nome')}>
+            <ThClickable onClick={() => onToggleSort?.('nome')}>
               Nome {sortKey === 'nome' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-            </Th>
-            <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => onToggleSort?.('empresa')}>
+            </ThClickable>
+            <ThClickable onClick={() => onToggleSort?.('empresa')}>
               Empresa {sortKey === 'empresa' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-            </Th>
-            <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => onToggleSort?.('tipo')}>
+            </ThClickable>
+            <ThClickable onClick={() => onToggleSort?.('tipo')}>
               Tipo {sortKey === 'tipo' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-            </Th>
-            <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => onToggleSort?.('valor')}>
+            </ThClickable>
+            <ThClickable onClick={() => onToggleSort?.('valor')}>
               Valor {sortKey === 'valor' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-            </Th>
-            <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => onToggleSort?.('vencimento')}>
+            </ThClickable>
+            <ThClickable onClick={() => onToggleSort?.('vencimento')}>
               Vencimento {sortKey === 'vencimento' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-            </Th>
-            <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => onToggleSort?.('status')}>
+            </ThClickable>
+            <ThClickable onClick={() => onToggleSort?.('status')}>
               Status {sortKey === 'status' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-            </Th>
+            </ThClickable>
             <Th>Opções</Th>
           </tr>
         </thead>
@@ -67,22 +70,20 @@ export default function ContasFixasTable({
             <tr key={c._id}>
               <Td>{c.name}</Td>
               <Td>{c.empresa}</Td>
-              <Td style={{ textTransform: 'capitalize' }}>{c.tipo}</Td>
+              <CapitalTd>{c.tipo}</CapitalTd>
               <Td>{(c.valor != null && c.valor !== '') ? formatBRL(Number(c.valor || 0)) : '-'}</Td>
               <Td>{formatDateBR?.(c.vencimento)}</Td>
               <Td>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <RowInline>
                   <StatusSelect
                     value={getDisplayStatus?.(c)}
                     options={[{ value: 'ABERTO', label: 'ABERTO' }, { value: 'PAGO', label: 'PAGO' }]}
                     onChange={(e) => onStatusChange?.(c, e.target.value)}
                   />
                   {getDisplayStatus?.(c) === 'PAGO' && c.lastPaidAt && (
-                    <span style={{ fontSize: '0.8rem', color: '#555', border: '1px solid #ddd', padding: '2px 6px', borderRadius: 6 }}>
-                      {formatMonthYearBR(c.lastPaidAt)}
-                    </span>
+                    <Badge>{formatMonthYearBR(c.lastPaidAt)}</Badge>
                   )}
-                </div>
+                </RowInline>
               </Td>
               <Td>
                 <FE.ActionsRow>
@@ -93,11 +94,27 @@ export default function ContasFixasTable({
             </tr>
           ))}
           {!rows.length && (
-            <tr><Td colSpan={7} style={{ color: '#666' }}>Nenhuma conta fixa cadastrada</Td></tr>
+            <tr><Td colSpan={7}><Note>Nenhuma conta fixa cadastrada</Note></Td></tr>
           )}
         </tbody>
       </Table>
     </>
   );
 }
+
+// Inline actions now use shared RowInline (default gap/alignment)
+
+const Badge = styled.span`
+  font-size: var(--font-size-sm, 0.8rem);
+  color: #555;
+  border: 1px solid #ddd;
+  padding: var(--space-xxs, var(--space-xxs, var(--space-xxs, 4px))) var(--space-xs, var(--space-xs, var(--space-xs, 8px)));
+  border-radius: var(--radius-sm, var(--gap-xs, var(--gap-xs, 6px)));
+`;
+
+// Empty message now uses shared Note
+
+const CapitalTd = styled(Td)`
+  text-transform: capitalize;
+`;
 

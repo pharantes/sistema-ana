@@ -1,9 +1,12 @@
 "use client";
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Table, Th, Td } from "../../components/ui/Table";
+import { Table, ThClickable, Td } from "../../components/ui/Table";
+import styled from 'styled-components';
 import HeaderControls from "../../components/ui/HeaderControls";
 import { formatDateBR } from "@/lib/utils/dates";
+import LinkButton from '../../components/ui/LinkButton';
+import { Note } from "../../components/ui/primitives";
 
 export default function ClienteAcoesTable({ actions = [] }) {
   const router = useRouter();
@@ -50,38 +53,44 @@ export default function ClienteAcoesTable({ actions = [] }) {
       <Table>
         <thead>
           <tr>
-            <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('date')}>
+            <ThClickable onClick={() => toggleSort('date')}>
               Data {sortKey === 'date' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-            </Th>
-            <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('name')}>
+            </ThClickable>
+            <ThClickable onClick={() => toggleSort('name')}>
               Nome {sortKey === 'name' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-            </Th>
-            <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('start')}>
+            </ThClickable>
+            <ThClickable onClick={() => toggleSort('start')}>
               Início {sortKey === 'start' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-            </Th>
-            <Th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort('end')}>
+            </ThClickable>
+            <ThClickable onClick={() => toggleSort('end')}>
               Fim {sortKey === 'end' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-            </Th>
+            </ThClickable>
           </tr>
         </thead>
         <tbody>
           {pageData.map(a => (
             <tr key={a._id}>
               <Td>{formatDateBR(a.date)}</Td>
-              <Td style={{ textAlign: 'left' }}>
-                <button onClick={() => router.push(`/acoes/${a._id}`)} style={{ background: 'none', border: 'none', padding: 0, color: '#2563eb', textDecoration: 'underline', cursor: 'pointer', textAlign: 'left' }}>
+              <LeftTd>
+                <LinkButton onClick={() => router.push(`/acoes/${a._id}`)}>
                   {a.name || a.event}
-                </button>
-              </Td>
+                </LinkButton>
+              </LeftTd>
               <Td>{formatDateBR(a.startDate)}</Td>
               <Td>{formatDateBR(a.endDate)}</Td>
             </tr>
           ))}
           {!total && (
-            <tr><Td colSpan={4} style={{ color: '#666' }}>Nenhuma ação encontrada para este cliente.</Td></tr>
+            <tr><Td colSpan={4}><Note>Nenhuma ação encontrada para este cliente.</Note></Td></tr>
           )}
         </tbody>
       </Table>
     </>
   );
 }
+
+const LeftTd = styled(Td)`
+  text-align: left;
+`;
+
+// Empty message uses shared Note

@@ -10,6 +10,7 @@ const Container = styled.div`
   max-width: 1200px;
   margin: 0 auto;
   padding: var(--space-lg);
+  min-height: 100vh;
 `;
 
 const Header = styled.div`
@@ -30,9 +31,21 @@ const Subtitle = styled.p`
   color: #6b7280;
 `;
 
-const Sidebar = styled.div`
-  position: sticky;
-  top: 20px;
+const SidebarWrapper = styled.div`
+  flex-shrink: 0;
+  width: 250px;
+  
+  @media (max-width: 768px) {
+    width: 100%;
+    margin-bottom: var(--space-md);
+  }
+`;
+
+const Sidebar = styled.nav`
+  position: fixed;
+  width: 250px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
   background: #f9fafb;
   border: 1px solid #e5e7eb;
   border-radius: var(--radius-md);
@@ -40,7 +53,9 @@ const Sidebar = styled.div`
   
   @media (max-width: 768px) {
     position: static;
-    margin-bottom: var(--space-md);
+    width: 100%;
+    max-height: none;
+    overflow-y: visible;
   }
 `;
 
@@ -69,16 +84,18 @@ const SidebarLink = styled.a`
 `;
 
 const ContentWrapper = styled.div`
-  display: grid;
-  grid-template-columns: 250px 1fr;
+  display: flex;
   gap: var(--space-lg);
+  align-items: flex-start;
   
   @media (max-width: 768px) {
-    grid-template-columns: 1fr;
+    flex-direction: column;
   }
 `;
 
 const Content = styled.div`
+  flex: 1;
+  min-width: 0;
   background: white;
   border: 1px solid #e5e7eb;
   border-radius: var(--radius-md);
@@ -779,6 +796,28 @@ export default function DocumentationPage() {
     }
   };
 
+  // Custom components for ReactMarkdown to add IDs to headings
+  const components = {
+    h1: ({ children, ...props }) => {
+      const text = children?.toString() || '';
+      // Map heading text to section IDs
+      const idMap = {
+        '📊 Dashboard': 'dashboard',
+        '👥 Clientes': 'clientes',
+        '👷 Colaboradores': 'colaboradores',
+        '🎯 Ações': 'acoes',
+        '💰 Contas a Receber': 'contas-receber',
+        '💸 Contas a Pagar': 'contas-pagar',
+        '🔄 Fluxo de Trabalho Recomendado': 'fluxo',
+        '💡 Dicas e Boas Práticas': 'dicas',
+        '❓ Perguntas Frequentes': 'faq',
+        '🔐 Segurança e Permissões': 'seguranca',
+      };
+      const id = idMap[text];
+      return <h1 id={id} {...props}>{children}</h1>;
+    }
+  };
+
   return (
     <Container>
       <Header>
@@ -787,25 +826,27 @@ export default function DocumentationPage() {
       </Header>
 
       <ContentWrapper>
-        <Sidebar>
-          <SidebarTitle>Navegação</SidebarTitle>
-          {sections.map(section => (
-            <SidebarLink
-              key={section.id}
-              href={`#${section.id}`}
-              $active={activeSection === section.id}
-              onClick={(e) => {
-                e.preventDefault();
-                handleSectionClick(section.id);
-              }}
-            >
-              {section.title}
-            </SidebarLink>
-          ))}
-        </Sidebar>
+        <SidebarWrapper>
+          <Sidebar>
+            <SidebarTitle>Navegação</SidebarTitle>
+            {sections.map(section => (
+              <SidebarLink
+                key={section.id}
+                href={`#${section.id}`}
+                $active={activeSection === section.id}
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleSectionClick(section.id);
+                }}
+              >
+                {section.title}
+              </SidebarLink>
+            ))}
+          </Sidebar>
+        </SidebarWrapper>
 
         <Content>
-          <ReactMarkdown>{DOCUMENTATION}</ReactMarkdown>
+          <ReactMarkdown components={components}>{DOCUMENTATION}</ReactMarkdown>
         </Content>
       </ContentWrapper>
     </Container>

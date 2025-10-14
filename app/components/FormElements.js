@@ -1,6 +1,14 @@
+/**
+ * @fileoverview Styled form elements for consistent UI across the application.
+ * Provides reusable button, input, and select components with theme support.
+ */
+
 import styled from 'styled-components';
 import { ActionsInline } from './ui/primitives';
 
+/**
+ * Primary button component with brand styling.
+ */
 export const Button = styled.button`
   padding: var(--space-xs, var(--space-xs, var(--space-xs, 8px))) var(--space-md, var(--space-sm, var(--space-sm, 12px)));
   border-radius: var(--radius-sm, var(--gap-xs, var(--gap-xs, 6px)));

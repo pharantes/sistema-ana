@@ -11,82 +11,176 @@ import { ok, created, badRequest, unauthorized, forbidden, notFound, serverError
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+/**
+ * Logs error messages to stderr
+ */
+function logError(message, error) {
+  try {
+    process.stderr.write(`${message}: ${String(error)}\n`);
+  } catch {
+    /* Ignore logging errors */
+  }
+}
+
+/**
+ * Validates user session and checks for admin role
+ */
+async function getValidatedAdminSession() {
+  const session = await getServerSession(baseOptions);
+  if (!session || !session.user) {
+    return { session: null, error: unauthorized() };
+  }
+  if (session.user.role !== 'admin') {
+    return { session: null, error: forbidden() };
+  }
+  return { session, error: null };
+}
+
+/**
+ * Extracts date range filter from search params
+ */
+function extractDateRangeFilter(searchParams) {
+  const vencimentoFrom = searchParams.get('vencFrom');
+  const vencimentoTo = searchParams.get('vencTo');
+
+  if (!vencimentoFrom && !vencimentoTo) {
+    return {};
+  }
+
+  const reportDateFilter = {};
+  if (vencimentoFrom) {
+    reportDateFilter.$gte = new Date(vencimentoFrom);
+  }
+  if (vencimentoTo) {
+    reportDateFilter.$lte = new Date(vencimentoTo);
+  }
+
+  return { reportDate: reportDateFilter };
+}
+
+/**
+ * Fetches contas with optional populate, falling back to plain docs if populate fails
+ */
+async function fetchContasWithPopulate(filter) {
+  try {
+    return await ContasAPagar.find(filter)
+      .populate({ path: 'actionId', model: Action })
+      .lean();
+  } catch (populateError) {
+    logError('Populate actionId failed, returning plain docs', populateError);
+    return await ContasAPagar.find(filter).lean();
+  }
+}
+
+/**
+ * Enriches contas with related data (status defaults, colaborador, client names)
+ */
+async function enrichContasWithRelatedData(contas) {
+  const contasWithDefaults = contas.map((conta) => ({
+    ...conta,
+    status: conta.status || 'ABERTO'
+  }));
+
+  await attachColaboradorLabel(contasWithDefaults);
+  await linkStaffNameToColaborador(contasWithDefaults);
+  await attachClientNameFromActions(contasWithDefaults);
+
+  return contasWithDefaults;
+}
+
+/**
+ * GET /api/contasapagar - Retrieve contas a pagar with optional date filtering
+ */
 export async function GET(request) {
   try {
     await connect();
-    // Ensure Action model is referenced explicitly for populate
-    const { searchParams } = new globalThis.URL(request.url);
-    const vencFrom = searchParams.get('vencFrom');
-    const vencTo = searchParams.get('vencTo');
-    const filter = {};
-    if (vencFrom || vencTo) {
-      filter.reportDate = {};
-      if (vencFrom) filter.reportDate.$gte = new Date(vencFrom);
-      if (vencTo) filter.reportDate.$lte = new Date(vencTo);
-    }
-    // Try populate; if it fails (bad refs), fall back to plain docs
-    let contas;
-    try {
-      contas = await ContasAPagar.find(filter)
-        .populate({ path: 'actionId', model: Action })
-        .lean();
-    } catch (populateErr) {
-      try { process.stderr.write('Populate actionId failed, returning plain docs: ' + String(populateErr) + '\n'); } catch { void 0; /* noop */ }
-      contas = await ContasAPagar.find(filter).lean();
-    }
-    const withDefaults = contas.map((c) => ({ ...c, status: c.status || 'ABERTO' }));
-    await attachColaboradorLabel(withDefaults);
-    await linkStaffNameToColaborador(withDefaults);
-    await attachClientNameFromActions(withDefaults);
 
-    return ok(withDefaults);
-  } catch (err) {
-    try { process.stderr.write('GET /api/contasapagar error: ' + String(err) + '\n'); } catch { void 0; /* noop */ }
+    const { searchParams } = new globalThis.URL(request.url);
+    const dateFilter = extractDateRangeFilter(searchParams);
+
+    const contas = await fetchContasWithPopulate(dateFilter);
+    const enrichedContas = await enrichContasWithRelatedData(contas);
+
+    return ok(enrichedContas);
+  } catch (error) {
+    logError('GET /api/contasapagar error', error);
     return serverError('Failed to fetch contas a pagar');
   }
 }
 
+/**
+ * POST /api/contasapagar - Create a new conta a pagar
+ */
 export async function POST(request) {
   try {
     await connect();
-    const data = await request.json();
-    try { validateContasAPagarCreate(data); } catch (e) { return badRequest(e.message); }
-    const conta = await ContasAPagar.create({ status: 'ABERTO', ...data });
+
+    const requestData = await request.json();
+
+    try {
+      validateContasAPagarCreate(requestData);
+    } catch (validationError) {
+      return badRequest(validationError.message);
+    }
+
+    const conta = await ContasAPagar.create({ status: 'ABERTO', ...requestData });
+
     return created(conta);
-  } catch (err) {
-    try { process.stderr.write('POST /api/contasapagar error: ' + String(err) + '\n'); } catch { void 0; /* noop */ }
+  } catch (error) {
+    logError('POST /api/contasapagar error', error);
     return serverError('Failed to create conta');
   }
 }
 
+/**
+ * DELETE /api/contasapagar - Delete a conta a pagar by ID
+ */
 export async function DELETE(request) {
   try {
     await connect();
+
     const { id } = await request.json();
     await ContasAPagar.findByIdAndDelete(id);
+
     return ok({ success: true });
-  } catch (err) {
-    try { process.stderr.write('DELETE /api/contasapagar error: ' + String(err) + '\n'); } catch { void 0; /* noop */ }
+  } catch (error) {
+    logError('DELETE /api/contasapagar error', error);
     return serverError('Failed to delete conta');
   }
 }
 
+/**
+ * PATCH /api/contasapagar - Update conta a pagar status (admin only)
+ */
 export async function PATCH(request) {
   try {
-    const session = await getServerSession(baseOptions);
-    if (!session || !session.user) return unauthorized();
-    if (session.user.role !== 'admin') return forbidden();
+    const { error: sessionError } = await getValidatedAdminSession();
+    if (sessionError) return sessionError;
+
     await connect();
-    const parsed = await request.json();
-    try { validateContasAPagarUpdate(parsed); } catch (e) { return badRequest(e.message); }
-    const { id, status } = parsed;
-    const updated = await ContasAPagar.findByIdAndUpdate(id, { status }, { new: true });
-    if (!updated) {
+
+    const requestData = await request.json();
+
+    try {
+      validateContasAPagarUpdate(requestData);
+    } catch (validationError) {
+      return badRequest(validationError.message);
+    }
+
+    const { id, status } = requestData;
+    const updatedConta = await ContasAPagar.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true }
+    );
+
+    if (!updatedConta) {
       return notFound('Not found');
     }
-    return ok(updated);
-  } catch (err) {
-    try { process.stderr.write('PATCH /api/contasapagar error: ' + String(err) + '\n'); } catch { void 0; /* noop */ }
+
+    return ok(updatedConta);
+  } catch (error) {
+    logError('PATCH /api/contasapagar error', error);
     return serverError('Failed to update status');
   }
 }

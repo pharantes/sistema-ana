@@ -1,29 +1,69 @@
 import { getClientes, createCliente, updateCliente, deleteCliente } from "@/lib/controllers/clienteController";
 import { validateClienteCreate, validateClienteUpdate } from "@/lib/validators/cliente";
-import { ok, created, badRequest } from "@/lib/api/responses";
+import { ok, created, badRequest, serverError } from "@/lib/api/responses";
 
+/**
+ * GET handler - Retrieves all clientes.
+ */
 export async function GET() {
-  const clientes = await getClientes();
-  return ok(clientes);
+  try {
+    const clientes = await getClientes();
+    return ok(clientes);
+  } catch (error) {
+    return serverError(error?.message || 'Erro ao buscar clientes');
+  }
 }
 
+/**
+ * POST handler - Creates a new cliente with validation.
+ */
 export async function POST(request) {
-  const data = await request.json();
-  try { validateClienteCreate(data); } catch (e) { return badRequest(e.message); }
-  const cliente = await createCliente(data);
-  return created(cliente);
+  try {
+    const data = await request.json();
+
+    try {
+      validateClienteCreate(data);
+    } catch (validationError) {
+      return badRequest(validationError.message);
+    }
+
+    const cliente = await createCliente(data);
+    return created(cliente);
+  } catch (error) {
+    return serverError(error?.message || 'Erro ao criar cliente');
+  }
 }
 
+/**
+ * PATCH handler - Updates an existing cliente.
+ */
 export async function PATCH(request) {
-  const data = await request.json();
-  try { validateClienteUpdate(data); } catch (e) { return badRequest(e.message); }
-  const { _id, ...update } = data;
-  const cliente = await updateCliente(_id, update);
-  return ok(cliente);
+  try {
+    const data = await request.json();
+
+    try {
+      validateClienteUpdate(data);
+    } catch (validationError) {
+      return badRequest(validationError.message);
+    }
+
+    const { _id, ...updateFields } = data;
+    const cliente = await updateCliente(_id, updateFields);
+    return ok(cliente);
+  } catch (error) {
+    return serverError(error?.message || 'Erro ao atualizar cliente');
+  }
 }
 
+/**
+ * DELETE handler - Deletes a cliente by ID.
+ */
 export async function DELETE(request) {
-  const { id } = await request.json();
-  const deleted = await deleteCliente(id);
-  return ok(deleted);
+  try {
+    const { id } = await request.json();
+    const deleted = await deleteCliente(id);
+    return ok(deleted);
+  } catch (error) {
+    return serverError(error?.message || 'Erro ao excluir cliente');
+  }
 }

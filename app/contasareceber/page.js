@@ -18,6 +18,97 @@ const Title = styled.h1`
 `;
 // Table, Th, Td imported from components/ui/Table for consistency
 
+/**
+ * Builds API URL with query parameters for contas a receber
+ * @param {Object} filters - Filter parameters
+ * @returns {URL} Constructed API URL
+ */
+function buildContasReceberURL(filters) {
+  const apiUrl = new URL('/api/contasareceber', globalThis.location.origin);
+
+  if (filters.query) {
+    apiUrl.searchParams.set('q', filters.query);
+  }
+
+  if (filters.mode === 'venc') {
+    if (filters.dateFrom) apiUrl.searchParams.set('vencFrom', filters.dateFrom);
+    if (filters.dateTo) apiUrl.searchParams.set('vencTo', filters.dateTo);
+  } else {
+    if (filters.dateFrom) apiUrl.searchParams.set('recFrom', filters.dateFrom);
+    if (filters.dateTo) apiUrl.searchParams.set('recTo', filters.dateTo);
+  }
+
+  if (filters.statusFilter && filters.statusFilter !== 'ALL') {
+    apiUrl.searchParams.set('status', filters.statusFilter);
+  }
+
+  apiUrl.searchParams.set('sort', filters.sortKey);
+  apiUrl.searchParams.set('dir', filters.sortDir);
+  apiUrl.searchParams.set('page', String(filters.page));
+  apiUrl.searchParams.set('pageSize', String(filters.pageSize));
+
+  return apiUrl;
+}
+
+/**
+ * Fetches contas a receber from API
+ * @param {Object} filters - Filter parameters
+ * @returns {Promise<{items: Array, total: number}>} Items and total count
+ */
+async function fetchContasReceber(filters) {
+  try {
+    const apiUrl = buildContasReceberURL(filters);
+    const response = await fetch(apiUrl.toString());
+    const data = await response.json();
+
+    const items = Array.isArray(data?.items)
+      ? data.items
+      : Array.isArray(data)
+        ? data
+        : [];
+
+    const total = Number.isFinite(data?.total)
+      ? data.total
+      : Array.isArray(data)
+        ? data.length
+        : 0;
+
+    return { items, total };
+  } catch {
+    return { items: [], total: 0 };
+  }
+}
+
+/**
+ * Updates receivable status via API
+ * @param {Object} row - Row data
+ * @param {string} newStatus - New status value
+ * @returns {Promise<void>}
+ * @throws {Error} If update fails
+ */
+async function updateReceivableStatus(row, newStatus) {
+  const receivable = row.receivable || {};
+  const payload = {
+    id: receivable?._id,
+    actionId: row._id,
+    clientId: row.clientId,
+    status: newStatus
+  };
+
+  const response = await fetch('/api/contasareceber', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    throw new Error('Falha ao atualizar status');
+  }
+}
+
+/**
+ * Contas a receber page with filters and table
+ */
 export default function ContasAReceberPage() {
   const { data: session, status } = useSession();
   const [items, setItems] = useState([]);
@@ -38,56 +129,42 @@ export default function ContasAReceberPage() {
 
   // Server-driven fetch on dependency changes
   useEffect(() => {
-    async function load() {
+    async function loadData() {
       setLoading(true);
-      try {
-        const apiUrl = new URL('/api/contasareceber', globalThis.location.origin);
-        if (query) apiUrl.searchParams.set('q', query);
-        if (mode === 'venc') {
-          if (dateFrom) apiUrl.searchParams.set('vencFrom', dateFrom);
-          if (dateTo) apiUrl.searchParams.set('vencTo', dateTo);
-        } else {
-          if (dateFrom) apiUrl.searchParams.set('recFrom', dateFrom);
-          if (dateTo) apiUrl.searchParams.set('recTo', dateTo);
-        }
-        if (statusFilter && statusFilter !== 'ALL') apiUrl.searchParams.set('status', statusFilter);
-        apiUrl.searchParams.set('sort', sortKey);
-        apiUrl.searchParams.set('dir', sortDir);
-        apiUrl.searchParams.set('page', String(page));
-        apiUrl.searchParams.set('pageSize', String(pageSize));
-        const res = await fetch(apiUrl.toString());
-        const data = await res.json();
-        setItems(Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : []);
-        setTotal(Number.isFinite(data?.total) ? data.total : (Array.isArray(data) ? data.length : 0));
-      } catch {
-        setItems([]); setTotal(0);
-      }
+      const filters = {
+        query,
+        mode,
+        dateFrom,
+        dateTo,
+        statusFilter,
+        sortKey,
+        sortDir,
+        page,
+        pageSize
+      };
+      const { items: fetchedItems, total: fetchedTotal } = await fetchContasReceber(filters);
+      setItems(fetchedItems);
+      setTotal(fetchedTotal);
       setLoading(false);
     }
-    load();
+    loadData();
   }, [query, sortKey, sortDir, mode, dateFrom, dateTo, statusFilter, page, pageSize, version]);
-  // totalPages not needed here since Pager computes it internally
 
   async function gerarPDF() {
-    // Busca todos os itens com os filtros atuais para gerar o relatório completo
-    const apiUrl = new URL('/api/contasareceber', globalThis.location.origin);
-    if (query) apiUrl.searchParams.set('q', query);
-    if (mode === 'venc') {
-      if (dateFrom) apiUrl.searchParams.set('vencFrom', dateFrom);
-      if (dateTo) apiUrl.searchParams.set('vencTo', dateTo);
-    } else {
-      if (dateFrom) apiUrl.searchParams.set('recFrom', dateFrom);
-      if (dateTo) apiUrl.searchParams.set('recTo', dateTo);
-    }
-    if (statusFilter && statusFilter !== 'ALL') apiUrl.searchParams.set('status', statusFilter);
-    apiUrl.searchParams.set('sort', sortKey);
-    apiUrl.searchParams.set('dir', sortDir);
-    apiUrl.searchParams.set('page', '1');
-    apiUrl.searchParams.set('pageSize', '10000');
-    const resAll = await fetch(apiUrl.toString());
-    const dataAll = await resAll.json();
-    const rows = Array.isArray(dataAll?.items) ? dataAll.items : (Array.isArray(dataAll) ? dataAll : []);
-    await gerarContasAReceberPDF(rows);
+    // Fetch all items with current filters to generate complete report
+    const filters = {
+      query,
+      mode,
+      dateFrom,
+      dateTo,
+      statusFilter,
+      sortKey,
+      sortDir,
+      page: 1,
+      pageSize: 10000
+    };
+    const { items: allItems } = await fetchContasReceber(filters);
+    await gerarContasAReceberPDF(allItems);
   }
 
   const toggleSort = (key) => {
@@ -128,23 +205,37 @@ export default function ContasAReceberPage() {
         sortKey={sortKey}
         sortDir={sortDir}
         onToggleSort={toggleSort}
-        onChangeStatus={async (row, next, opts) => {
-          if (opts?.openModal) {
+        onChangeStatus={async (row, newStatus, options) => {
+          if (options?.openModal) {
             setSelectedAction(row);
             setModalOpen(true);
             return;
           }
-          const r = row.receivable || {};
-          // optimistic UI
-          setItems(prev => prev.map(it => it._id === row._id ? { ...it, receivable: { ...(it.receivable || {}), status: next } } : it));
+
+          const originalReceivable = row.receivable || {};
+          const originalStatus = originalReceivable?.status || 'ABERTO';
+
+          // Optimistic UI update
+          setItems(prevItems =>
+            prevItems.map(item =>
+              item._id === row._id
+                ? { ...item, receivable: { ...(item.receivable || {}), status: newStatus } }
+                : item
+            )
+          );
+
           try {
-            const payload = { id: r?._id, actionId: row._id, clientId: row.clientId, status: next };
-            const res = await fetch('/api/contasareceber', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-            if (!res.ok) throw new Error('Falha ao atualizar status');
-          } catch (err) {
-            alert(err.message || 'Erro ao atualizar status');
-            // revert on error
-            setItems(prev => prev.map(it => it._id === row._id ? { ...it, receivable: { ...(it.receivable || {}), status: (r?.status || 'ABERTO') } } : it));
+            await updateReceivableStatus(row, newStatus);
+          } catch (error) {
+            alert(error.message || 'Erro ao atualizar status');
+            // Revert on error
+            setItems(prevItems =>
+              prevItems.map(item =>
+                item._id === row._id
+                  ? { ...item, receivable: { ...(item.receivable || {}), status: originalStatus } }
+                  : item
+              )
+            );
           }
         }}
       />

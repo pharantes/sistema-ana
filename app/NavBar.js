@@ -4,11 +4,13 @@ import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import styled from "styled-components";
 
+// Styled Components
 const Navbar = styled.nav`
   background: var(--color-primary, #6c2bb0);
-  padding: 0; /* horizontal padding applied in NavInner for consistent centering */
+  padding: 0;
   box-shadow: 0 2px var(--space-xxs, var(--space-xxs, var(--space-xxs, 4px))) rgba(0, 0, 0, 0.1);
 `;
+
 const NavInner = styled.div`
   display: flex;
   align-items: center;
@@ -16,6 +18,7 @@ const NavInner = styled.div`
   width: 100%;
   padding: var(--space-xs, 8px) 16px;
 `;
+
 const NavList = styled.ul`
   display: flex;
   gap: var(--gap-md, var(--space-lg, 24px));
@@ -24,10 +27,12 @@ const NavList = styled.ul`
   padding: 0;
   align-items: center;
 `;
+
 const NavItem = styled.li`
   display: flex;
   align-items: center;
 `;
+
 const NavLink = styled(Link)`
   color: var(--color-surface, #fff);
   text-decoration: none;
@@ -42,12 +47,14 @@ const NavLink = styled(Link)`
     color: var(--color-surface, #fff);
   }
 `;
+
 const RightArea = styled.div`
   display: flex;
   gap: var(--gap-sm, var(--space-sm, var(--space-sm, 12px)));
   align-items: center;
   margin-left: auto;
 `;
+
 const SignOutButton = styled.button`
   background: transparent;
   border: 1px solid rgba(255,255,255,0.2);
@@ -62,9 +69,19 @@ const SignOutButton = styled.button`
   &:hover { background: rgba(255,255,255,0.06); }
 `;
 
+function handleSignOut() {
+  signOut({ callbackUrl: "/login" });
+}
+
+/**
+ * Navigation bar component that displays application navigation links and sign-out button.
+ * Admin users see additional menu items.
+ */
 export default function NavBar() {
   const { data: session } = useSession();
-  const role = session?.user?.role;
+  const userRole = session?.user?.role;
+  const isAdmin = userRole === "admin";
+
   return (
     <Navbar>
       <NavInner>
@@ -72,7 +89,7 @@ export default function NavBar() {
           <NavItem>
             <NavLink href="/">Dashboard</NavLink>
           </NavItem>
-          {role === "admin" && (
+          {isAdmin && (
             <NavItem>
               <NavLink href="/contasareceber">Contas a receber</NavLink>
             </NavItem>
@@ -93,7 +110,7 @@ export default function NavBar() {
 
         <RightArea>
           {session && (
-            <SignOutButton onClick={() => signOut({ callbackUrl: "/login" })}>
+            <SignOutButton onClick={handleSignOut}>
               Sair
             </SignOutButton>
           )}

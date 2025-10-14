@@ -3,88 +3,181 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { formatDateBR } from "@/lib/utils/dates";
 import { formatBRL } from "@/app/utils/currency";
 
-// Gera o PDF de Contas a Receber com o mesmo layout que já existia na página
+/**
+ * Calculates the total receivable amount from all rows.
+ * @param {Array} rows - Array of receivable rows
+ * @returns {number} Total amount to receive
+ */
+function calculateTotalReceivable(rows) {
+  return rows.reduce((total, row) => {
+    return total + Number(row?.receivable?.valor ?? 0);
+  }, 0);
+}
+
+/**
+ * Calculates the total number of lines needed for the PDF table.
+ * Each row needs at least one line, plus additional lines for multiple staff members.
+ * @param {Array} rows - Array of receivable rows
+ * @returns {number} Total number of lines needed
+ */
+function calculateTotalLines(rows) {
+  return rows.reduce((totalLines, row) => {
+    const staffCount = Array.isArray(row?.staff) ? row.staff.length : 0;
+    return totalLines + Math.max(1, staffCount);
+  }, 0);
+}
+
+/**
+ * Downloads a PDF blob as a file.
+ * @param {Uint8Array} pdfBytes - The PDF document bytes
+ * @param {string} filename - The filename for the download
+ */
+function downloadPDF(pdfBytes, filename) {
+  const blob = new Blob([pdfBytes], { type: "application/pdf" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Generates a PDF report for Contas a Receber (Accounts Receivable).
+ * Creates a formatted table with action details, client info, and staff assignments.
+ * @param {Array} rows - Array of receivable action objects
+ */
 export async function gerarContasAReceberPDF(rows) {
-  const safeRows = Array.isArray(rows) ? rows : [];
-  if (!safeRows.length) {
-    globalThis.alert("Nenhum resultado para gerar o relatório");
+  const validRows = Array.isArray(rows) ? rows : [];
+  if (!validRows.length) {
+    alert("Nenhum resultado para gerar o relatório");
     return;
   }
 
-  const firstDate = safeRows[0]?.date ? new Date(safeRows[0].date) : null;
-  const lastDate = safeRows[safeRows.length - 1]?.date ? new Date(safeRows[safeRows.length - 1].date) : null;
+  const firstDate = validRows[0]?.date ? new Date(validRows[0].date) : null;
+  const lastDate = validRows[validRows.length - 1]?.date
+    ? new Date(validRows[validRows.length - 1].date)
+    : null;
 
-  let totalReceber = 0;
-  let totalLines = 0;
-  for (const a of safeRows) {
-    totalReceber += Number(a?.receivable?.valor ?? 0);
-    const staffLen = Array.isArray(a?.staff) ? a.staff.length : 0;
-    totalLines += Math.max(1, staffLen);
-  }
+  const totalReceivable = calculateTotalReceivable(validRows);
+  const totalLines = calculateTotalLines(validRows);
 
-  const doc = await PDFDocument.create();
-  const font = await doc.embedFont(StandardFonts.Helvetica);
+  // PDF configuration constants
+  const pdfDocument = await PDFDocument.create();
+  const font = await pdfDocument.embedFont(StandardFonts.Helvetica);
   const pageWidth = 900;
   const rowHeight = 18;
   const headerHeight = 28;
   const margin = 30;
-  // Evento, Cliente, Data, Colaboradores, PIX, Valor total (R$)
-  const colWidths = [160, 200, 100, 180, 150, 100];
+  const columnWidths = [160, 200, 100, 180, 150, 100];
   const pageHeight = margin + headerHeight + (totalLines + 5) * rowHeight + 80;
-  const page = doc.addPage([pageWidth, pageHeight]);
-  let y = margin;
-  const drawText = (text, x, size = 10) => {
-    page.drawText(String(text ?? ""), { x, y: page.getHeight() - y, size, font });
+  const page = pdfDocument.addPage([pageWidth, pageHeight]);
+
+  let currentY = margin;
+
+  /**
+   * Helper function to draw text at the current Y position.
+   * @param {string} text - Text to draw
+   * @param {number} xPosition - X coordinate
+   * @param {number} fontSize - Font size
+   */
+  const drawText = (text, xPosition, fontSize = 10) => {
+    page.drawText(String(text ?? ""), {
+      x: xPosition,
+      y: page.getHeight() - currentY,
+      size: fontSize,
+      font
+    });
   };
 
-  // Título e período
+  // Draw title
   drawText("Relatório - Contas a Receber", margin, 16);
-  y += 22;
-  const range = `${formatDateBR(firstDate)} - ${formatDateBR(lastDate)}`;
-  drawText(`Período: ${range}`, margin, 10);
-  y += 20;
+  currentY += 22;
 
-  // Totais
-  drawText(`Total a receber (período): R$ ${formatBRL(totalReceber)}`, margin, 11);
-  y += 24;
+  // Draw period
+  const dateRange = `${formatDateBR(firstDate)} - ${formatDateBR(lastDate)}`;
+  drawText(`Período: ${dateRange}`, margin, 10);
+  currentY += 20;
 
-  // Cabeçalho
+  // Draw total
+  drawText(`Total a receber (período): R$ ${formatBRL(totalReceivable)}`, margin, 11);
+  currentY += 24;
+
+  // Draw table header
   const headers = ["Evento", "Cliente", "Data", "Colaboradores", "PIX", "Valor total (R$)"];
-  let x = margin;
-  headers.forEach((h, i) => { drawText(h, x, 10); x += colWidths[i]; });
-  page.drawLine({ start: { x: margin, y: page.getHeight() - y - 4 }, end: { x: pageWidth - margin, y: page.getHeight() - y - 4 }, thickness: 1, color: rgb(0.7, 0.7, 0.7) });
-  y += rowHeight;
+  let currentX = margin;
+  headers.forEach((headerText, index) => {
+    drawText(headerText, currentX, 10);
+    currentX += columnWidths[index];
+  });
 
-  // Linhas
-  safeRows.forEach((a) => {
-    const evento = a?.name || '';
-    const cliente = a?.client || '';
-    const data = formatDateBR(a?.date);
-    const valor = (a?.receivable?.valor != null) ? `R$ ${formatBRL(Number(a.receivable.valor))}` : '-';
-    const staff = Array.isArray(a?.staff) ? a.staff : [];
-    const lines = Math.max(1, staff.length);
+  // Draw header line
+  page.drawLine({
+    start: { x: margin, y: page.getHeight() - currentY - 4 },
+    end: { x: pageWidth - margin, y: page.getHeight() - currentY - 4 },
+    thickness: 1,
+    color: rgb(0.7, 0.7, 0.7)
+  });
+  currentY += rowHeight;
 
-    for (let i = 0; i < lines; i++) {
-      let cx = margin;
-      if (i === 0) drawText(evento, cx, 8.5); cx += colWidths[0];
-      if (i === 0) drawText(cliente, cx, 8.5); cx += colWidths[1];
-      if (i === 0) drawText(data, cx, 8.5); cx += colWidths[2];
-      const sName = staff[i]?.name || '';
-      drawText(sName, cx, 8.5); cx += colWidths[3];
-      const sPix = staff[i]?.pix || '';
-      drawText(sPix, cx, 8.5); cx += colWidths[4];
-      if (i === 0) drawText(valor, cx, 8.5);
-      page.drawLine({ start: { x: margin, y: page.getHeight() - y - 2 }, end: { x: pageWidth - margin, y: page.getHeight() - y - 2 }, thickness: 0.5, color: rgb(0.85, 0.85, 0.85) });
-      y += rowHeight;
+  // Draw data rows
+  validRows.forEach((actionRow) => {
+    const eventName = actionRow?.name || '';
+    const clientName = actionRow?.client || '';
+    const actionDate = formatDateBR(actionRow?.date);
+    const totalValue = (actionRow?.receivable?.valor != null)
+      ? `R$ ${formatBRL(Number(actionRow.receivable.valor))}`
+      : '-';
+    const staffList = Array.isArray(actionRow?.staff) ? actionRow.staff : [];
+    const linesNeeded = Math.max(1, staffList.length);
+
+    for (let lineIndex = 0; lineIndex < linesNeeded; lineIndex++) {
+      let cellX = margin;
+
+      // Draw event name (first line only)
+      if (lineIndex === 0) {
+        drawText(eventName, cellX, 8.5);
+      }
+      cellX += columnWidths[0];
+
+      // Draw client name (first line only)
+      if (lineIndex === 0) {
+        drawText(clientName, cellX, 8.5);
+      }
+      cellX += columnWidths[1];
+
+      // Draw date (first line only)
+      if (lineIndex === 0) {
+        drawText(actionDate, cellX, 8.5);
+      }
+      cellX += columnWidths[2];
+
+      // Draw staff name
+      const staffName = staffList[lineIndex]?.name || '';
+      drawText(staffName, cellX, 8.5);
+      cellX += columnWidths[3];
+
+      // Draw PIX info
+      const pixInfo = staffList[lineIndex]?.pix || '';
+      drawText(pixInfo, cellX, 8.5);
+      cellX += columnWidths[4];
+
+      // Draw total value (first line only)
+      if (lineIndex === 0) {
+        drawText(totalValue, cellX, 8.5);
+      }
+
+      // Draw row separator line
+      page.drawLine({
+        start: { x: margin, y: page.getHeight() - currentY - 2 },
+        end: { x: pageWidth - margin, y: page.getHeight() - currentY - 2 },
+        thickness: 0.5,
+        color: rgb(0.85, 0.85, 0.85)
+      });
+      currentY += rowHeight;
     }
   });
 
-  const pdfBytes = await doc.save();
-  const blob = new globalThis.Blob([pdfBytes], { type: "application/pdf" });
-  const url = globalThis.URL.createObjectURL(blob);
-  const a = globalThis.document.createElement("a");
-  a.href = url;
-  a.download = `contas-a-receber.pdf`;
-  a.click();
-  globalThis.URL.revokeObjectURL(url);
+  const pdfBytes = await pdfDocument.save();
+  downloadPDF(pdfBytes, 'contas-a-receber.pdf');
 }

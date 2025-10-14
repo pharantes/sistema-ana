@@ -4,8 +4,24 @@ import HeaderControls from "../../components/ui/HeaderControls";
 import * as FE from "../../components/FormElements";
 import LinkButton from "../../components/ui/LinkButton";
 
-// Use shared CompactTable for denser lists
-
+/**
+ * Table component for displaying clients (clientes).
+ * Shows sortable, paginated list with CRUD operations.
+ * @param {object} props - Component props
+ * @param {Array} props.rows - Array of client objects
+ * @param {number} props.page - Current page number
+ * @param {number} props.pageSize - Number of items per page
+ * @param {number} props.total - Total number of items
+ * @param {Function} props.onChangePage - Handler for changing page
+ * @param {Function} props.onChangePageSize - Handler for changing page size
+ * @param {string} props.sortKey - Current sort key
+ * @param {string} props.sortDir - Current sort direction ('asc' or 'desc')
+ * @param {Function} props.onToggleSort - Handler for toggling sort
+ * @param {Function} props.onEdit - Handler for editing a client
+ * @param {Function} props.onDelete - Handler for deleting a client
+ * @param {Function} props.onOpenDetails - Handler for opening client details
+ * @param {boolean} props.canDelete - Whether delete button should be shown
+ */
 export default function ClientesTable({
   rows = [],
   page,
@@ -23,7 +39,13 @@ export default function ClientesTable({
 }) {
   return (
     <>
-      <HeaderControls page={page} pageSize={pageSize} total={total} onChangePage={onChangePage} onChangePageSize={onChangePageSize} />
+      <HeaderControls
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        onChangePage={onChangePage}
+        onChangePageSize={onChangePageSize}
+      />
       <CompactTable>
         <thead>
           <tr>
@@ -69,9 +91,13 @@ export default function ClientesTable({
               <Td>{cliente.cnpjCpf}</Td>
               <Td>
                 <FE.ActionsRow>
-                  <FE.SmallSecondaryButton onClick={() => onEdit?.(cliente)}>Editar</FE.SmallSecondaryButton>
+                  <FE.SmallSecondaryButton onClick={() => onEdit?.(cliente)}>
+                    Editar
+                  </FE.SmallSecondaryButton>
                   {canDelete && (
-                    <FE.SmallInlineButton onClick={() => onDelete?.(cliente)}>Excluir</FE.SmallInlineButton>
+                    <FE.SmallInlineButton onClick={() => onDelete?.(cliente)}>
+                      Excluir
+                    </FE.SmallInlineButton>
                   )}
                 </FE.ActionsRow>
               </Td>
@@ -83,12 +109,22 @@ export default function ClientesTable({
   );
 }
 
-// render bottom controls as well for consistency with other lists
+/**
+ * Wrapper component that includes footer controls below the table.
+ * Useful for tables with many rows to provide navigation at both top and bottom.
+ * @param {object} props - All props from ClientesTable component
+ */
 export function ClientesTableWithFooter(props) {
   return (
     <>
       <ClientesTable {...props} />
-      <HeaderControls page={props.page} pageSize={props.pageSize} total={props.total} onChangePage={props.onChangePage} onChangePageSize={props.onChangePageSize} />
+      <HeaderControls
+        page={props.page}
+        pageSize={props.pageSize}
+        total={props.total}
+        onChangePage={props.onChangePage}
+        onChangePageSize={props.onChangePageSize}
+      />
     </>
   );
 }

@@ -3,69 +3,128 @@
 import { useEffect, useRef, useState } from "react";
 import * as FL from './FormLayout';
 import { Note } from './ui/primitives';
-// ensure FL is considered used by linter in module scope
-void FL;
 
+/**
+ * Finds selected cliente by ID
+ */
+function findSelectedCliente(items, selectedValue) {
+  return items.find(item => String(item._id) === String(selectedValue));
+}
+
+/**
+ * Filters clientes by search query (nome or codigo)
+ */
+function filterClientesBySearch(items, searchQuery) {
+  if (!searchQuery) return items;
+
+  const lowerQuery = searchQuery.toLowerCase();
+  return items.filter(cliente => {
+    const nome = String(cliente.nome || '').toLowerCase();
+    const codigo = String(cliente.codigo || '');
+    return nome.includes(lowerQuery) || codigo.includes(searchQuery);
+  });
+}
+
+/**
+ * Formats cliente display label
+ */
+function formatClienteLabel(cliente) {
+  if (!cliente) return '-- selecione o cliente --';
+  const codigo = cliente.codigo || '';
+  const nome = cliente.nome || cliente.name || '';
+  return `${codigo} ${nome}`.trim();
+}
+
+/**
+ * ClienteDropdown - Searchable dropdown for selecting clientes with keyboard navigation
+ */
 export default function ClienteDropdown({ items, value, onSelect }) {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState("");
-  const [highlight, setHighlight] = useState(0);
-  const ref = useRef(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const dropdownRef = useRef(null);
   const inputRef = useRef(null);
 
+  // Close dropdown when clicking outside
   useEffect(() => {
-    function onDoc(e) {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
     }
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Focus input when dropdown opens
   useEffect(() => {
-    if (open && inputRef.current) {
-      try { inputRef.current.focus(); } catch (e) { void e; }
+    if (isOpen && inputRef.current) {
+      try {
+        inputRef.current.focus();
+      } catch (error) {
+        void error;
+      }
     }
-  }, [open]);
+  }, [isOpen]);
 
-  const label = items.find(i => String(i._id) === String(value));
-  const filtered = items.filter(c => {
-    if (!search) return true;
-    return String(c.nome || '').toLowerCase().includes(search.toLowerCase()) || String(c.codigo || '').includes(search);
-  });
+  const selectedCliente = findSelectedCliente(items, value);
+  const filteredClientes = filterClientesBySearch(items, searchQuery);
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightedIndex(index => Math.min(index + 1, filteredClientes.length - 1));
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedIndex(index => Math.max(index - 1, 0));
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (filteredClientes[highlightedIndex]) {
+        onSelect(filteredClientes[highlightedIndex]._id);
+        setIsOpen(false);
+      }
+    }
+    if (e.key === 'Escape') {
+      setIsOpen(false);
+    }
+  };
 
   return (
-    <FL.DropdownWrapper ref={ref}>
-      <FL.DropdownButton type="button" onClick={() => setOpen(v => !v)}>
-        {label ? `${label.codigo || ''} ${label.nome || label.name}` : '-- selecione o cliente --'}
+    <FL.DropdownWrapper ref={dropdownRef}>
+      <FL.DropdownButton type="button" onClick={() => setIsOpen(isCurrentlyOpen => !isCurrentlyOpen)}>
+        {formatClienteLabel(selectedCliente)}
       </FL.DropdownButton>
-      {open && (
+      {isOpen && (
         <FL.DropdownPanel role="listbox" aria-label="Clientes">
           <FL.DropdownInput
             ref={inputRef}
             placeholder='Buscar cliente...'
-            value={search}
-            onChange={e => { setSearch(e.target.value); setHighlight(0); }}
-            onKeyDown={e => {
-              if (e.key === 'ArrowDown') { e.preventDefault(); setHighlight(i => Math.min(i + 1, filtered.length - 1)); }
-              if (e.key === 'ArrowUp') { e.preventDefault(); setHighlight(i => Math.max(i - 1, 0)); }
-              if (e.key === 'Enter') { e.preventDefault(); if (filtered[highlight]) { onSelect(filtered[highlight]._id); setOpen(false); } }
-              if (e.key === 'Escape') { setOpen(false); }
+            value={searchQuery}
+            onChange={e => {
+              setSearchQuery(e.target.value);
+              setHighlightedIndex(0);
             }}
+            onKeyDown={handleKeyDown}
           />
           <div>
-            {filtered.map((c, idx) => (
+            {filteredClientes.map((cliente, index) => (
               <FL.OptionItem
                 role="option"
-                aria-selected={idx === highlight}
-                key={c._id}
-                onClick={() => { onSelect(c._id); setOpen(false); }}
-                onMouseEnter={() => setHighlight(idx)}
-                $highlight={idx === highlight}
+                aria-selected={index === highlightedIndex}
+                key={cliente._id}
+                onClick={() => {
+                  onSelect(cliente._id);
+                  setIsOpen(false);
+                }}
+                onMouseEnter={() => setHighlightedIndex(index)}
+                $highlight={index === highlightedIndex}
               >
-                {`${c.codigo || ''} ${c.nome || c.name}`}
+                {formatClienteLabel(cliente)}
               </FL.OptionItem>
             ))}
-            {filtered.length === 0 && <Note>Nenhum cliente</Note>}
+            {filteredClientes.length === 0 && <Note>Nenhum cliente</Note>}
           </div>
         </FL.DropdownPanel>
       )}

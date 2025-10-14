@@ -68,42 +68,58 @@ const SubmitButton = styled.button`
   &:disabled { background: #ccc; cursor: not-allowed; }
 `;
 
+/**
+ * Logs error to stderr if available
+ * @param {Error} error - Error to log
+ */
+function logLoginError(error) {
+  try {
+    process?.stderr?.write(`Login error: ${String(error)}\n`);
+  } catch {
+    // Ignore logging errors
+  }
+}
+
+/**
+ * Login page component with credentials authentication
+ */
 export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const router = useRouter();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setError("");
+    setIsLoading(true);
+    setErrorMessage("");
 
     try {
-      const result = await signIn("credentials", {
+      const signInResult = await signIn("credentials", {
         username,
         password,
         redirect: false,
       });
 
-      if (result?.error) {
-        setError("Credenciais inválidas");
+      if (signInResult?.error) {
+        setErrorMessage("Credenciais inválidas");
+        return;
+      }
+
+      // Check if session was created successfully
+      const userSession = await getSession();
+      if (userSession) {
+        router.push("/");
+        router.refresh();
       } else {
-        // Check if session was created successfully
-        const session = await getSession();
-        if (session) {
-          router.push("/");
-          router.refresh();
-        } else {
-          setError("Erro ao criar sessão");
-        }
+        setErrorMessage("Erro ao criar sessão");
       }
     } catch (error) {
-      setError("Erro ao fazer login");
-      try { process?.stderr?.write(`Login error: ${String(error)}\n`); } catch { /* noop */ }
+      setErrorMessage("Erro ao fazer login");
+      logLoginError(error);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -112,8 +128,8 @@ export default function LoginPage() {
       <FormCard onSubmit={handleSubmit}>
         <Title>Login</Title>
 
-        {error && (
-          <ErrorBox>{error}</ErrorBox>
+        {errorMessage && (
+          <ErrorBox>{errorMessage}</ErrorBox>
         )}
 
         <FieldRow>
@@ -136,8 +152,8 @@ export default function LoginPage() {
           />
         </FieldRowLarge>
 
-        <SubmitButton type="submit" disabled={loading}>
-          {loading ? "Entrando..." : "Entrar"}
+        <SubmitButton type="submit" disabled={isLoading}>
+          {isLoading ? "Entrando..." : "Entrar"}
         </SubmitButton>
       </FormCard>
     </CenterWrap>

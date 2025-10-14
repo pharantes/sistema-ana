@@ -10,72 +10,176 @@ import { ok, badRequest, unauthorized, forbidden, serverError, notFound } from "
 import { rateLimit } from "../../../../lib/utils/rateLimit";
 import { toPlainDoc } from "../../../../lib/utils/mongo";
 
-// normalization helpers moved to lib/helpers/actions.js
+const getClientIdentifier = (request) =>
+  request.headers?.get?.('x-forwarded-for')?.split(',')[0]?.trim() || request.ip || 'anon';
 
-const idFn = (req) => req.headers?.get?.('x-forwarded-for')?.split(',')[0]?.trim() || req.ip || 'anon';
-const patchLimiter = rateLimit({ windowMs: 10_000, limit: 30, idFn });
+const patchLimiter = rateLimit({ windowMs: 10_000, limit: 30, idFn: getClientIdentifier });
 
+function extractStaffNames(action) {
+  const staff = action.staff || [];
+  return staff.map((staffMember) =>
+    typeof staffMember === "string" ? staffMember : staffMember?.name
+  ).filter(Boolean);
+}
+
+function checkStaffEditPermission(session, action) {
+  if (session.user.role === "admin") {
+    return {};
+  }
+
+  const staffNames = extractStaffNames(action);
+  const hasPermission = staffNames.includes(session.user.username);
+
+  if (!hasPermission) {
+    return { error: forbidden() };
+  }
+
+  return {};
+}
+
+function normalizeDateFields(update) {
+  const normalized = { ...update };
+
+  if (normalized.date) normalized.date = new Date(normalized.date);
+  if (normalized.startDate) normalized.startDate = new Date(normalized.startDate);
+  if (normalized.endDate) normalized.endDate = new Date(normalized.endDate);
+  if (normalized.dueDate) normalized.dueDate = new Date(normalized.dueDate);
+
+  return normalized;
+}
+
+function normalizeActionFields(update) {
+  let normalized = normalizeDateFields(update);
+
+  if (normalized.staff) {
+    normalized.staff = normalizeStaffArray(normalized.staff);
+  }
+
+  if (normalized.costs) {
+    normalized.costs = normalizeCostsArray(normalized.costs);
+  }
+
+  return normalized;
+}
+
+function createStaffUpsertOperations(action, reportDate) {
+  const staff = Array.isArray(action.staff) ? action.staff : [];
+
+  return staff.map((staffMember) => ({
+    updateOne: {
+      filter: { actionId: action._id, staffName: staffMember.name },
+      update: {
+        $setOnInsert: {
+          status: 'ABERTO',
+          actionId: action._id,
+          staffName: staffMember.name
+        },
+        $set: { reportDate }
+      },
+      upsert: true,
+    }
+  }));
+}
+
+function createCostUpsertOperations(action, reportDate) {
+  const costs = Array.isArray(action.costs) ? action.costs : [];
+
+  return costs.map((cost) => ({
+    updateOne: {
+      filter: { actionId: action._id, costId: cost._id },
+      update: {
+        $setOnInsert: {
+          status: 'ABERTO',
+          actionId: action._id,
+          costId: cost._id
+        },
+        $set: {
+          reportDate,
+          colaboradorId: cost.colaboradorId || undefined
+        }
+      },
+      upsert: true,
+    }
+  }));
+}
+
+async function syncPaymentEntries(action) {
+  try {
+    const reportDate = action.dueDate || action.createdAt || new Date();
+    const staff = Array.isArray(action.staff) ? action.staff : [];
+    const staffNames = staff.map(staffMember => staffMember.name);
+
+    // Upsert staff payment entries
+    const staffOperations = createStaffUpsertOperations(action, reportDate);
+    if (staffOperations.length > 0) {
+      await ContasAPagar.bulkWrite(staffOperations);
+    }
+
+    // Remove entries for staff removed from action
+    await ContasAPagar.deleteMany({
+      actionId: action._id,
+      staffName: { $nin: staffNames }
+    });
+
+    // Upsert cost payment entries
+    const costs = Array.isArray(action.costs) ? action.costs : [];
+    const costIds = costs.map(cost => cost._id);
+    const costOperations = createCostUpsertOperations(action, reportDate);
+
+    if (costOperations.length > 0) {
+      await ContasAPagar.bulkWrite(costOperations);
+    }
+
+    // Remove entries for costs removed from action
+    await ContasAPagar.deleteMany({
+      actionId: action._id,
+      costId: { $nin: costIds }
+    });
+  } catch {
+    // Ignore sync errors
+  }
+}
+
+/**
+ * PATCH handler - Updates an existing action.
+ * Admins can edit any action, staff can only edit actions they're assigned to.
+ */
 export async function PATCH(request) {
   try {
     const session = await getServerSession(baseOptions);
-    if (!session || !session.user) return unauthorized();
-
-    patchLimiter.check(request);
-
-    await dbConnect();
-    const body = await request.json();
-    try { validateActionUpdate(body); } catch (e) { return badRequest(e.message || 'Invalid payload'); }
-    const { id, ...update } = body;
-    let action = await Action.findById(id);
-    if (!action) return notFound('Action not found');
-
-    if (session.user.role !== "admin") {
-      // Staff can edit only if they are listed in staff entries (by name match)
-      const names = (action.staff || []).map((s) => (typeof s === "string" ? s : s?.name)).filter(Boolean);
-      if (!names.includes(session.user.username)) return forbidden();
+    if (!session || !session.user) {
+      return unauthorized();
     }
 
-    if (update.date) update.date = new Date(update.date);
-    if (update.startDate) update.startDate = new Date(update.startDate);
-    if (update.endDate) update.endDate = new Date(update.endDate);
-    if (update.dueDate) update.dueDate = new Date(update.dueDate);
-    if (update.staff) update.staff = normalizeStaffArray(update.staff);
-    if (update.costs) update.costs = normalizeCostsArray(update.costs);
+    patchLimiter.check(request);
+    await dbConnect();
 
-    Object.assign(action, update);
-    await action.save();
-    // Sync contasapagar entries per colaborador
+    const body = await request.json();
+
     try {
-      const reportDate = action.dueDate || action.createdAt || new Date();
-      const staff = Array.isArray(action.staff) ? action.staff : [];
-      const names = staff.map(s => s.name);
-      // Upsert for current staff
-      const upserts = staff.map((s) => ({
-        updateOne: {
-          filter: { actionId: action._id, staffName: s.name },
-          update: { $setOnInsert: { status: 'ABERTO', actionId: action._id, staffName: s.name }, $set: { reportDate } },
-          upsert: true,
-        }
-      }));
-      if (upserts.length) await ContasAPagar.bulkWrite(upserts);
-      // Remove entries for staff removed from action
-      await ContasAPagar.deleteMany({ actionId: action._id, staffName: { $nin: names } });
-      // Upsert for extra costs
-      const costs = Array.isArray(action.costs) ? action.costs : [];
-      const costIds = costs.map(c => c._id);
-      const upsertsCosts = costs.map((c) => ({
-        updateOne: {
-          filter: { actionId: action._id, costId: c._id },
-          update: { $setOnInsert: { status: 'ABERTO', actionId: action._id, costId: c._id }, $set: { reportDate, colaboradorId: c.colaboradorId || undefined } },
-          upsert: true,
-        }
-      }));
-      if (upsertsCosts.length) await ContasAPagar.bulkWrite(upsertsCosts);
-      // Remove entries for costs removed from action
-      await ContasAPagar.deleteMany({ actionId: action._id, costId: { $nin: costIds } });
-    } catch { /* ignore sync errors */ }
+      validateActionUpdate(body);
+    } catch (validationError) {
+      return badRequest(validationError.message || 'Invalid payload');
+    }
+
+    const { id, ...updateData } = body;
+    const action = await Action.findById(id);
+
+    if (!action) {
+      return notFound('Action not found');
+    }
+
+    const { error: permissionError } = checkStaffEditPermission(session, action);
+    if (permissionError) return permissionError;
+
+    const normalizedUpdate = normalizeActionFields(updateData);
+    Object.assign(action, normalizedUpdate);
+    await action.save();
+
+    await syncPaymentEntries(action);
+
     return ok(toPlainDoc(action.toObject ? action.toObject() : action));
-  } catch (e) {
-    return serverError(e?.message || 'Erro ao atualizar ação');
+  } catch (error) {
+    return serverError(error?.message || 'Erro ao atualizar ação');
   }
 }

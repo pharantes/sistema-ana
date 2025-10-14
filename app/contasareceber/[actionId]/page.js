@@ -34,6 +34,44 @@ const ClientGrid = styled.div`
   gap: var(--gap-sm) var(--space-lg);
 `;
 
+/**
+ * Fetches receivable data by action ID
+ * @param {string} actionId - Action ID
+ * @returns {Promise<Object|null>} Receivable row or null
+ * @throws {Error} If fetch fails
+ */
+async function fetchReceivableByActionId(actionId) {
+  const url = new URL('/api/contasareceber', globalThis.location.origin);
+  url.searchParams.set('actionId', actionId);
+
+  const response = await fetch(url.toString());
+  if (!response.ok) throw new Error('Falha ao carregar recebível');
+
+  const data = await response.json();
+  const itemsArray = Array.isArray(data?.items)
+    ? data.items
+    : Array.isArray(data)
+      ? data
+      : [];
+
+  return itemsArray.find(r => String(r._id) === String(actionId)) || itemsArray[0] || null;
+}
+
+/**
+ * Formats currency value with BRL prefix
+ * @param {number} value - Numeric value
+ * @returns {string} Formatted currency string
+ */
+function formatCurrencyBRL(value) {
+  if (value == null) return '';
+  return `R$ ${formatBRL(Number(value))}`;
+}
+
+/**
+ * Receivable detail page showing single action's receivable information
+ * @param {Object} props - Component props
+ * @param {Object} props.params - Route parameters
+ */
 export default function RecebivelDetailPage({ params }) {
   const { actionId } = useUnwrap(params);
   const router = useRouter();
@@ -43,66 +81,88 @@ export default function RecebivelDetailPage({ params }) {
   const [modalOpen, setModalOpen] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-    async function load() {
+    let isCancelled = false;
+
+    async function loadReceivable() {
       setLoading(true);
       try {
-        const url = new URL('/api/contasareceber', globalThis.location.origin);
-        url.searchParams.set('actionId', actionId);
-        const res = await fetch(url.toString());
-        if (!res.ok) throw new Error('Falha ao carregar recebível');
-        const data = await res.json();
-        const arr = Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : []);
-        const item = arr.find(r => String(r._id) === String(actionId)) || arr[0] || null;
-        if (!cancelled) setRow(item || null);
-      } catch (e) {
-        if (!cancelled) setError(e.message || 'Erro ao carregar');
+        const receivableData = await fetchReceivableByActionId(actionId);
+        if (!isCancelled) {
+          setRow(receivableData);
+        }
+      } catch (error) {
+        if (!isCancelled) {
+          setError(error.message || 'Erro ao carregar');
+        }
+      } finally {
+        if (!isCancelled) {
+          setLoading(false);
+        }
       }
-      if (!cancelled) setLoading(false);
     }
-    if (actionId) load();
-    return () => { cancelled = true; };
+
+    if (actionId) {
+      loadReceivable();
+    }
+
+    return () => {
+      isCancelled = true;
+    };
   }, [actionId]);
+
+  const handleSaved = async () => {
+    setModalOpen(false);
+    try {
+      const updatedData = await fetchReceivableByActionId(actionId);
+      setRow(updatedData);
+    } catch {
+      // Silently fail - data will be stale but modal closed
+    }
+  };
 
   if (loading) return <Wrapper><Loading /></Wrapper>;
   if (error) return <Wrapper>Erro: {error}</Wrapper>;
   if (!row) return <Wrapper>Nada encontrado.</Wrapper>;
 
-  const r = row.receivable || {};
-  const data = formatDateBR(row?.date);
-  const venc = formatDateBR(r?.dataVencimento);
-  const receb = formatDateBR(r?.dataRecebimento);
-  const docDate = formatDateBR(r?.reportDate);
-  const criado = formatDateTimeBR(r?.createdAt);
-  const atualizado = formatDateTimeBR(r?.updatedAt);
+  const receivable = row.receivable || {};
+  const actionDate = formatDateBR(row?.date);
+  const dueDate = formatDateBR(receivable?.dataVencimento);
+  const receivedDate = formatDateBR(receivable?.dataRecebimento);
+  const documentDate = formatDateBR(receivable?.reportDate);
+  const createdAt = formatDateTimeBR(receivable?.createdAt);
+  const updatedAt = formatDateTimeBR(receivable?.updatedAt);
 
   return (
     <Wrapper>
       <HeaderRow>
         <Title>Recebível</Title>
         <ActionButtons>
-          <FE.SecondaryButton onClick={() => router.push('/contasareceber')}>Voltar</FE.SecondaryButton>
-          <FE.Button onClick={() => setModalOpen(true)}>Editar</FE.Button>
+          <FE.SecondaryButton onClick={() => router.push('/contasareceber')}>
+            Voltar
+          </FE.SecondaryButton>
+          <FE.Button onClick={() => setModalOpen(true)}>
+            Editar
+          </FE.Button>
         </ActionButtons>
       </HeaderRow>
       <Grid>
         <div><Label>ID</Label><Value>{row?._id || ''}</Value></div>
-        <div><Label>Data do documento</Label><Value>{docDate}</Value></div>
-        <div><Label>Data</Label><Value>{data}</Value></div>
-        <div><Label>Status</Label><Value>{r?.status || 'ABERTO'}</Value></div>
+        <div><Label>Data do documento</Label><Value>{documentDate}</Value></div>
+        <div><Label>Data</Label><Value>{actionDate}</Value></div>
+        <div><Label>Status</Label><Value>{receivable?.status || 'ABERTO'}</Value></div>
         <div><Label>Ação</Label><Value>{row?.name || ''}</Value></div>
         <div><Label>Cliente</Label><Value>{row?.clientName || ''}</Value></div>
-        <div><Label>Valor total</Label><Value>{r?.valor != null ? `R$ ${formatBRL(Number(r.valor))}` : ''}</Value></div>
-        <div><Label>Descrição</Label><Value>{r?.descricao || ''}</Value></div>
-        <div><Label>Qtde Parcela</Label><Value>{r?.qtdeParcela ?? ''}</Value></div>
-        <div><Label>Valor Parcela</Label><Value>{r?.valorParcela != null ? `R$ ${formatBRL(Number(r.valorParcela))}` : ''}</Value></div>
-        <div><Label>Data Vencimento</Label><Value>{venc}</Value></div>
-        <div><Label>Data Recebimento</Label><Value>{receb}</Value></div>
-        <div><Label>Banco (Recebido pelo banco)</Label><Value>{r?.banco || ''}</Value></div>
-        <div><Label>Conta (Cliente no registro)</Label><Value>{r?.conta || ''}</Value></div>
-        <div><Label>Forma Pgt (Cliente no registro)</Label><Value>{r?.formaPgt || ''}</Value></div>
-        <div><Label>Criado em</Label><Value>{criado}</Value></div>
-        <div><Label>Atualizado em</Label><Value>{atualizado}</Value></div>
+        <div><Label>Valor total</Label><Value>{formatCurrencyBRL(receivable?.valor)}</Value></div>
+        <div><Label>Descrição</Label><Value>{receivable?.descricao || ''}</Value></div>
+        <div><Label>Qtde Parcela</Label><Value>{receivable?.qtdeParcela ?? ''}</Value></div>
+        <div><Label>Valor Parcela</Label><Value>{formatCurrencyBRL(receivable?.valorParcela)}</Value></div>
+        <div><Label>Data Vencimento</Label><Value>{dueDate}</Value></div>
+        <div><Label>Data Recebimento</Label><Value>{receivedDate}</Value></div>
+        <div><Label>Banco (Recebido pelo banco)</Label><Value>{receivable?.banco || ''}</Value></div>
+        <div><Label>Conta (Cliente no registro)</Label><Value>{receivable?.conta || ''}</Value></div>
+        <div><Label>Forma Pgt (Cliente no registro)</Label><Value>{receivable?.formaPgt || ''}</Value></div>
+        <div><Label>Criado em</Label><Value>{createdAt}</Value></div>
+        <div><Label>Atualizado em</Label><Value>{updatedAt}</Value></div>
       </Grid>
       <ClientSection>
         <h3>Dados do Cliente (atual)</h3>
@@ -119,19 +179,7 @@ export default function RecebivelDetailPage({ params }) {
         action={row}
         receivable={row?.receivable || null}
         clienteDetails={row?.clienteDetails || null}
-        onSaved={async () => {
-          setModalOpen(false);
-          // reload
-          const url = new URL('/api/contasareceber', globalThis.location.origin);
-          url.searchParams.set('actionId', actionId);
-          const res = await fetch(url.toString());
-          if (res.ok) {
-            const data = await res.json();
-            const arr = Array.isArray(data?.items) ? data.items : (Array.isArray(data) ? data : []);
-            const item = arr.find(r => String(r._id) === String(actionId)) || arr[0] || null;
-            setRow(item || null);
-          }
-        }}
+        onSaved={handleSaved}
       />
     </Wrapper>
   );

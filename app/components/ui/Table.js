@@ -1,6 +1,14 @@
+/**
+ * @fileoverview Styled table components for consistent data display.
+ * Provides zebra-striped tables with proper alignment and accessibility.
+ */
+
 "use client";
 import styled from "styled-components";
 
+/**
+ * Base table component with zebra striping and consistent styling.
+ */
 export const Table = styled.table`
   width: 100%;
   border-collapse: collapse;

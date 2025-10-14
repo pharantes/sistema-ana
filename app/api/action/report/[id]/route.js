@@ -12,72 +12,127 @@ import { ok, badRequest, forbidden, notFound, serverError } from "@/lib/api/resp
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/**
+ * Generates a simple PDF report for a specific action.
+ * @param {object} action - Action document from database
+ * @param {object} font - PDF font object
+ * @returns {Promise<Uint8Array>} PDF bytes
+ */
+async function generateActionPDF(action, font) {
+  const pdfDocument = await PDFDocument.create();
+  const page = pdfDocument.addPage([595.28, 841.89]); // A4 portrait
+
+  let currentY = 800;
+
+  /**
+   * Draws text and moves cursor down.
+   * @param {string} text - Text to draw
+   * @param {number} fontSize - Font size
+   */
+  const drawTextLine = (text, fontSize = 12) => {
+    page.drawText(String(text ?? ""), { x: 50, y: currentY, size: fontSize, font });
+    currentY -= fontSize + 8;
+  };
+
+  // Draw header and action details
+  drawTextLine("Relatório da Ação", 18);
+  drawTextLine(`Nome da ação: ${action.name || ""}`);
+  drawTextLine(`Cliente: ${action.client || ""}`);
+  drawTextLine(`Data: ${formatDateBR(action.date)}`);
+  drawTextLine(`Vencimento: ${formatDateBR(action.dueDate)}`);
+  drawTextLine(`Forma de pagamento: ${action.paymentMethod || ""}`);
+
+  // Draw staff members section
+  const staffList = Array.isArray(action.staff) ? action.staff : [];
+  drawTextLine("Profissionais:", 14);
+  for (const staffMember of staffList) {
+    const staffValue = Number(staffMember?.value || 0).toFixed(2);
+    const staffText = `- ${staffMember?.name || ""} | Banco: ${staffMember?.bank || ""} | PIX: ${staffMember?.pix || ""} | Valor: R$ ${staffValue}`;
+    drawTextLine(staffText);
+  }
+
+  return await pdfDocument.save();
+}
+
+/**
+ * Saves PDF bytes to the public/reports directory.
+ * @param {Uint8Array} pdfBytes - PDF document bytes
+ * @param {string} actionId - Action ID for filename
+ * @returns {string} Public URL path to the saved PDF
+ */
+function savePDFToReportsDirectory(pdfBytes, actionId) {
+  const reportsDirectory = path.join(process.cwd(), "public", "reports");
+
+  // Ensure reports directory exists
+  if (!fs.existsSync(reportsDirectory)) {
+    fs.mkdirSync(reportsDirectory, { recursive: true });
+  }
+
+  // Generate safe filename
+  const isValidMongoId = /^[0-9a-fA-F]{24}$/.test(String(actionId));
+  const fileBaseName = isValidMongoId ? String(actionId) : String(Date.now());
+  const fileName = `${fileBaseName}-${Date.now()}.pdf`;
+  const filePath = path.join(reportsDirectory, fileName);
+
+  // Write PDF to disk (filePath is constructed from constant base directory and validated filename)
+  // eslint-disable-next-line security/detect-non-literal-fs-filename
+  fs.writeFileSync(filePath, Buffer.from(pdfBytes));
+
+  return `/reports/${fileName}`;
+}
+
+/**
+ * POST endpoint to generate a PDF report for a specific action.
+ * Creates PDF, saves it to disk, and creates ContasAPagar entry.
+ * @param {Request} request - Next.js request object
+ * @param {object} context - Route context with params
+ * @returns {Response} JSON response with conta and pdfUrl
+ */
 export async function POST(request, context) {
   try {
+    // Authenticate
     const session = await getServerSession(baseOptions);
     if (!session || !session.user || session.user.role !== "admin") {
       return forbidden();
     }
 
+    // Validate action ID
     const params = await (context?.params);
-    const { id } = params || {};
-    if (!id) {
+    const { id: actionId } = params || {};
+    if (!actionId) {
       return badRequest('Missing id');
     }
 
+    // Fetch action
     await dbConnect();
-    const action = await Action.findById(id).lean();
+    const action = await Action.findById(actionId).lean();
     if (!action) {
       return notFound('Action not found');
     }
 
-    // Build a simple PDF with key info
-    const pdf = await PDFDocument.create();
-    const font = await pdf.embedFont(StandardFonts.Helvetica);
-    const page = pdf.addPage([595.28, 841.89]); // A4 portrait
-    let y = 800;
-    const draw = (text, size = 12) => {
-      page.drawText(String(text ?? ""), { x: 50, y, size, font });
-      y -= size + 8;
-    };
-    draw("Relatório da Ação", 18);
-    draw(`Nome da ação: ${action.name || ""}`);
-    draw(`Cliente: ${action.client || ""}`);
-    draw(`Data: ${formatDateBR(action.date)}`);
-    draw(`Vencimento: ${formatDateBR(action.dueDate)}`);
-    draw(`Forma de pagamento: ${action.paymentMethod || ""}`);
+    // Generate PDF
+    const font = await PDFDocument.create().then(doc => doc.embedFont(StandardFonts.Helvetica));
+    const pdfBytes = await generateActionPDF(action, font);
 
-    const staff = Array.isArray(action.staff) ? action.staff : [];
-    draw("Profissionais:", 14);
-    for (const s of staff) {
-      draw(`- ${s?.name || ""} | Banco: ${s?.bank || ""} | PIX: ${s?.pix || ""} | Valor: R$ ${(Number(s?.value || 0)).toFixed(2)}`);
-    }
-
-    const bytes = await pdf.save();
-
-    // Persist file under public/reports (safe, validated path)
-    const reportsDir = path.join(process.cwd(), "public", "reports");
-    if (!fs.existsSync(reportsDir)) fs.mkdirSync(reportsDir, { recursive: true });
-    const isValidId = /^[0-9a-fA-F]{24}$/.test(String(id));
-    const safeBase = isValidId ? String(id) : String(Date.now());
-    const fileName = `${safeBase}-${Date.now()}.pdf`;
-    const filePath = path.join(reportsDir, fileName);
-    // filePath is constructed from a constant base directory and a validated filename
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
-    fs.writeFileSync(filePath, Buffer.from(bytes));
-    const pdfUrl = `/reports/${fileName}`;
+    // Save PDF to disk
+    const pdfUrl = savePDFToReportsDirectory(pdfBytes, actionId);
 
     // Create ContasAPagar entry
-    const conta = await ContasAPagar.create({
+    const contaAPagar = await ContasAPagar.create({
       actionId: action._id,
       reportDate: new Date(),
       pdfUrl,
       status: 'ABERTO',
     });
 
-    return ok({ conta, pdfUrl });
-  } catch (err) {
-    try { process?.stderr?.write("report generate error: " + String(err && err.stack ? err.stack : err) + "\n"); } catch { /* noop */ }
+    return ok({ conta: contaAPagar, pdfUrl });
+  } catch (error) {
+    try {
+      const errorMessage = error && error.stack ? error.stack : error;
+      process?.stderr?.write("report generate error: " + String(errorMessage) + "\n");
+    } catch {
+      /* noop */
+    }
     return serverError('Failed to generate report');
   }
 }

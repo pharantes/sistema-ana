@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import DashboardClient from "./dashboard/DashboardClient";
 import styled from 'styled-components';
 
+// Styled Components
 const CenterFull = styled.div`
   display: flex;
   justify-content: center;
@@ -42,22 +43,36 @@ const ButtonRow = styled.div`
   margin-top: var(--space-lg, 24px);
 `;
 
+function handleNavigateToActions(router) {
+  router.push("/acoes");
+}
+
+function handleSignOut() {
+  signOut({ callbackUrl: "/login" });
+}
+
+/**
+ * Home page component that displays the dashboard and navigation buttons.
+ * Redirects unauthenticated users to the login page.
+ */
 export default function Home() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const isLoading = status === "loading";
+  const isAuthenticated = Boolean(session);
 
   useEffect(() => {
-    if (status === "loading") return; // Still loading
+    if (isLoading) return;
 
-    if (!session) {
+    if (!isAuthenticated) {
       router.push("/login");
     }
-  }, [session, status, router]);
+  }, [isAuthenticated, isLoading, router]);
 
-  if (status === "loading") {
+  if (isLoading) {
     return (
       <CenterFull>
-        <div><Loading /></div>
+        <div>Carregando...</div>
       </CenterFull>
     );
   }
@@ -66,8 +81,8 @@ export default function Home() {
     <PagePad>
       <DashboardClient />
       <ButtonRow>
-        <ButtonPrimary onClick={() => router.push("/acoes")}>Ir para Ações</ButtonPrimary>
-        <ButtonDanger onClick={() => signOut({ callbackUrl: "/login" })}>Sair</ButtonDanger>
+        <ButtonPrimary onClick={() => handleNavigateToActions(router)}>Ir para Ações</ButtonPrimary>
+        <ButtonDanger onClick={handleSignOut}>Sair</ButtonDanger>
       </ButtonRow>
     </PagePad>
   );

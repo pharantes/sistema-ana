@@ -17,94 +17,212 @@ import { toPlainDocs, toPlainDoc } from "../../../lib/utils/mongo";
 import { rateLimit } from "../../../lib/utils/rateLimit";
 import { parseActionsQuery } from "../../../lib/validators/actionsQuery";
 
-// helpers moved to lib/helpers/actions.js
+// Rate limiter configuration
+const getClientIdentifier = (request) =>
+  request.headers?.get?.('x-forwarded-for')?.split(',')[0]?.trim() || request.ip || 'anon';
 
-const idFn = (req) => req.headers?.get?.('x-forwarded-for')?.split(',')[0]?.trim() || req.ip || 'anon';
-const getLimiter = rateLimit({ windowMs: 10_000, limit: 40, idFn });
+const getLimiter = rateLimit({ windowMs: 10_000, limit: 40, idFn: getClientIdentifier });
+const postLimiter = rateLimit({ windowMs: 10_000, limit: 20, idFn: getClientIdentifier });
 
+function logError(message, error) {
+  try {
+    process.stderr.write(`${message}: ${String(error)}\n`);
+  } catch {
+    // Ignore logging errors
+  }
+}
+
+function getSearchParams(request) {
+  return request.nextUrl?.searchParams ?? new globalThis.URL(request.url).searchParams;
+}
+
+/**
+ * Retrieves and validates the user session.
+ */
+async function getValidatedSession() {
+  const session = await getServerSession(baseOptions);
+  if (!session) {
+    return { error: unauthorized() };
+  }
+  return { session };
+}
+
+/**
+ * Fetches actions from database with query filters and enrichment.
+ */
+async function fetchActionsWithFilters(searchParams) {
+  parseActionsQuery(searchParams);
+  const { query, q } = await buildActionsQuery(searchParams);
+
+  const actions = await Action.find(query)
+    .sort({ createdAt: -1 })
+    .lean()
+    .exec();
+
+  await enrichActionsWithClientName(actions);
+  narrowStaffByQuery(actions, q);
+
+  return actions;
+}
+
+/**
+ * GET handler - Retrieves actions list with optional filtering.
+ */
 export async function GET(request) {
   try {
-    const session = await getServerSession(baseOptions);
-    if (!session) return unauthorized();
+    const { error } = await getValidatedSession();
+    if (error) return error;
 
     getLimiter.check(request);
-
     await dbConnect();
-    const searchParams = request.nextUrl?.searchParams ?? new globalThis.URL(request.url).searchParams;
-    // Validate pagination/sort and pass-through filters
-    try { parseActionsQuery(searchParams); } catch (e) { return badRequest(e.message || 'Invalid query'); }
-    const { query, q } = await buildActionsQuery(searchParams);
 
-    const actions = await Action.find(query)
-      .sort({ createdAt: -1 })
-      .lean()
-      .exec();
+    const searchParams = getSearchParams(request);
 
-    await enrichActionsWithClientName(actions);
-    narrowStaffByQuery(actions, q);
-
-    return ok(toPlainDocs(actions));
+    try {
+      const actions = await fetchActionsWithFilters(searchParams);
+      return ok(toPlainDocs(actions));
+    } catch (validationError) {
+      return badRequest(validationError.message || 'Invalid query');
+    }
   } catch (error) {
-    try { process.stderr.write('Error fetching actions: ' + String(error) + '\n'); } catch { void 0; /* noop */ }
+    logError('Error fetching actions', error);
     return serverError('Internal Server Error');
   }
 }
 
-const postLimiter = rateLimit({ windowMs: 10_000, limit: 20, idFn });
+/**
+ * Normalizes date fields in the action payload.
+ */
+function normalizeDates(payload) {
+  const normalized = { ...payload };
 
-export async function POST(request) {
-  // Create new action
+  if (normalized.date) {
+    normalized.date = new Date(normalized.date);
+  } else {
+    normalized.date = new Date();
+  }
+
+  if (normalized.startDate) normalized.startDate = new Date(normalized.startDate);
+  if (normalized.endDate) normalized.endDate = new Date(normalized.endDate);
+  if (normalized.dueDate) normalized.dueDate = new Date(normalized.dueDate);
+
+  return normalized;
+}
+
+/**
+ * Normalizes staff and costs arrays in the action payload.
+ */
+function normalizeActionArrays(payload) {
+  const normalized = { ...payload };
+
+  if (normalized.staff) {
+    normalized.staff = normalizeStaffArray(normalized.staff);
+  }
+
+  if (normalized.costs) {
+    normalized.costs = normalizeCostsArray(normalized.costs);
+  }
+
+  return normalized;
+}
+
+/**
+ * Creates ContasAPagar entries for staff members.
+ */
+function createStaffPaymentOperations(action, reportDate) {
+  const staff = Array.isArray(action.staff) ? action.staff : [];
+
+  return staff.map((staffMember) => ({
+    updateOne: {
+      filter: { actionId: action._id, staffName: staffMember.name },
+      update: {
+        $setOnInsert: {
+          status: 'ABERTO',
+          actionId: action._id,
+          staffName: staffMember.name
+        },
+        $set: { reportDate }
+      },
+      upsert: true,
+    }
+  }));
+}
+
+/**
+ * Creates ContasAPagar entries for action costs.
+ */
+function createCostPaymentOperations(action, reportDate) {
+  const costs = Array.isArray(action.costs) ? action.costs : [];
+
+  return costs.map((cost) => ({
+    updateOne: {
+      filter: { actionId: action._id, costId: cost._id },
+      update: {
+        $setOnInsert: {
+          status: 'ABERTO',
+          actionId: action._id,
+          costId: cost._id
+        },
+        $set: {
+          reportDate,
+          colaboradorId: cost.colaboradorId || undefined
+        }
+      },
+      upsert: true,
+    }
+  }));
+}
+
+/**
+ * Auto-creates ContasAPagar entries for action staff and costs.
+ */
+async function createPaymentEntries(action) {
   try {
-    const session = await getServerSession(baseOptions);
-    if (!session || !session.user) return unauthorized();
+    const reportDate = action.dueDate || action.createdAt || new Date();
+    const staffOperations = createStaffPaymentOperations(action, reportDate);
+    const costOperations = createCostPaymentOperations(action, reportDate);
+    const allOperations = [...staffOperations, ...costOperations];
+
+    if (allOperations.length > 0) {
+      await ContasAPagar.bulkWrite(allOperations);
+    }
+  } catch (error) {
+    logError(`Failed to create ContasAPagar entries for action ${action._id}`, error);
+  }
+}
+
+/**
+ * POST handler - Creates a new action.
+ */
+export async function POST(request) {
+  try {
+    const { session, error } = await getValidatedSession();
+    if (error) return error;
+    if (!session.user) return unauthorized();
 
     postLimiter.check(request);
 
     const body = await request.json();
-    try { validateActionCreate(body); } catch (e) { return badRequest(e.message || 'Invalid payload'); }
+
+    try {
+      validateActionCreate(body);
+    } catch (validationError) {
+      return badRequest(validationError.message || 'Invalid payload');
+    }
+
     await dbConnect();
 
-    const payload = { ...body };
-    if (payload.date) payload.date = new Date(payload.date);
-    // Ensure creation date is always set; default to now when not provided by client
-    if (!payload.date) payload.date = new Date();
-    if (payload.startDate) payload.startDate = new Date(payload.startDate);
-    if (payload.endDate) payload.endDate = new Date(payload.endDate);
-    if (payload.dueDate) payload.dueDate = new Date(payload.dueDate);
-    if (payload.staff) payload.staff = normalizeStaffArray(payload.staff);
-    if (payload.costs) payload.costs = normalizeCostsArray(payload.costs);
+    let payload = normalizeDates(body);
+    payload = normalizeActionArrays(payload);
     payload.createdBy = session.user.username || session.user.name || "unknown";
 
     const action = new Action(payload);
     await action.save();
-    // Auto-create contas a pagar entries per colaborador e custos
-    try {
-      const staff = Array.isArray(action.staff) ? action.staff : [];
-      const reportDate = action.dueDate || action.createdAt || new Date();
-      const ops = staff.map((s) => ({
-        updateOne: {
-          filter: { actionId: action._id, staffName: s.name },
-          update: { $setOnInsert: { status: 'ABERTO', actionId: action._id, staffName: s.name }, $set: { reportDate } },
-          upsert: true,
-        }
-      }));
-      const costs = Array.isArray(action.costs) ? action.costs : [];
-      const opsCosts = costs.map((c) => ({
-        updateOne: {
-          filter: { actionId: action._id, costId: c._id },
-          update: { $setOnInsert: { status: 'ABERTO', actionId: action._id, costId: c._id }, $set: { reportDate, colaboradorId: c.colaboradorId || undefined } },
-          upsert: true,
-        }
-      }));
-      const allOps = [...ops, ...opsCosts];
-      if (allOps.length) await ContasAPagar.bulkWrite(allOps);
-    } catch (e) {
-      try { process.stderr.write('Failed to create ContasAPagar entries for action ' + String(action._id) + ': ' + String(e) + '\n'); } catch { void 0; /* noop */ }
-    }
+    await createPaymentEntries(action);
 
     return created(toPlainDoc(action.toObject ? action.toObject() : action));
-  } catch (err) {
-    try { process.stderr.write('Error creating action: ' + String(err) + '\n'); } catch { void 0; /* noop */ }
+  } catch (error) {
+    logError('Error creating action', error);
     return serverError('Failed to create action');
   }
 }

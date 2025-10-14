@@ -15,27 +15,76 @@ const Title = styled.h2`
   margin-bottom: var(--space-sm, var(--space-sm, var(--space-sm, 12px)));
 `;
 
-// RowInline, GridTwoGap, SmallInputWrap imported from ui/primitives
+/**
+ * Creates empty cost form state
+ */
+function createEmptyCostForm() {
+  return {
+    description: '',
+    value: undefined,
+    pix: '',
+    bank: '',
+    pgt: '',
+    vencimento: '',
+    colaboradorId: '',
+    vendorName: '',
+    vendorEmpresa: '',
+  };
+}
 
+/**
+ * Maps initial cost data to form state
+ */
+function mapInitialToForm(initial) {
+  return {
+    description: initial.description || '',
+    value: initial.value != null ? Number(initial.value) : undefined,
+    pix: initial.pix || '',
+    bank: initial.bank || '',
+    pgt: initial.pgt || '',
+    vencimento: initial.vencimento ? String(initial.vencimento).slice(0, 10) : '',
+    colaboradorId: initial.colaboradorId || '',
+    vendorName: initial.vendorName || '',
+    vendorEmpresa: initial.vendorEmpresa || '',
+  };
+}
+
+/**
+ * Formats bank information from colaborador
+ */
+function formatBankInfoFromColaborador(colaborador) {
+  if (!colaborador) return '';
+  const banco = colaborador.banco || '';
+  const conta = colaborador.conta || '';
+  return `${banco}${conta ? ` ${conta}` : ''}`.trim();
+}
+
+/**
+ * Determines default payment method from colaborador data
+ */
+function determinePaymentMethod(colaborador, fallback) {
+  if (!colaborador) return fallback || '';
+
+  const hasPix = colaborador.pix && String(colaborador.pix).trim();
+  const hasBankAccount = colaborador.banco || colaborador.conta;
+
+  if (hasPix) return 'PIX';
+  if (hasBankAccount) return 'TED';
+  return fallback || '';
+}
+
+/**
+ * CostModal - Form modal for creating and editing action costs
+ */
 export default function CostModal({ open, onClose, onSubmit, initial }) {
-  const [form, setForm] = useState({ description: '', value: undefined, pix: '', bank: '', pgt: '', vencimento: '', colaboradorId: '', vendorName: '', vendorEmpresa: '' });
+  const [form, setForm] = useState(createEmptyCostForm());
   const [colaboradores, setColaboradores] = useState([]);
-  const [colabModalOpen, setColabModalOpen] = useState(false);
-  const [colabEditing, setColabEditing] = useState(null);
+  const [isColabModalOpen, setIsColabModalOpen] = useState(false);
+  const [editingColaborador, setEditingColaborador] = useState(null);
 
   useEffect(() => {
     if (initial) {
-      setForm({
-        description: initial.description || '',
-        value: initial.value != null ? Number(initial.value) : undefined,
-        pix: initial.pix || '',
-        bank: initial.bank || '',
-        pgt: initial.pgt || '',
-        vencimento: initial.vencimento ? String(initial.vencimento).slice(0, 10) : '',
-        colaboradorId: initial.colaboradorId || '',
-        vendorName: initial.vendorName || '',
-        vendorEmpresa: initial.vendorEmpresa || '',
-      });
+      setForm(mapInitialToForm(initial));
     }
   }, [initial]);
 
@@ -47,21 +96,36 @@ export default function CostModal({ open, onClose, onSubmit, initial }) {
       .catch(() => setColaboradores([]));
   }, [open]);
 
-  // parseCurrency imported from centralized utils
+  /**
+   * Validates that vendor information is provided
+   */
+  function validateVendorInfo() {
+    if (form.colaboradorId) return true;
+    if (form.vendorName.trim()) return true;
 
-  function handleSubmit(e) {
-    e.preventDefault();
-    const amount = parseCurrency(form.value);
-    if (!form.description.trim()) return; // native required handles this too
-    if (!form.colaboradorId && !form.vendorName.trim()) {
-      try { globalThis.alert('Informe o Nome do fornecedor ou vincule um Colaborador.'); } catch { /* noop */ }
-      return;
-    }
-    if (!Number.isFinite(amount) || amount <= 0) {
-      try { globalThis.alert('Informe um Valor válido maior que zero.'); } catch { /* noop */ }
-      return;
-    }
-    const payload = {
+    try {
+      globalThis.alert('Informe o Nome do fornecedor ou vincule um Colaborador.');
+    } catch { /* noop */ }
+    return false;
+  }
+
+  /**
+   * Validates that amount is valid and positive
+   */
+  function validateAmount(amount) {
+    if (Number.isFinite(amount) && amount > 0) return true;
+
+    try {
+      globalThis.alert('Informe um Valor válido maior que zero.');
+    } catch { /* noop */ }
+    return false;
+  }
+
+  /**
+   * Builds cost payload for submission
+   */
+  function buildCostPayload(amount) {
+    return {
       description: form.description.trim(),
       value: amount,
       pix: form.pix.trim(),
@@ -72,6 +136,19 @@ export default function CostModal({ open, onClose, onSubmit, initial }) {
       vendorName: form.colaboradorId ? '' : (form.vendorName || '').trim(),
       vendorEmpresa: form.colaboradorId ? '' : (form.vendorEmpresa || '').trim(),
     };
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault();
+
+    if (!form.description.trim()) return;
+
+    const amount = parseCurrency(form.value);
+
+    if (!validateVendorInfo()) return;
+    if (!validateAmount(amount)) return;
+
+    const payload = buildCostPayload(amount);
     onSubmit && onSubmit(payload);
   }
 
@@ -85,29 +162,37 @@ export default function CostModal({ open, onClose, onSubmit, initial }) {
           <FL.Label>Vincular a Colaborador</FL.Label>
           <ActionsInline>
             <select value={form.colaboradorId} onChange={e => {
-              const sid = e.target.value;
-              const sel = colaboradores.find(s => String(s._id) === String(sid));
-              // Prefill vendor and payment fields from selected Colaborador
-              const nextPix = sel?.pix || '';
-              const nextBank = sel ? `${sel.banco || ''}${sel.conta ? ` ${sel.conta}` : ''}`.trim() : form.bank;
-              // Heuristic default for Pgt: prefer PIX when pix exists, else TED when bank/conta exists
-              const nextPgt = sel ? ((sel.pix && sel.pix.trim()) ? 'PIX' : ((sel.banco || sel.conta) ? 'TED' : (form.pgt || ''))) : (form.pgt || '');
-              setForm(f => ({
-                ...f,
-                colaboradorId: sid,
-                vendorName: sel ? (sel.nome || '') : f.vendorName,
-                vendorEmpresa: sel ? (sel.empresa || '') : f.vendorEmpresa,
-                pix: sel ? nextPix : f.pix,
-                bank: sel ? nextBank : f.bank,
-                pgt: sel ? nextPgt : f.pgt,
-              }));
+              const selectedId = e.target.value;
+              const selectedColaborador = colaboradores.find(
+                c => String(c._id) === String(selectedId)
+              );
+
+              if (selectedColaborador) {
+                setForm(previousForm => ({
+                  ...previousForm,
+                  colaboradorId: selectedId,
+                  vendorName: selectedColaborador.nome || '',
+                  vendorEmpresa: selectedColaborador.empresa || '',
+                  pix: selectedColaborador.pix || '',
+                  bank: formatBankInfoFromColaborador(selectedColaborador),
+                  pgt: determinePaymentMethod(selectedColaborador, previousForm.pgt),
+                }));
+              } else {
+                setForm(previousForm => ({
+                  ...previousForm,
+                  colaboradorId: selectedId,
+                }));
+              }
             }}>
               <option value="">Nenhum (custo livre)</option>
               {colaboradores.map(s => (
                 <option key={s._id} value={s._id}>{`${s.codigo} - ${s.nome}${s.empresa ? ` (${s.empresa})` : ''}`}</option>
               ))}
             </select>
-            <FE.SecondaryButton type="button" onClick={() => { setColabEditing(null); setColabModalOpen(true); }}>Novo Colaborador</FE.SecondaryButton>
+            <FE.SecondaryButton type="button" onClick={() => {
+              setEditingColaborador(null);
+              setIsColabModalOpen(true);
+            }}>Novo Colaborador</FE.SecondaryButton>
           </ActionsInline>
         </div>
         {!form.colaboradorId && (
@@ -159,41 +244,52 @@ export default function CostModal({ open, onClose, onSubmit, initial }) {
           <FE.Button type="submit">Salvar</FE.Button>
         </FL.Actions>
       </FL.FormGrid>
-      {colabModalOpen && (
+      {isColabModalOpen && (
         <ColaboradorModal
-          open={colabModalOpen}
-          onClose={() => setColabModalOpen(false)}
-          initial={colabEditing}
-          onSubmit={async (novo) => {
+          open={isColabModalOpen}
+          onClose={() => setIsColabModalOpen(false)}
+          initial={editingColaborador}
+          onSubmit={async (newColaborador) => {
             try {
-              const method = novo._id ? 'PATCH' : 'POST';
-              const body = novo._id ? { ...novo } : novo;
-              if (method === 'PATCH') body._id = novo._id;
-              const res = await fetch('/api/colaborador', { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+              const method = newColaborador._id ? 'PATCH' : 'POST';
+              const body = newColaborador._id ? { ...newColaborador } : newColaborador;
+              if (method === 'PATCH') body._id = newColaborador._id;
+
+              const res = await fetch('/api/colaborador', {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+              });
               const data = await res.json();
+
               if (data && data._id) {
-                setColabModalOpen(false);
-                // refetch
-                const list = await fetch('/api/colaborador').then(r => r.json()).catch(() => []);
-                setColaboradores(list);
-                // Prefill fields from the newly created/updated colaborador
-                const nextPix = data?.pix || '';
-                const nextBank = `${data?.banco || ''}${data?.conta ? ` ${data.conta}` : ''}`.trim();
-                const nextPgt = (data?.pix && String(data.pix).trim()) ? 'PIX' : ((data?.banco || data?.conta) ? 'TED' : '');
-                setForm(f => ({
-                  ...f,
+                setIsColabModalOpen(false);
+
+                // Refetch colaboradores list
+                const updatedList = await fetch('/api/colaborador')
+                  .then(r => r.json())
+                  .catch(() => []);
+                setColaboradores(updatedList);
+
+                // Prefill form with new colaborador data
+                setForm(previousForm => ({
+                  ...previousForm,
                   colaboradorId: data._id,
                   vendorName: data.nome || '',
                   vendorEmpresa: data.empresa || '',
-                  pix: nextPix,
-                  bank: nextBank,
-                  pgt: nextPgt || f.pgt,
+                  pix: data.pix || '',
+                  bank: formatBankInfoFromColaborador(data),
+                  pgt: determinePaymentMethod(data, previousForm.pgt),
                 }));
               } else {
-                try { alert(data.error || 'Falha ao salvar colaborador'); } catch { /* ignore */ }
+                try {
+                  alert(data.error || 'Falha ao salvar colaborador');
+                } catch { /* ignore */ }
               }
             } catch {
-              try { alert('Falha ao salvar colaborador'); } catch { /* ignore */ }
+              try {
+                alert('Falha ao salvar colaborador');
+              } catch { /* ignore */ }
             }
           }}
         />

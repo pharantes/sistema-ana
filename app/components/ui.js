@@ -1,5 +1,13 @@
+/**
+ * @fileoverview Common UI component styles and CSS utilities.
+ * Provides base styled-components and CSS mixins for the application.
+ */
+
 import styled, { css } from 'styled-components';
 
+/**
+ * Shared CSS for input elements.
+ */
 export const inputCss = css`
   height: var(--control-height);
   padding: var(--space-xs) var(--space-md);

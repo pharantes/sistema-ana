@@ -4,9 +4,15 @@ import styled from "styled-components";
 import { Note as SmallNote, InputWrap, RowWrap, RowEnd, RowTopGap, RowInline } from '../components/ui/primitives';
 import Filters from "./Filters";
 import ContasFixasTable from "./components/ContasFixasTable";
-
-// Pager now centralized in components/ui/Pager
-
+import { useSession } from "next-auth/react";
+import { useEffect, useMemo, useState, useRef } from "react";
+import * as FE from "../components/FormElements";
+import { formatBRL, parseCurrency } from "../utils/currency";
+import { formatDateBR } from "@/lib/utils/dates";
+import BRDateInput from "../components/BRDateInput";
+import BRCurrencyInput from "../components/BRCurrencyInput";
+import AcoesTable from "./components/AcoesTable";
+import { gerarPDFAcoes as gerarPDFAcoesUtil, gerarContasAPagarPDF } from "./utils/pdf";
 
 const Title = styled.h1`
   font-size: var(--font-h3, 1.6rem);
@@ -18,7 +24,6 @@ const Wrapper = styled.div`
 const PageSection = styled.div`
   margin-top: var(--space-sm);
 `;
-// use shared RowEnd primitive from ui/primitives
 const SearchRow = styled(RowWrap)`
   justify-content: space-between;
   gap: var(--gap-sm);
@@ -54,328 +59,517 @@ const H2 = styled.h2`
 const H2Large = styled.h2`
   margin-top: var(--space-lg);
 `;
-// compact container for small buttons removed — use shared RowInline directly
 const SmallSecondaryButton = styled(FE.SecondaryButton)`
   height: var(--control-height, 36px);
 `;
-// SmallNote and PresetButton imported from primitives
-// TopGap removed — use RowInline with margin when needed
 
-import { useSession } from "next-auth/react";
-import { useEffect, useMemo, useState, useRef } from "react";
-import * as FE from "../components/FormElements";
-import { formatBRL, parseCurrency } from "../utils/currency";
-import { formatDateBR } from "@/lib/utils/dates";
-import BRDateInput from "../components/BRDateInput";
-import BRCurrencyInput from "../components/BRCurrencyInput";
-import AcoesTable from "./components/AcoesTable";
-import { gerarPDFAcoes as gerarPDFAcoesUtil, gerarContasAPagarPDF } from "./utils/pdf";
+// ============================================================================
+// Helper Functions
+// ============================================================================
 
-// Date preset UI moved to Filters component
+/**
+ * Builds the API URL for fetching contas a pagar with optional date filters.
+ * @param {string} fromDate - Start date filter (YYYY-MM-DD)
+ * @param {string} toDate - End date filter (YYYY-MM-DD)
+ * @returns {string} The constructed API URL
+ */
+function buildContasAPagarUrl(fromDate, toDate) {
+  const params = new URLSearchParams();
+  if (fromDate) params.set('vencFrom', fromDate);
+  if (toDate) params.set('vencTo', toDate);
+  return "/api/contasapagar" + (params.toString() ? `?${params.toString()}` : "");
+}
 
-// Table, Th, Td now imported from components/ui/Table
+/**
+ * Safely parses JSON from a fetch response.
+ * @param {Response} response - The fetch response object
+ * @returns {Promise<object>} Parsed JSON object or empty object on error
+ */
+async function tryParseJson(response) {
+  try {
+    return await response.json();
+  } catch {
+    return {};
+  }
+}
 
+/**
+ * Converts a date value to milliseconds timestamp for comparison.
+ * Handles ISO, YYYY-MM-DD, and DD/MM/YYYY formats.
+ * @param {Date|string|null} dateValue - The date to convert
+ * @returns {number} Timestamp in milliseconds, or 0 if invalid
+ */
+function dateToTime(dateValue) {
+  if (!dateValue) return 0;
+  try {
+    if (dateValue instanceof Date && !isNaN(dateValue)) return dateValue.getTime();
+    const dateString = String(dateValue);
+    // ISO or YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}/.test(dateString)) {
+      const parsedDate = new Date(dateString);
+      return isNaN(parsedDate) ? 0 : parsedDate.getTime();
+    }
+    // DD/MM/YYYY
+    const match = dateString.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+    if (match) {
+      const parsedDate = new Date(Number(match[3]), Number(match[2]) - 1, Number(match[1]));
+      return isNaN(parsedDate) ? 0 : parsedDate.getTime();
+    }
+    const parsedDate = new Date(dateString);
+    return isNaN(parsedDate) ? 0 : parsedDate.getTime();
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Gets the cycle duration in days based on account type.
+ * @param {string} accountType - The account type ('quizenal' or 'mensal')
+ * @returns {number} Number of days in the cycle (15 or 30)
+ */
+function getCycleDays(accountType) {
+  return String(accountType) === 'quizenal' ? 15 : 30;
+}
+
+/**
+ * Calculates the next due date for a fixed account based on its cycle.
+ * @param {object} fixedAccount - The fixed account object
+ * @returns {Date|null} The next due date, or null if cannot be calculated
+ */
+function getNextDueDate(fixedAccount) {
+  const baseDate = fixedAccount?.lastPaidAt
+    ? new Date(fixedAccount.lastPaidAt)
+    : (fixedAccount?.createdAt ? new Date(fixedAccount.createdAt) : null);
+  if (!baseDate) return null;
+  const cycleDays = getCycleDays(fixedAccount?.tipo);
+  const dueDate = new Date(baseDate);
+  dueDate.setDate(dueDate.getDate() + cycleDays);
+  return dueDate;
+}
+
+/**
+ * Gets the display status for a fixed account (auto-transitions from PAGO to ABERTO after cycle).
+ * @param {object} fixedAccount - The fixed account object
+ * @returns {string} The display status ('ABERTO' or 'PAGO')
+ */
+function getDisplayStatus(fixedAccount) {
+  // TODO: REVIEW - This logic assumes that if status is not 'PAGO', it is always 'ABERTO'.
+  // If new statuses are added in the future, this may break.
+  const rawStatus = String(fixedAccount?.status || 'ABERTO').toUpperCase();
+  if (rawStatus !== 'PAGO') return 'ABERTO';
+  const nextDueDate = getNextDueDate(fixedAccount);
+  if (!nextDueDate) return 'ABERTO';
+  return (new Date() < nextDueDate) ? 'PAGO' : 'ABERTO';
+}
+
+/**
+ * Extracts the due date from a report row by checking staff or cost data.
+ * @param {object} reportRow - The report row object
+ * @returns {string|null} The due date, or null if not found
+ */
+function getRowDueDate(reportRow) {
+  if (!reportRow || !reportRow.actionId) return null;
+  const staffList = Array.isArray(reportRow.actionId?.staff) ? reportRow.actionId.staff : [];
+  const costsList = Array.isArray(reportRow.actionId?.costs) ? reportRow.actionId.costs : [];
+  const staffItem = reportRow.staffName ? staffList.find(s => s.name === reportRow.staffName) : null;
+  const costItem = (!reportRow.staffName && reportRow.costId)
+    ? costsList.find(c => String(c._id) === String(reportRow.costId))
+    : null;
+  return staffItem?.vencimento || costItem?.vencimento || null;
+}
+
+/**
+ * Checks if a report row matches the search query.
+ * @param {object} reportRow - The report row to check
+ * @param {string} queryLowerCase - The search query in lowercase
+ * @returns {boolean} True if the row matches the query
+ */
+function rowMatchesQuery(reportRow, queryLowerCase) {
+  if (!queryLowerCase) return true;
+  const clienteName = String(reportRow?.actionId?.client || "").toLowerCase();
+  const actionName = String(reportRow?.actionId?.name || "").toLowerCase();
+  let serviceText = String(reportRow?.staffName || "").toLowerCase();
+  if (!reportRow?.staffName && reportRow?.costId && Array.isArray(reportRow?.actionId?.costs)) {
+    const costItem = reportRow.actionId.costs.find(c => String(c._id) === String(reportRow.costId));
+    if (costItem && costItem.description) serviceText = String(costItem.description).toLowerCase();
+  }
+  return clienteName.includes(queryLowerCase)
+    || actionName.includes(queryLowerCase)
+    || serviceText.includes(queryLowerCase);
+}
+
+/**
+ * Applies status filter to a list of report rows.
+ * @param {Array} reportList - The list of report rows
+ * @param {string} statusFilterValue - The status filter ('ALL', 'ABERTO', or 'PAGO')
+ * @returns {Array} The filtered list
+ */
+function applyStatusFilter(reportList, statusFilterValue) {
+  if (statusFilterValue === 'ABERTO' || statusFilterValue === 'PAGO') {
+    return reportList.filter(r => (String(r?.status || 'ABERTO').toUpperCase() === statusFilterValue));
+  }
+  return reportList;
+}
+
+/**
+ * Gets the value for a given sort key from a report row.
+ * @param {object} reportRow - The report row
+ * @param {string} sortKey - The sort key ('created', 'acao', 'colaborador', or 'due')
+ * @returns {number|string} The extracted value for sorting
+ */
+function valueForSortKey(reportRow, sortKey) {
+  if (!reportRow) return '';
+  switch (sortKey) {
+    case 'created': {
+      const baseDate = reportRow?.actionId?.date || reportRow?.reportDate || null;
+      return dateToTime(baseDate);
+    }
+    case 'acao':
+      return String(reportRow?.actionId?.name || reportRow?.actionId?.event || '').toLowerCase();
+    case 'colaborador':
+      if (reportRow?.staffName) return String(reportRow?.colaboradorLabel || reportRow?.staffName || '').toLowerCase();
+      if (reportRow?.costId) return String(reportRow?.colaboradorLabel || '').toLowerCase();
+      return '';
+    case 'due': {
+      const dueDate = getRowDueDate(reportRow);
+      return dateToTime(dueDate);
+    }
+    default:
+      return '';
+  }
+}
+
+/**
+ * Compares two report rows for sorting.
+ * @param {object} rowA - First row
+ * @param {object} rowB - Second row
+ * @param {string} sortKey - The sort key
+ * @param {string} sortDirection - Sort direction ('asc' or 'desc')
+ * @returns {number} Comparison result (-1, 0, or 1)
+ */
+function compareRows(rowA, rowB, sortKey, sortDirection) {
+  const valueA = valueForSortKey(rowA, sortKey);
+  const valueB = valueForSortKey(rowB, sortKey);
+  if (typeof valueA === 'number' && typeof valueB === 'number') {
+    return sortDirection === 'asc' ? valueA - valueB : valueB - valueA;
+  }
+  const stringA = String(valueA || '');
+  const stringB = String(valueB || '');
+  const comparison = stringA.localeCompare(stringB);
+  if (comparison === 0) {
+    // Tie-break by created date for stable ordering
+    const timeA = dateToTime(rowA?.actionId?.date || rowA?.reportDate);
+    const timeB = dateToTime(rowB?.actionId?.date || rowB?.reportDate);
+    return sortDirection === 'asc' ? timeA - timeB : timeB - timeA;
+  }
+  return sortDirection === 'asc' ? comparison : -comparison;
+}
+
+/**
+ * Gets the sort value for a fixed account based on the sort key.
+ * @param {object} fixedAccount - The fixed account object
+ * @param {string} sortKey - The sort key
+ * @returns {number|string} The extracted value for sorting
+ */
+function getFixedAccountSortValue(fixedAccount, sortKey) {
+  switch (sortKey) {
+    case 'nome': return String(fixedAccount?.name || '').toLowerCase();
+    case 'empresa': return String(fixedAccount?.empresa || '').toLowerCase();
+    case 'tipo': return String(fixedAccount?.tipo || '').toLowerCase();
+    case 'valor': return Number(fixedAccount?.valor || 0);
+    case 'status': return String(getDisplayStatus(fixedAccount) || '').toLowerCase();
+    case 'vencimento':
+    default:
+      return dateToTime(fixedAccount?.vencimento);
+  }
+}
+
+// ============================================================================
+// Main Component
+// ============================================================================
+
+/**
+ * Main page component for 'Contas a Pagar' (Accounts Payable).
+ * Manages accounts payable data, fixed accounts, filtering, sorting, and PDF generation.
+ */
 export default function ContasAPagarPage() {
+  // --- State Hooks ---
   const { data: session, status } = useSession();
   const [reports, setReports] = useState([]);
-  const [pageSizeAcoes, setPageSizeAcoes] = useState(10);
-  const [pageAcoes, setPageAcoes] = useState(1);
-  const [query, setQuery] = useState("");
-  // Use dueFrom/dueTo to reflect dueDate semantics (UI label remains "Vencimento")
+  const [fixas, setFixas] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [dueFrom, setDueFrom] = useState("");
   const [dueTo, setDueTo] = useState("");
-  const [statusFilter, setStatusFilter] = useState('ALL'); // ALL | ABERTO | PAGO
-  const [fixas, setFixas] = useState([]);
-  const [pageSizeFixas, setPageSizeFixas] = useState(10);
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [pageAcoes, setPageAcoes] = useState(1);
+  const [pageSizeAcoes, setPageSizeAcoes] = useState(10);
+  const [sortKeyAcoes, setSortKeyAcoes] = useState('created');
+  const [sortDirAcoes, setSortDirAcoes] = useState('desc');
   const [pageFixas, setPageFixas] = useState(1);
-  const [sortKeyFixas, setSortKeyFixas] = useState('vencimento'); // 'nome' | 'empresa' | 'tipo' | 'valor' | 'vencimento' | 'status'
-  const [sortDirFixas, setSortDirFixas] = useState('asc'); // 'asc' | 'desc'
+  const [pageSizeFixas, setPageSizeFixas] = useState(10);
+  const [sortKeyFixas, setSortKeyFixas] = useState('vencimento');
+  const [sortDirFixas, setSortDirFixas] = useState('asc');
   const [showFixaModal, setShowFixaModal] = useState(false);
-  const [fixaForm, setFixaForm] = useState({ name: '', empresa: '', tipo: 'mensal', valor: '', status: 'ABERTO', vencimento: '' });
+  const [fixaForm, setFixaForm] = useState({
+    name: '',
+    empresa: '',
+    tipo: 'mensal',
+    valor: '',
+    status: 'ABERTO',
+    vencimento: ''
+  });
   const [fixaEditing, setFixaEditing] = useState(null);
   const inputRef = useRef(null);
   const inputSx = { height: 36 };
+
+  // --- Helper Functions ---
+
+  /**
+   * Fetches the list of contas a pagar from the API with date filters.
+   */
+  async function fetchReports() {
+    try {
+      const url = buildContasAPagarUrl(dueFrom, dueTo);
+      const response = await fetch(url);
+      if (!response.ok) {
+        const errorData = await tryParseJson(response);
+        throw new Error(errorData.error || "Erro ao carregar contas a pagar");
+      }
+      const data = await response.json();
+      setReports(Array.isArray(data) ? data : []);
+    } catch (error) {
+      alert(error.message || "Falha ao carregar contas a pagar");
+      setReports([]);
+    }
+  }
+
+  /**
+   * Fetches the list of fixed accounts (contas fixas) from the API.
+   */
+  async function fetchFixas() {
+    try {
+      const response = await fetch('/api/contafixa');
+      if (!response.ok) throw new Error('Falha ao carregar contas fixas');
+      const data = await response.json();
+      setFixas(Array.isArray(data) ? data : []);
+    } catch {
+      setFixas([]);
+    }
+  }
+
+  /**
+   * Clears all filters and resets the search input.
+   */
+  const handleClearAll = () => {
+    setSearchQuery("");
+    setDueFrom("");
+    setDueTo("");
+    setStatusFilter('ALL');
+    try { inputRef.current?.focus(); } catch { /* noop */ }
+  };
+
+  // --- Effects ---
 
   useEffect(() => {
     try { inputRef.current?.focus(); } catch { /* noop */ }
   }, []);
 
-  // Date preset helpers now encapsulated in Filters
-  const clearAll = () => {
-    setQuery(""); setDueFrom(""); setDueTo(""); setStatusFilter('ALL');
-    try { inputRef.current?.focus(); } catch { /* noop */ }
-  };
-
-  async function fetchReports() {
-    // optional loading state removed to avoid unused vars
-    try {
-      const params = new globalThis.URLSearchParams();
-      if (dueFrom) params.set('vencFrom', dueFrom);
-      if (dueTo) params.set('vencTo', dueTo);
-      const url = "/api/contasapagar" + (params.toString() ? `?${params.toString()}` : "");
-      const res = await globalThis.fetch(url);
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Erro ao carregar contas a pagar");
-      }
-      const data = await res.json();
-      setReports(Array.isArray(data) ? data : []);
-    } catch (e) {
-      globalThis.alert(e.message || "Falha ao carregar contas a pagar");
-      setReports([]);
-    }
-    // no-op
-  }
-
-  // currency formatting now imported from utils
-
-  // refetch when date range changes (vencimento/dueDate based)
   useEffect(() => {
     fetchReports();
   }, [dueFrom, dueTo]);
 
-  // initial load
-  useEffect(() => { fetchReports(); }, []);
-  useEffect(() => { fetchFixas(); }, []);
+  useEffect(() => {
+    fetchReports();
+    fetchFixas();
+  }, []);
 
-  // Removed delete functionality per new requirements
-
-  async function handleStatusChange(id, next, current) {
+  /**
+   * Handles status change for a contas a pagar row with optimistic UI update.
+   * @param {string} reportId - The report ID
+   * @param {string} newStatus - The new status value
+   * @param {string} previousStatus - The previous status (for revert on error)
+   */
+  async function handleStatusChange(reportId, newStatus, previousStatus) {
     if (!session || session.user.role !== "admin") return;
-    // Optimistically set to selected value
-    setReports(prev => prev.map(r => (r._id === id ? { ...r, status: next } : r)));
+    // Optimistic update
+    setReports(previousReports => previousReports.map(report =>
+      (report._id === reportId ? { ...report, status: newStatus } : report)
+    ));
     try {
-      const res = await globalThis.fetch("/api/contasapagar", {
+      const response = await fetch("/api/contasapagar", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ id, status: next })
+        body: JSON.stringify({ id: reportId, status: newStatus })
       });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Erro ao atualizar status");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Erro ao atualizar status");
       }
-      const updated = await res.json();
-      setReports(prev => prev.map(r => (r._id === id ? { ...r, status: updated.status } : r)));
-    } catch (e) {
-      globalThis.alert(e.message || "Erro ao atualizar status");
-      // revert on error
-      setReports(prev => prev.map(r => (r._id === id ? { ...r, status: current } : r)));
+      const updatedReport = await response.json();
+      setReports(previousReports => previousReports.map(report =>
+        (report._id === reportId ? { ...report, status: updatedReport.status } : report)
+      ));
+    } catch (error) {
+      alert(error.message || "Erro ao atualizar status");
+      // Revert on error
+      setReports(previousReports => previousReports.map(report =>
+        (report._id === reportId ? { ...report, status: previousStatus } : report)
+      ));
     }
   }
 
-  // Fixed bills helpers
-  // Use shared utils/formatDateBR imported at top
-  const getCycleDays = (tipo) => (String(tipo) === 'quizenal' ? 15 : 30);
-  const getNextDueDate = (c) => {
-    const base = c?.lastPaidAt ? new Date(c.lastPaidAt) : (c?.createdAt ? new Date(c.createdAt) : null);
-    if (!base) return null;
-    const days = getCycleDays(c?.tipo);
-    const d = new Date(base);
-    d.setDate(d.getDate() + days);
-    return d;
-  };
-  const getDisplayStatus = (c) => {
-    const raw = String(c?.status || 'ABERTO').toUpperCase();
-    if (raw !== 'PAGO') return 'ABERTO';
-    const due = getNextDueDate(c);
-    if (!due) return 'ABERTO';
-    return (new Date() < due) ? 'PAGO' : 'ABERTO';
-  };
-
-  async function handleFixaStatusChange(c, nextVal) {
-    const next = String(nextVal || '').toUpperCase();
-    // optimistic update
-    setFixas(prev => prev.map(x => x._id === c._id ? { ...x, status: next, lastPaidAt: (next === 'PAGO' ? new Date().toISOString() : undefined) } : x));
+  /**
+   * Handles status change for a fixed account with optimistic UI update.
+   * @param {object} fixedAccount - The fixed account object
+   * @param {string} newStatusValue - The new status value
+   */
+  async function handleFixaStatusChange(fixedAccount, newStatusValue) {
+    const newStatus = String(newStatusValue || '').toUpperCase();
+    const timestamp = new Date().toISOString();
+    // Optimistic update
+    setFixas(previousFixas => previousFixas.map(fixa =>
+      fixa._id === fixedAccount._id
+        ? { ...fixa, status: newStatus, lastPaidAt: (newStatus === 'PAGO' ? timestamp : undefined) }
+        : fixa
+    ));
     try {
-      const patch = { id: c._id, status: next };
-      if (next === 'PAGO') patch.lastPaidAt = new Date().toISOString(); else patch.lastPaidAt = null;
-      const res = await globalThis.fetch('/api/contafixa', {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch)
+      const patchData = { id: fixedAccount._id, status: newStatus };
+      if (newStatus === 'PAGO') {
+        patchData.lastPaidAt = timestamp;
+      } else {
+        patchData.lastPaidAt = null;
+      }
+      const response = await fetch('/api/contafixa', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patchData)
       });
-      if (!res.ok) throw new Error('Falha ao atualizar status');
-      const updated = await res.json();
-      setFixas(prev => prev.map(x => x._id === c._id ? updated : x));
-    } catch (e) {
-      globalThis.alert(e.message || 'Erro ao atualizar status');
-      // revert
+      if (!response.ok) throw new Error('Falha ao atualizar status');
+      const updatedAccount = await response.json();
+      setFixas(previousFixas => previousFixas.map(fixa =>
+        fixa._id === fixedAccount._id ? updatedAccount : fixa
+      ));
+    } catch (error) {
+      alert(error.message || 'Erro ao atualizar status');
       fetchFixas();
     }
   }
 
-  // Sorting state for Custos ações
-  const [sortKeyAcoes, setSortKeyAcoes] = useState('created'); // 'created' | 'acao' | 'colaborador' | 'due'
-  const [sortDirAcoes, setSortDirAcoes] = useState('desc'); // 'asc' | 'desc'
+  // --- Data Processing (Filtering & Sorting) ---
 
-  // Robust date parser to handle ISO, YYYY-MM-DD, and DD/MM/YYYY strings
-  const dateToTime = (val) => {
-    if (!val) return 0;
-    try {
-      if (val instanceof Date && !isNaN(val)) return val.getTime();
-      const s = String(val);
-      // ISO or YYYY-MM-DD
-      if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
-        const d = new Date(s);
-        return isNaN(d) ? 0 : d.getTime();
-      }
-      // DD/MM/YYYY
-      const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
-      if (m) {
-        const d = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
-        return isNaN(d) ? 0 : d.getTime();
-      }
-      const d = new Date(s);
-      return isNaN(d) ? 0 : d.getTime();
-    } catch {
-      return 0;
-    }
-  };
+  /**
+   * Filters and sorts the accounts payable reports based on search query and status.
+   */
+  const filteredReports = useMemo(() => {
+    const queryLowerCase = (searchQuery || "").trim().toLowerCase();
+    const reportsArray = Array.isArray(reports) ? reports : [];
+    let processedList = reportsArray.filter(row => rowMatchesQuery(row, queryLowerCase));
+    processedList = applyStatusFilter(processedList, statusFilter);
+    processedList = processedList.slice();
+    processedList.sort((a, b) => compareRows(a, b, sortKeyAcoes, sortDirAcoes));
+    return processedList;
+  }, [reports, searchQuery, statusFilter, sortKeyAcoes, sortDirAcoes]);
 
-  // Helper to derive the row due date (vencimento) from staff or cost
-  const getRowDueDate = (r) => {
-    if (!r || !r.actionId) return null;
-    const staff = Array.isArray(r.actionId?.staff) ? r.actionId.staff : [];
-    const costs = Array.isArray(r.actionId?.costs) ? r.actionId.costs : [];
-    const st = r.staffName ? staff.find(s => s.name === r.staffName) : null;
-    const ct = (!r.staffName && r.costId) ? costs.find(c => String(c._id) === String(r.costId)) : null;
-    return st?.vencimento || ct?.vencimento || null;
-  };
-
-  const filtered = useMemo(() => {
-    const q = (query || "").trim().toLowerCase();
-    const base = Array.isArray(reports) ? reports : [];
-    let out = q
-      ? base.filter(r => {
-        const cliente = String(r?.actionId?.client || "").toLowerCase();
-        const acao = String(r?.actionId?.name || "").toLowerCase();
-        let serv = String(r?.staffName || "").toLowerCase();
-        // If it's a cost row, search by description too
-        if (!r?.staffName && r?.costId && Array.isArray(r?.actionId?.costs)) {
-          const ct = r.actionId.costs.find(c => String(c._id) === String(r.costId));
-          if (ct && ct.description) serv = String(ct.description).toLowerCase();
-        }
-        return cliente.includes(q) || acao.includes(q) || serv.includes(q);
-      })
-      : base.slice();
-    // apply status filter when selected
-    if (statusFilter === 'ABERTO' || statusFilter === 'PAGO') {
-      out = out.filter(r => (String(r?.status || 'ABERTO').toUpperCase() === statusFilter));
-    }
-    // sort by selected column
-    const getVal = (r, key) => {
-      if (!r) return null;
-      if (key === 'created') {
-        const base = r?.actionId?.date || r?.reportDate || null;
-        return dateToTime(base);
-      }
-      if (key === 'acao') {
-        return String(r?.actionId?.name || r?.actionId?.event || '').toLowerCase();
-      }
-      if (key === 'colaborador') {
-        if (r?.staffName) return String(r?.colaboradorLabel || r?.staffName || '').toLowerCase();
-        if (r?.costId) return String(r?.colaboradorLabel || '').toLowerCase();
-        return '';
-      }
-      if (key === 'due') {
-        const d = getRowDueDate(r);
-        return dateToTime(d);
-      }
-      return '';
-    };
-    // sort a shallow copy to avoid mutating state
-    out = out.slice();
-    out.sort((a, b) => {
-      const va = getVal(a, sortKeyAcoes);
-      const vb = getVal(b, sortKeyAcoes);
-      if (typeof va === 'number' && typeof vb === 'number') return sortDirAcoes === 'asc' ? va - vb : vb - va;
-      const sa = String(va || '');
-      const sb = String(vb || '');
-      const cmp = sa.localeCompare(sb);
-      if (cmp === 0) {
-        // tie-break by created to keep stable order
-        const ta = dateToTime(a?.actionId?.date || a?.reportDate);
-        const tb = dateToTime(b?.actionId?.date || b?.reportDate);
-        return sortDirAcoes === 'asc' ? ta - tb : tb - ta;
-      }
-      return sortDirAcoes === 'asc' ? cmp : -cmp;
-    });
-    return out;
-  }, [reports, query, statusFilter, sortKeyAcoes, sortDirAcoes]);
-
-  const toggleSortAcoes = (key) => {
-    if (sortKeyAcoes === key) setSortDirAcoes(d => (d === 'asc' ? 'desc' : 'asc'));
-    else { setSortKeyAcoes(key); setSortDirAcoes((key === 'acao' || key === 'colaborador') ? 'asc' : 'desc'); }
-  };
-  const totalAcoes = filtered.length;
-  // totalPagesAcoes computed internally by Pager; local variable no longer needed
+  /**
+   * Paginates the filtered reports for the current page.
+   */
   const pageDataAcoes = useMemo(() => {
-    const start = (pageAcoes - 1) * pageSizeAcoes;
-    return filtered.slice(start, start + pageSizeAcoes);
-  }, [filtered, pageAcoes, pageSizeAcoes]);
+    const startIndex = (pageAcoes - 1) * pageSizeAcoes;
+    return filteredReports.slice(startIndex, startIndex + pageSizeAcoes);
+  }, [filteredReports, pageAcoes, pageSizeAcoes]);
 
-  // Generate PDF for Custos ações only via utils
-  async function onGerarPDFAcoes() {
-    if (!filtered.length) {
-      globalThis.alert("Nenhum resultado para gerar o relatório");
-      return;
+  const totalAcoes = filteredReports.length;
+
+  /**
+   * Toggles sort direction or changes sort key for actions table.
+   * @param {string} sortKey - The key to sort by
+   */
+  const handleToggleSortAcoes = (sortKey) => {
+    if (sortKeyAcoes === sortKey) {
+      setSortDirAcoes(currentDirection => (currentDirection === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKeyAcoes(sortKey);
+      setSortDirAcoes((sortKey === 'acao' || sortKey === 'colaborador') ? 'asc' : 'desc');
     }
-    await gerarPDFAcoesUtil(filtered);
-  }
+  };
 
-  // Contas Fixas filtered by date presets and status presets (not by text search)
+  /**
+   * Filters fixed accounts by date range and status.
+   */
   const filteredFixas = useMemo(() => {
-    let out = Array.isArray(fixas) ? fixas.slice() : [];
+    let processedList = Array.isArray(fixas) ? fixas.slice() : [];
     // Date filter on vencimento
-    const from = dueFrom ? new Date(`${dueFrom}T00:00:00`) : null;
-    const to = dueTo ? new Date(`${dueTo}T23:59:59`) : null;
-    if (from || to) {
-      out = out.filter(c => {
-        if (!c?.vencimento) return false;
-        const d = new Date(c.vencimento);
-        if (from && d < from) return false;
-        if (to && d > to) return false;
+    const fromDate = dueFrom ? new Date(`${dueFrom}T00:00:00`) : null;
+    const toDate = dueTo ? new Date(`${dueTo}T23:59:59`) : null;
+    if (fromDate || toDate) {
+      processedList = processedList.filter(fixedAccount => {
+        if (!fixedAccount?.vencimento) return false;
+        const accountDate = new Date(fixedAccount.vencimento);
+        if (fromDate && accountDate < fromDate) return false;
+        if (toDate && accountDate > toDate) return false;
         return true;
       });
     }
-    // Status preset using display status
+    // Status filter using display status
     if (statusFilter === 'ABERTO' || statusFilter === 'PAGO') {
-      out = out.filter(c => getDisplayStatus(c) === statusFilter);
+      processedList = processedList.filter(fixedAccount =>
+        getDisplayStatus(fixedAccount) === statusFilter
+      );
     }
-    return out;
+    return processedList;
   }, [fixas, dueFrom, dueTo, statusFilter]);
+
+  /**
+   * Sorts the filtered fixed accounts.
+   */
   const sortedFixas = useMemo(() => {
-    const list = filteredFixas.slice();
-    const getVal = (c) => {
-      switch (sortKeyFixas) {
-        case 'nome': return String(c?.name || '').toLowerCase();
-        case 'empresa': return String(c?.empresa || '').toLowerCase();
-        case 'tipo': return String(c?.tipo || '').toLowerCase();
-        case 'valor': return Number(c?.valor || 0);
-        case 'status': return String(getDisplayStatus(c) || '').toLowerCase();
-        case 'vencimento':
-        default:
-          return dateToTime(c?.vencimento);
+    const sortedList = filteredFixas.slice();
+    sortedList.sort((accountA, accountB) => {
+      const valueA = getFixedAccountSortValue(accountA, sortKeyFixas);
+      const valueB = getFixedAccountSortValue(accountB, sortKeyFixas);
+      if (typeof valueA === 'number' && typeof valueB === 'number') {
+        return sortDirFixas === 'asc' ? valueA - valueB : valueB - valueA;
       }
-    };
-    list.sort((a, b) => {
-      const va = getVal(a); const vb = getVal(b);
-      if (typeof va === 'number' && typeof vb === 'number') return sortDirFixas === 'asc' ? va - vb : vb - va;
-      const sa = String(va || ''); const sb = String(vb || '');
-      const cmp = sa.localeCompare(sb);
-      return sortDirFixas === 'asc' ? cmp : -cmp;
+      const stringA = String(valueA || '');
+      const stringB = String(valueB || '');
+      const comparison = stringA.localeCompare(stringB);
+      return sortDirFixas === 'asc' ? comparison : -comparison;
     });
-    return list;
+    return sortedList;
   }, [filteredFixas, sortKeyFixas, sortDirFixas]);
-  // const totalFixas = sortedFixas.length; // no longer used at page level
-  // Pagination for fixas is handled within ContasFixasTable; no local page slices needed here
-  const toggleSortFixas = (key) => {
-    if (sortKeyFixas === key) setSortDirFixas(d => d === 'asc' ? 'desc' : 'asc');
-    else { setSortKeyFixas(key); setSortDirFixas('asc'); setPageFixas(1); }
+
+  /**
+   * Toggles sort direction or changes sort key for fixed accounts table.
+   * @param {string} sortKey - The key to sort by
+   */
+  const handleToggleSortFixas = (sortKey) => {
+    if (sortKeyFixas === sortKey) {
+      setSortDirFixas(currentDirection => currentDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKeyFixas(sortKey);
+      setSortDirFixas('asc');
+      setPageFixas(1);
+    }
   };
 
-  // Removed combined PDF handler by request
-  // Only fixas PDF
-  async function onGerarPDFFixas() {
+  // --- PDF Generation ---
+
+  /**
+   * Generates a PDF report for the filtered actions (Custos ações).
+   */
+  async function handleGeneratePDFAcoes() {
+    if (!filteredReports.length) {
+      alert("Nenhum resultado para gerar o relatório");
+      return;
+    }
+    await gerarPDFAcoesUtil(filteredReports);
+  }
+
+  /**
+   * Generates a PDF report for the filtered fixed accounts (Contas Fixas).
+   */
+  async function handleGeneratePDFFixas() {
     await gerarContasAPagarPDF({
       rows: [],
       fixasRows: filteredFixas,
@@ -386,88 +580,113 @@ export default function ContasAPagarPage() {
     });
   }
 
-  // Contas fixas CRUD helpers
-  async function fetchFixas() {
-    try {
-      const res = await globalThis.fetch('/api/contafixa');
-      if (!res.ok) throw new Error('Falha ao carregar contas fixas');
-      const data = await res.json();
-      setFixas(Array.isArray(data) ? data : []);
-    } catch {
-      setFixas([]);
-    }
-  }
+  // --- Fixed Accounts (Contas Fixas) CRUD Operations ---
 
-  function openNewFixa() {
+  /**
+   * Opens the modal to create a new fixed account.
+   */
+  function handleOpenNewFixa() {
     setFixaEditing(null);
-    setFixaForm({ name: '', empresa: '', tipo: 'mensal', valor: '', status: 'ABERTO', vencimento: '' });
-    setShowFixaModal(true);
-  }
-
-  function openEditFixa(c) {
-    setFixaEditing(c);
     setFixaForm({
-      name: c.name || '',
-      empresa: c.empresa || '',
-      tipo: c.tipo || 'mensal',
-      valor: c.valor != null ? formatBRL(Number(c.valor)) : '',
-      status: (c.status || 'ABERTO').toUpperCase(),
-      vencimento: c.vencimento ? new Date(c.vencimento).toISOString().slice(0, 10) : ''
+      name: '',
+      empresa: '',
+      tipo: 'mensal',
+      valor: '',
+      status: 'ABERTO',
+      vencimento: ''
     });
     setShowFixaModal(true);
   }
 
-  async function saveFixa() {
-    const parsedValor = parseCurrency(fixaForm.valor);
+  /**
+   * Opens the modal to edit an existing fixed account.
+   * @param {object} fixedAccount - The fixed account to edit
+   */
+  function handleOpenEditFixa(fixedAccount) {
+    setFixaEditing(fixedAccount);
+    setFixaForm({
+      name: fixedAccount.name || '',
+      empresa: fixedAccount.empresa || '',
+      tipo: fixedAccount.tipo || 'mensal',
+      valor: fixedAccount.valor != null ? formatBRL(Number(fixedAccount.valor)) : '',
+      status: (fixedAccount.status || 'ABERTO').toUpperCase(),
+      vencimento: fixedAccount.vencimento
+        ? new Date(fixedAccount.vencimento).toISOString().slice(0, 10)
+        : ''
+    });
+    setShowFixaModal(true);
+  }
+
+  /**
+   * Saves the current fixed account form (create or update).
+   */
+  async function handleSaveFixa() {
+    const parsedValue = parseCurrency(fixaForm.valor);
+    const timestamp = new Date().toISOString();
     const payload = {
       name: (fixaForm.name || '').trim(),
       empresa: (fixaForm.empresa || '').trim(),
       tipo: (fixaForm.tipo || '').trim(),
-      valor: typeof parsedValor === 'number' ? parsedValor : undefined,
+      valor: typeof parsedValue === 'number' ? parsedValue : undefined,
       status: (fixaForm.status || 'ABERTO').toUpperCase(),
       vencimento: fixaForm.vencimento || undefined,
     };
+    // TODO: REVIEW - If valor is not a number, it will be undefined. Should this be allowed?
     try {
-      let res;
+      let response;
       if (fixaEditing && fixaEditing._id) {
-        if (payload.status === 'PAGO') payload.lastPaidAt = new Date().toISOString(); else payload.lastPaidAt = null;
-        res = await globalThis.fetch('/api/contafixa', {
+        // Update existing
+        if (payload.status === 'PAGO') {
+          payload.lastPaidAt = timestamp;
+        } else {
+          payload.lastPaidAt = null;
+        }
+        response = await fetch('/api/contafixa', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({ id: fixaEditing._id, ...payload })
         });
       } else {
-        if (payload.status === 'PAGO') payload.lastPaidAt = new Date().toISOString();
-        res = await globalThis.fetch('/api/contafixa', {
+        // Create new
+        if (payload.status === 'PAGO') {
+          payload.lastPaidAt = timestamp;
+        }
+        response = await fetch('/api/contafixa', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify(payload)
         });
       }
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || 'Falha ao salvar conta fixa');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Falha ao salvar conta fixa');
       }
       setShowFixaModal(false);
       setFixaEditing(null);
       fetchFixas();
-    } catch (e) {
-      globalThis.alert(e.message || 'Erro ao salvar conta fixa');
+    } catch (error) {
+      alert(error.message || 'Erro ao salvar conta fixa');
     }
   }
 
-  async function deleteFixa(id) {
-    if (!globalThis.confirm('Tem certeza que deseja excluir esta conta fixa?')) return;
+  /**
+   * Deletes a fixed account after user confirmation.
+   * @param {string} fixedAccountId - The ID of the fixed account to delete
+   */
+  async function handleDeleteFixa(fixedAccountId) {
+    if (!confirm('Tem certeza que deseja excluir esta conta fixa?')) return;
     try {
-      const res = await globalThis.fetch('/api/contafixa', {
-        method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id })
+      const response = await fetch('/api/contafixa', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: fixedAccountId })
       });
-      if (!res.ok) throw new Error('Falha ao excluir');
+      if (!response.ok) throw new Error('Falha ao excluir');
       fetchFixas();
-    } catch (e) {
-      globalThis.alert(e.message || 'Erro ao excluir conta fixa');
+    } catch (error) {
+      alert(error.message || 'Erro ao excluir conta fixa');
     }
   }
 
@@ -485,9 +704,13 @@ export default function ContasAPagarPage() {
           onChangeDueTo={setDueTo}
           statusFilter={statusFilter}
           onChangeStatus={setStatusFilter}
-          onClear={clearAll}
+          onClear={handleClearAll}
           inputSx={inputSx}
-          rightActions={<SmallSecondaryButton onClick={onGerarPDFFixas}>Gerar PDF (com fixas)</SmallSecondaryButton>}
+          rightActions={
+            <SmallSecondaryButton onClick={handleGeneratePDFFixas}>
+              Gerar PDF (com fixas)
+            </SmallSecondaryButton>
+          }
         />
       </PageSection>
 
@@ -497,13 +720,15 @@ export default function ContasAPagarPage() {
           <label>Buscar</label>
           <FE.Input
             ref={inputRef}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Buscar por Cliente, Ação ou Colaborador (somente Custos ações)"
           />
         </SearchCol>
         <RowInline>
-          <SmallSecondaryButton onClick={onGerarPDFAcoes}>Gerar PDF (ações)</SmallSecondaryButton>
+          <SmallSecondaryButton onClick={handleGeneratePDFAcoes}>
+            Gerar PDF (ações)
+          </SmallSecondaryButton>
         </RowInline>
       </SearchRow>
 
@@ -517,7 +742,7 @@ export default function ContasAPagarPage() {
           onChangePageSize={setPageSizeAcoes}
           sortKey={sortKeyAcoes}
           sortDir={sortDirAcoes}
-          onToggleSort={toggleSortAcoes}
+          onToggleSort={handleToggleSortAcoes}
           onChangeStatus={handleStatusChange}
           session={session}
         />
@@ -526,7 +751,7 @@ export default function ContasAPagarPage() {
       <H2Large>Contas Fixas</H2Large>
       {session?.user?.role === 'admin' && (
         <RowTopGap>
-          <FE.TopButton onClick={openNewFixa}>Nova Conta Fixa</FE.TopButton>
+          <FE.TopButton onClick={handleOpenNewFixa}>Nova Conta Fixa</FE.TopButton>
         </RowTopGap>
       )}
       <SmallNote>
@@ -536,15 +761,15 @@ export default function ContasAPagarPage() {
         rows={sortedFixas}
         sortKey={sortKeyFixas}
         sortDir={sortDirFixas}
-        onToggleSort={toggleSortFixas}
+        onToggleSort={handleToggleSortFixas}
         page={pageFixas}
         pageSize={pageSizeFixas}
         onChangePage={setPageFixas}
         onChangePageSize={setPageSizeFixas}
         getDisplayStatus={getDisplayStatus}
         formatDateBR={formatDateBR}
-        onEdit={openEditFixa}
-        onDelete={deleteFixa}
+        onEdit={handleOpenEditFixa}
+        onDelete={handleDeleteFixa}
         onStatusChange={handleFixaStatusChange}
       />
 
@@ -555,22 +780,34 @@ export default function ContasAPagarPage() {
             <ModalGrid>
               <ModalField>
                 <label>Nome</label>
-                <FE.Input value={fixaForm.name} onChange={e => setFixaForm(f => ({ ...f, name: e.target.value }))} />
+                <FE.Input
+                  value={fixaForm.name}
+                  onChange={e => setFixaForm(previousForm => ({ ...previousForm, name: e.target.value }))}
+                />
               </ModalField>
               <ModalField>
                 <label>Empresa</label>
-                <FE.Input value={fixaForm.empresa} onChange={e => setFixaForm(f => ({ ...f, empresa: e.target.value }))} />
+                <FE.Input
+                  value={fixaForm.empresa}
+                  onChange={e => setFixaForm(previousForm => ({ ...previousForm, empresa: e.target.value }))}
+                />
               </ModalField>
               <ModalField>
                 <label>Tipo</label>
-                <FE.Select value={fixaForm.tipo} onChange={e => setFixaForm(f => ({ ...f, tipo: e.target.value }))}>
+                <FE.Select
+                  value={fixaForm.tipo}
+                  onChange={e => setFixaForm(previousForm => ({ ...previousForm, tipo: e.target.value }))}
+                >
                   <option value="quizenal">Quinzenal</option>
                   <option value="mensal">Mensal</option>
                 </FE.Select>
               </ModalField>
               <ModalField>
                 <label>Status</label>
-                <FE.Select value={fixaForm.status} onChange={e => setFixaForm(f => ({ ...f, status: e.target.value }))}>
+                <FE.Select
+                  value={fixaForm.status}
+                  onChange={e => setFixaForm(previousForm => ({ ...previousForm, status: e.target.value }))}
+                >
                   <option value="ABERTO">ABERTO</option>
                   <option value="PAGO">PAGO</option>
                 </FE.Select>
@@ -579,17 +816,22 @@ export default function ContasAPagarPage() {
                 <label>Vencimento</label>
                 <BRDateInput
                   value={fixaForm.vencimento}
-                  onChange={(iso) => setFixaForm(f => ({ ...f, vencimento: iso }))}
+                  onChange={(isoDate) => setFixaForm(previousForm => ({ ...previousForm, vencimento: isoDate }))}
                 />
               </ModalField>
               <ModalField>
                 <label>Valor</label>
-                <BRCurrencyInput value={fixaForm.valor} onChange={(val) => setFixaForm(f => ({ ...f, valor: val }))} />
+                <BRCurrencyInput
+                  value={fixaForm.valor}
+                  onChange={(value) => setFixaForm(previousForm => ({ ...previousForm, valor: value }))}
+                />
               </ModalField>
             </ModalGrid>
             <RowEnd>
-              <FE.SecondaryButton onClick={() => setShowFixaModal(false)}>Cancelar</FE.SecondaryButton>
-              <FE.Button onClick={saveFixa}>Salvar</FE.Button>
+              <FE.SecondaryButton onClick={() => setShowFixaModal(false)}>
+                Cancelar
+              </FE.SecondaryButton>
+              <FE.Button onClick={handleSaveFixa}>Salvar</FE.Button>
             </RowEnd>
           </ModalCard>
         </ModalOverlay>

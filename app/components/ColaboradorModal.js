@@ -8,11 +8,12 @@ import * as FL from './FormLayout';
 const Title = styled.h2`
   margin-bottom: var(--space-sm, var(--space-sm, var(--space-sm, 12px)));
 `;
-// using FE.Input instead of local Input
-// GridTwo imported from primitives
 
-export default function ColaboradorModal({ open, onClose, onSubmit, initial }) {
-  const [form, setForm] = useState({
+/**
+ * Creates initial empty form state
+ */
+function createEmptyForm() {
+  return {
     nome: "",
     empresa: "",
     pix: "",
@@ -23,22 +24,41 @@ export default function ColaboradorModal({ open, onClose, onSubmit, initial }) {
     email: "",
     tipo: "",
     cnpjCpf: "",
-  });
+  };
+}
+
+/**
+ * Sanitizes numeric fields by removing non-digit characters
+ */
+function sanitizeNumericField(fieldName, value) {
+  if (fieldName === "codigo") {
+    return value.replace(/\D/g, "");
+  }
+  return value;
+}
+
+/**
+ * ColaboradorModal - Form modal for creating and editing colaboradores
+ */
+export default function ColaboradorModal({ open, onClose, onSubmit, initial }) {
+  const [form, setForm] = useState(createEmptyForm());
 
   useEffect(() => {
-    if (initial) setForm({ ...initial });
+    if (initial) {
+      setForm({ ...initial });
+    }
   }, [initial]);
 
   function handleChange(e) {
-    let value = e.target.value;
-    if (e.target.name === "codigo") value = value.replace(/\D/g, "");
-    setForm((s) => ({ ...s, [e.target.name]: value }));
+    const fieldName = e.target.name;
+    const sanitizedValue = sanitizeNumericField(fieldName, e.target.value);
+    setForm((previousForm) => ({ ...previousForm, [fieldName]: sanitizedValue }));
   }
 
   function handleSubmit(e) {
     e.preventDefault();
     onSubmit(form);
-    setForm({ nome: "", empresa: "", pix: "", banco: "", conta: "", uf: "", telefone: "", email: "", tipo: "", cnpjCpf: "" });
+    setForm(createEmptyForm());
   }
 
   if (!open) return null;

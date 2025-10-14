@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 "use client";
 import styled from "styled-components";
 import { RowBottomGap } from '../components/ui/primitives';
@@ -82,12 +83,194 @@ const ChartPlaceholder = styled.div`
 
 // using shared Skeleton component (app/components/ui/Skeleton.js)
 
+/**
+ * Fetches JSON data from URL
+ * @param {string} url - URL to fetch
+ * @returns {Promise<any>} Parsed JSON response
+ * @throws {Error} If request fails
+ */
 async function fetchJson(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error("Request failed");
-  return res.json();
+  const response = await fetch(url);
+  if (!response.ok) throw new Error("Request failed");
+  return response.json();
 }
 
+/**
+ * Checks if a date is within the filter range
+ * @param {string|Date} date - Date to check
+ * @param {string} filterFrom - Start date (ISO)
+ * @param {string} filterTo - End date (ISO)
+ * @returns {boolean} Whether date is in range
+ */
+function isDateInRange(date, filterFrom, filterTo) {
+  if (!date) return true;
+
+  const dateObj = new Date(date);
+  if (Number.isNaN(dateObj.getTime())) return true;
+
+  if (filterFrom) {
+    const fromDate = new Date(filterFrom);
+    if (dateObj < fromDate) return false;
+  }
+
+  if (filterTo) {
+    const toDate = new Date(filterTo);
+    // Include end day
+    toDate.setHours(23, 59, 59, 999);
+    if (dateObj > toDate) return false;
+  }
+
+  return true;
+}
+
+/**
+ * Checks if a client matches the filter
+ * @param {string} clientId - Client ID
+ * @param {string} clientName - Client name
+ * @param {string} filterClient - Filter client ID
+ * @returns {boolean} Whether client matches
+ */
+function matchesClientFilter(clientId, clientName, filterClient) {
+  if (!filterClient) return true;
+  if (clientId && String(clientId) === String(filterClient)) return true;
+  if (clientName && String(clientName).toLowerCase() === String(filterClient).toLowerCase()) return true;
+  return false;
+}
+
+/**
+ * Gets the action for a conta a pagar row
+ * @param {Object} row - Conta a pagar row
+ * @param {Array} acoesList - List of actions
+ * @returns {Object|null} Action object or null
+ */
+function getActionForContaPagar(row, acoesList = []) {
+  // If actionId is populated (has action properties), return it
+  if (row?.actionId?.staff || row?.actionId?.costs || row?.actionId?.name) {
+    return row.actionId;
+  }
+
+  // Otherwise, extract the ID and look it up from acoesList
+  let actionId = '';
+
+  // Handle different possible formats of actionId
+  if (!row?.actionId) {
+    return null;
+  }
+
+  if (typeof row.actionId === 'string') {
+    actionId = row.actionId;
+  } else if (typeof row.actionId === 'object') {
+    // Could be a Mongoose ObjectId object or a plain object with _id
+    actionId = String(row.actionId._id || row.actionId);
+  }
+
+  if (!actionId || !acoesList.length) {
+    return null;
+  }
+
+  // Find the action in the list
+  const action = acoesList.find(a => String(a._id) === actionId);
+  return action || null;
+}
+
+/**
+ * Extracts value from conta a pagar row
+ * @param {Object} row - Conta a pagar row
+ * @param {Array} acoesList - List of actions to lookup values from
+ * @returns {number} Value amount
+ */
+function extractContaPagarValue(row, acoesList = []) {
+  const action = getActionForContaPagar(row, acoesList);
+  if (!action) return 0;
+
+  const staffList = Array.isArray(action.staff) ? action.staff : [];
+  const costsList = Array.isArray(action.costs) ? action.costs : [];
+
+  const staffItem = row?.staffName
+    ? staffList.find((s) => s.name === row.staffName)
+    : null;
+
+  const costItem = !row?.staffName && row?.costId
+    ? costsList.find((c) => String(c._id) === String(row.costId))
+    : null;
+
+  return Number((staffItem?.value ?? costItem?.value) || 0);
+}
+
+/**
+ * Formats date to month key (YYYY-MM)
+ * @param {string|Date} date - Date to format
+ * @returns {string|null} Month key or null if invalid
+ */
+function toMonthKey(date) {
+  const dateObj = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(dateObj.getTime())) return null;
+  return `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/**
+ * Saves filters to localStorage
+ * @param {string} client - Client ID
+ * @param {string} from - Start date
+ * @param {string} to - End date
+ */
+function saveFiltersToLocalStorage(client, from, to) {
+  try {
+    if (globalThis?.localStorage) {
+      const filters = JSON.stringify({ client, from, to });
+      globalThis.localStorage.setItem('dashboard_filters', filters);
+    }
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+/**
+ * Updates URL query parameters
+ * @param {URLSearchParams} searchParams - Current search params
+ * @param {Object} router - Next.js router
+ * @param {Object} filters - Filter values
+ * @param {boolean} replace - Use replace instead of push
+ */
+function updateURLParams(searchParams, router, filters, replace = false) {
+  try {
+    const queryParams = new URLSearchParams(Array.from(searchParams?.entries?.() || []));
+
+    if (filters.client) {
+      queryParams.set('client', filters.client);
+    } else {
+      queryParams.delete('client');
+    }
+
+    if (filters.from) {
+      queryParams.set('from', filters.from);
+    } else {
+      queryParams.delete('from');
+    }
+
+    if (filters.to) {
+      queryParams.set('to', filters.to);
+    } else {
+      queryParams.delete('to');
+    }
+
+    const newURL = `${globalThis.location.pathname}?${queryParams.toString()}`;
+
+    if (router) {
+      if (replace && router.replace) {
+        router.replace(newURL);
+      } else if (router.push) {
+        router.push(newURL);
+      }
+    }
+  } catch {
+    // Ignore URL update errors
+  }
+}
+
+/**
+ * Dashboard client component with KPIs and charts
+ */
 export default function DashboardClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -103,29 +286,35 @@ export default function DashboardClient() {
   const searchParams = useSearchParams?.() ?? null;
   const router = useRouter?.() ?? null;
 
-  // handlers to avoid naming collisions in JSX props
-  const handleSetFilterClient = (id) => {
-    setFilterClient(id);
-    try {
-      const qp = new URLSearchParams(Array.from(searchParams?.entries?.() || []));
-      if (id) qp.set('client', id); else qp.delete('client');
-      if (router && router.push) router.push(`${globalThis.location.pathname}?${qp.toString()}`);
-    } catch { /* ignore */ }
-    try { if (globalThis?.localStorage) globalThis.localStorage.setItem('dashboard_filters', JSON.stringify({ client: id, from: filterFrom, to: filterTo })); } catch { /* ignore */ }
+  // Handlers to avoid naming collisions in JSX props
+  const handleSetFilterClient = (clientId) => {
+    setFilterClient(clientId);
+    updateURLParams(searchParams, router, {
+      client: clientId,
+      from: filterFrom,
+      to: filterTo
+    }, false);
+    saveFiltersToLocalStorage(clientId, filterFrom, filterTo);
   };
-  const handleSetFilterFrom = (v) => { setFilterFrom(v); try { if (globalThis?.localStorage) globalThis.localStorage.setItem('dashboard_filters', JSON.stringify({ client: filterClient, from: v, to: filterTo })); } catch { /* ignore */ } };
-  const handleSetFilterTo = (v) => { setFilterTo(v); try { if (globalThis?.localStorage) globalThis.localStorage.setItem('dashboard_filters', JSON.stringify({ client: filterClient, from: filterFrom, to: v })); } catch { /* ignore */ } };
 
-  // apply filters but avoid pushing on every single input change; use router.replace for minimal history noise
+  const handleSetFilterFrom = (dateValue) => {
+    setFilterFrom(dateValue);
+    saveFiltersToLocalStorage(filterClient, dateValue, filterTo);
+  };
+
+  const handleSetFilterTo = (dateValue) => {
+    setFilterTo(dateValue);
+    saveFiltersToLocalStorage(filterClient, filterFrom, dateValue);
+  };
+
+  // Apply filters but avoid pushing on every single input change; use router.replace for minimal history noise
   const applyFilters = () => {
-    try {
-      const qp = new URLSearchParams(Array.from(searchParams?.entries?.() || []));
-      if (filterClient) qp.set('client', filterClient); else qp.delete('client');
-      if (filterFrom) qp.set('from', filterFrom); else qp.delete('from');
-      if (filterTo) qp.set('to', filterTo); else qp.delete('to');
-      if (router && router.replace) router.replace(`${globalThis.location.pathname}?${qp.toString()}`);
-    } catch { /* ignore */ }
-    try { if (globalThis?.localStorage) globalThis.localStorage.setItem('dashboard_filters', JSON.stringify({ client: filterClient, from: filterFrom, to: filterTo })); } catch { /* ignore */ }
+    updateURLParams(searchParams, router, {
+      client: filterClient,
+      from: filterFrom,
+      to: filterTo
+    }, true);
+    saveFiltersToLocalStorage(filterClient, filterFrom, filterTo);
   };
 
   useEffect(() => {
@@ -133,18 +322,15 @@ export default function DashboardClient() {
     (async () => {
       setLoading(true);
       setError("");
-      // restore filters from query params or localStorage
+      // restore date filters from query params or localStorage
       try {
         const qpClient = searchParams?.get?.('client');
         const qpFrom = searchParams?.get?.('from');
         const qpTo = searchParams?.get?.('to');
+
+        // Only set client filter from URL params (not localStorage yet)
         if (qpClient) setFilterClient(qpClient);
-        else if (globalThis?.localStorage) {
-          const ls = globalThis.localStorage.getItem('dashboard_filters');
-          if (ls) {
-            try { const parsed = JSON.parse(ls); if (parsed.client) setFilterClient(parsed.client); } catch { /* ignore */ }
-          }
-        }
+
         if (qpFrom) setFilterFrom(qpFrom);
         if (qpTo) setFilterTo(qpTo);
       } catch { /* ignore */ }
@@ -152,7 +338,7 @@ export default function DashboardClient() {
         const [a, p, r, c, k] = await Promise.allSettled([
           fetchJson("/api/action"),
           fetchJson("/api/contasapagar"),
-          fetchJson("/api/contasareceber"),
+          fetchJson("/api/contasareceber?pageSize=1000"), // Request all items for dashboard
           fetchJson("/api/cliente"),
           fetchJson("/api/colaborador"),
         ]);
@@ -160,8 +346,30 @@ export default function DashboardClient() {
         setAcoes(Array.isArray(a.value) ? a.value : []);
         setPagar(Array.isArray(p.value) ? p.value : []);
         setReceber(r.value && typeof r.value === "object" ? r.value : { items: [], total: 0 });
-        setClientes(Array.isArray(c.value) ? c.value : []);
+
+        const clientsList = Array.isArray(c.value) ? c.value : [];
+        setClientes(clientsList);
         setColabs(Array.isArray(k.value) ? k.value : []);
+
+        // Restore client filter from localStorage if not from URL
+        if (!searchParams?.get?.('client') && globalThis?.localStorage) {
+          const ls = globalThis.localStorage.getItem('dashboard_filters');
+          if (ls) {
+            try {
+              const parsed = JSON.parse(ls);
+              if (parsed.client) {
+                // Only restore if the client exists in the list
+                const clientExists = clientsList.some(client => String(client._id) === parsed.client);
+                if (clientExists) {
+                  setFilterClient(parsed.client);
+                } else {
+                  console.log('⚠️ Invalid client in localStorage, ignoring:', parsed.client);
+                  globalThis.localStorage.removeItem('dashboard_filters');
+                }
+              }
+            } catch { /* ignore */ }
+          }
+        }
       } catch {
         if (mounted) setError("Erro ao carregar dados do dashboard");
       } finally {
@@ -172,63 +380,70 @@ export default function DashboardClient() {
       mounted = false;
     };
   }, []);
-  const kpis = useMemo(() => {
-    const inRange = (d) => {
-      if (!d) return true;
-      const dt = new Date(d);
-      if (Number.isNaN(dt.getTime())) return true;
-      if (filterFrom) {
-        const from = new Date(filterFrom);
-        if (dt < from) return false;
-      }
-      if (filterTo) {
-        const to = new Date(filterTo);
-        // include end day
-        to.setHours(23, 59, 59, 999);
-        if (dt > to) return false;
-      }
-      return true;
-    };
-    // match by client id (filterClient stores id). fallback by name only when id missing
-    const matchClient = (id, name) => {
-      if (!filterClient) return true;
-      if (id && String(id) === String(filterClient)) return true;
-      if (name && String(name).toLowerCase() === String(filterClient).toLowerCase()) return true;
-      return false;
-    };
 
+  // Build client name lookup map
+  const clientNameMap = useMemo(() => {
+    const map = new Map();
+    clientes.forEach(cliente => {
+      const id = String(cliente._id);
+      const codigo = cliente.codigo ? `${cliente.codigo} ` : '';
+      const name = `${codigo}${cliente.nome || ''}`.trim();
+      map.set(id, name);
+    });
+    return map;
+  }, [clientes]);
+
+  const kpis = useMemo(() => {
     const totalAcoes = acoes.length;
     const totalClientes = clientes.length;
     const totalColabs = colabs.length;
+
     let receitaPrevista = 0;
     let receitaRecebida = 0;
-    (receber.items || []).forEach((r) => {
-      const clientId = r?.clientId || r?.receivable?.clientId || r?.cliente?._id || "";
-      const clientName = r?.clientName || r?.cliente?.name || "";
-      const date = r?.receivable?.dataRecebimento || r?.receivable?.dataVencimento || r?.date || r?.reportDate;
-      if (!matchClient(clientId, clientName) || !inRange(date)) return;
-      const val = Number(r?.valor ?? r?.receivable?.valor ?? 0) || 0;
-      receitaPrevista += val;
-      const status = String(r?.receivable?.status ?? "").toUpperCase();
-      if (status === "RECEBIDO") receitaRecebida += val;
+
+    (receber.items || []).forEach((item) => {
+      const clientId = item?.clientId || item?.receivable?.clientId || item?.cliente?._id || "";
+      const clientName = item?.clientName || item?.cliente?.name || "";
+      const date = item?.receivable?.dataRecebimento || item?.receivable?.dataVencimento || item?.date || item?.reportDate;
+
+      if (!matchesClientFilter(clientId, clientName, filterClient) || !isDateInRange(date, filterFrom, filterTo)) {
+        return;
+      }
+
+      // Fix: API returns 'value', not 'valor'
+      const value = Number(item?.value ?? item?.receivable?.valor ?? 0) || 0;
+      receitaPrevista += value;
+
+      const status = String(item?.receivable?.status ?? "").toUpperCase();
+      if (status === "RECEBIDO") {
+        receitaRecebida += value;
+      }
     });
+
     let custosPrevistos = 0;
     let custosPagos = 0;
+
     (pagar || []).forEach((row) => {
-      const clientId = row?.actionId?.client || row?.actionId?.clientId || '';
-      const clientName = row?.actionId?.clientName || row?.actionId?.client?.name || row?.clientName || "";
-      const date = row?.actionId?.date || row?.reportDate;
-      if (!matchClient(clientId, clientName) || !inRange(date)) return;
-      const staff = Array.isArray(row?.actionId?.staff) ? row.actionId.staff : [];
-      const costs = Array.isArray(row?.actionId?.costs) ? row.actionId.costs : [];
-      const st = row?.staffName ? staff.find((s) => s.name === row.staffName) : null;
-      const ct = !row?.staffName && row?.costId ? costs.find((c) => String(c._id) === String(row.costId)) : null;
-      const val = Number((st?.value ?? ct?.value) || 0);
-      custosPrevistos += val;
-      if (String(row?.status || "ABERTO").toUpperCase() === "PAGO") custosPagos += val;
-    });
-    const lucroPrev = receitaPrevista - custosPrevistos;
+      const action = getActionForContaPagar(row, acoes);
+      if (!action) return;
+
+      const clientId = String(action.client || '');
+      const clientName = clientNameMap.get(clientId) || row?.clientName || "";
+      const date = action.date || row?.reportDate;
+
+      if (!matchesClientFilter(clientId, clientName, filterClient) || !isDateInRange(date, filterFrom, filterTo)) {
+        return;
+      }
+
+      const value = extractContaPagarValue(row, acoes);
+      custosPrevistos += value;
+
+      if (String(row?.status || "ABERTO").toUpperCase() === "PAGO") {
+        custosPagos += value;
+      }
+    }); const lucroPrev = receitaPrevista - custosPrevistos;
     const lucroReal = receitaRecebida - custosPagos;
+
     return {
       totalAcoes,
       totalClientes,
@@ -240,43 +455,61 @@ export default function DashboardClient() {
       lucroPrev,
       lucroReal,
     };
-  }, [acoes, clientes, colabs, pagar, receber, filterClient, filterFrom, filterTo]);
+  }, [acoes, clientes, colabs, pagar, receber, clientNameMap, filterClient, filterFrom, filterTo]);
 
   const monthlySeries = useMemo(() => {
-    const map = new Map();
-    const toKey = (d) => {
-      const dt = d instanceof Date ? d : new Date(d);
-      if (Number.isNaN(dt.getTime())) return null;
-      return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`;
-    };
-    (receber.items || []).forEach((r) => {
-      const date = r?.receivable?.dataRecebimento || r?.receivable?.dataVencimento || r?.date || r?.reportDate;
-      const key = toKey(date);
-      if (!key) return;
-      const val = Number(r?.valor ?? r?.receivable?.valor ?? 0) || 0;
-      const acc = map.get(key) || { r: 0, c: 0 };
-      acc.r += val;
-      map.set(key, acc);
+    const monthlyData = new Map();
+
+    // Aggregate receita by month
+    (receber.items || []).forEach((item) => {
+      const date = item?.receivable?.dataRecebimento || item?.receivable?.dataVencimento || item?.date || item?.reportDate;
+      const monthKey = toMonthKey(date);
+      if (!monthKey) return;
+
+      // Fix: API returns 'value', not 'valor'
+      const value = Number(item?.value ?? item?.receivable?.valor ?? 0) || 0;
+      const accumulated = monthlyData.get(monthKey) || { r: 0, c: 0 };
+      accumulated.r += value;
+      monthlyData.set(monthKey, accumulated);
     });
+
+    // Aggregate custos by month
     (pagar || []).forEach((row) => {
-      const date = row?.actionId?.date || row?.reportDate;
-      const key = toKey(date);
-      if (!key) return;
-      const staff = Array.isArray(row?.actionId?.staff) ? row.actionId.staff : [];
-      const costs = Array.isArray(row?.actionId?.costs) ? row.actionId.costs : [];
-      const st = row?.staffName ? staff.find((s) => s.name === row.staffName) : null;
-      const ct = !row?.staffName && row?.costId ? costs.find((c) => String(c._id) === String(row.costId)) : null;
-      const val = Number((st?.value ?? ct?.value) || 0);
-      const acc = map.get(key) || { r: 0, c: 0 };
-      acc.c += val;
-      map.set(key, acc);
+      const action = getActionForContaPagar(row, acoes);
+      const date = action?.date || row?.reportDate;
+      const monthKey = toMonthKey(date);
+      if (!monthKey) return;
+
+      const value = extractContaPagarValue(row, acoes);
+      const accumulated = monthlyData.get(monthKey) || { r: 0, c: 0 };
+      accumulated.c += value;
+      monthlyData.set(monthKey, accumulated);
     });
-    const keys = Array.from(map.keys()).sort();
-    const trimmed = keys.slice(-12);
-    const receita = { id: "Receita", color: "#16a34a", data: trimmed.map((k) => ({ x: k, y: map.get(k)?.r || 0 })) };
-    const custos = { id: "Custos", color: "#ef4444", data: trimmed.map((k) => ({ x: k, y: map.get(k)?.c || 0 })) };
-    return [receita, custos];
-  }, [receber, pagar]);
+
+    // Get last 12 months
+    const monthKeys = Array.from(monthlyData.keys()).sort();
+    const last12Months = monthKeys.slice(-12);
+
+    const receitaSeries = {
+      id: "Receita",
+      color: "#16a34a",
+      data: last12Months.map((key) => ({
+        x: key,
+        y: monthlyData.get(key)?.r || 0
+      }))
+    };
+
+    const custosSeries = {
+      id: "Custos",
+      color: "#ef4444",
+      data: last12Months.map((key) => ({
+        x: key,
+        y: monthlyData.get(key)?.c || 0
+      }))
+    };
+
+    return [receitaSeries, custosSeries];
+  }, [receber, pagar, acoes]);
 
   const topClientes = useMemo(() => {
     const acc = new Map();
@@ -292,57 +525,67 @@ export default function DashboardClient() {
   }, [receber]);
 
   const marginsByClient = useMemo(() => {
-    const rev = new Map();
-    const cost = new Map();
-    const inRange = (d) => {
-      if (!d) return true;
-      const dt = new Date(d);
-      if (Number.isNaN(dt.getTime())) return true;
-      if (filterFrom) {
-        const from = new Date(filterFrom);
-        if (dt < from) return false;
-      }
-      if (filterTo) {
-        const to = new Date(filterTo);
-        to.setHours(23, 59, 59, 999);
-        if (dt > to) return false;
-      }
-      return true;
-    };
-    const matchClient = (name) => {
+    const receitaByClient = new Map();
+    const custosByClient = new Map();
+
+    // Helper to match client by name only (used for margins)
+    const matchClientByName = (clientName) => {
       if (!filterClient) return true;
-      if (!name) return false;
-      return String(name).toLowerCase() === String(filterClient).toLowerCase();
+      if (!clientName) return false;
+      return String(clientName).toLowerCase() === String(filterClient).toLowerCase();
     };
 
-    (receber.items || []).forEach((r) => {
-      const name = r?.clientName || r?.cliente?.name || "Cliente";
-      const date = r?.receivable?.dataRecebimento || r?.receivable?.dataVencimento || r?.date || r?.reportDate;
-      if (!matchClient(name) || !inRange(date)) return;
-      const val = Number(r?.valor ?? r?.receivable?.valor ?? 0) || 0;
-      rev.set(name, (rev.get(name) || 0) + val);
+    // Aggregate receita by client
+    (receber.items || []).forEach((item) => {
+      const clientName = item?.clientName || item?.cliente?.name || "Cliente";
+      const date = item?.receivable?.dataRecebimento || item?.receivable?.dataVencimento || item?.date || item?.reportDate;
+
+      if (!matchClientByName(clientName) || !isDateInRange(date, filterFrom, filterTo)) {
+        return;
+      }
+
+      // Fix: API returns 'value', not 'valor'
+      const value = Number(item?.value ?? item?.receivable?.valor ?? 0) || 0;
+      receitaByClient.set(clientName, (receitaByClient.get(clientName) || 0) + value);
     });
+
+    // Aggregate custos by client
     (pagar || []).forEach((row) => {
-      const name = row?.actionId?.clientName || row?.actionId?.client?.name || row?.clientName || "Cliente";
-      const date = row?.actionId?.date || row?.reportDate;
-      if (!matchClient(name) || !inRange(date)) return;
-      const staff = Array.isArray(row?.actionId?.staff) ? row.actionId.staff : [];
-      const costs = Array.isArray(row?.actionId?.costs) ? row.actionId.costs : [];
-      const st = row?.staffName ? staff.find((s) => s.name === row.staffName) : null;
-      const ct = !row?.staffName && row?.costId ? costs.find((c) => String(c._id) === String(row.costId)) : null;
-      const val = Number((st?.value ?? ct?.value) || 0);
-      cost.set(name, (cost.get(name) || 0) + val);
+      const action = getActionForContaPagar(row, acoes);
+      if (!action) return;
+
+      const clientId = String(action.client || '');
+      const clientName = clientNameMap.get(clientId) || row?.clientName || "Cliente";
+      const date = action.date || row?.reportDate;
+
+      if (!matchClientByName(clientName) || !isDateInRange(date, filterFrom, filterTo)) {
+        return;
+      }
+
+      const value = extractContaPagarValue(row, acoes);
+      custosByClient.set(clientName, (custosByClient.get(clientName) || 0) + value);
     });
-    const all = Array.from(new Set([...rev.keys(), ...cost.keys()]));
-    return all
-      .map((name) => {
-        const r = rev.get(name) || 0;
-        const c = cost.get(name) || 0;
-        return { cliente: name, margin: r - c, receita: r, custos: c };
+
+    // Combine all clients
+    const allClientNames = Array.from(new Set([
+      ...receitaByClient.keys(),
+      ...custosByClient.keys()
+    ]));
+
+    return allClientNames
+      .map((clientName) => {
+        const receita = receitaByClient.get(clientName) || 0;
+        const custos = custosByClient.get(clientName) || 0;
+        return {
+          cliente: clientName,
+          margin: receita - custos,
+          receita,
+          custos
+        };
       })
-      .sort((a, b) => b.margin - a.margin)
+      .sort((a, b) => b.margem - a.margem)
       .slice(0, 8);
-  }, [receber, pagar, filterClient, filterFrom, filterTo]);
+  }, [receber, pagar, acoes, clientNameMap, filterClient, filterFrom, filterTo]);
 
   const statusDistrib = useMemo(() => {
     const pagarCounts = { ABERTO: 0, PAGO: 0 };

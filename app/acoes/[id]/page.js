@@ -8,15 +8,13 @@ import * as FE from '../../components/FormElements';
 import { useSession } from 'next-auth/react';
 import styled from 'styled-components';
 import { ActionsInline } from '../../components/ui/primitives';
-// Table extracted into components
 import StaffTable from "../components/StaffTable";
 import CostsTable from "../components/CostsTable";
 import { formatDateBR } from '@/lib/utils/dates';
-// Local styled value (avoid importing internals from react-select which breaks Next.js exports)
+
+// Styled components
 const Value = styled.div` color: #222; `;
-const Wrapper = styled.div`
-  padding: var(--space-lg);
-`;
+const Wrapper = styled.div` padding: var(--space-lg); `;
 const Title = styled.h1`
   font-size: var(--font-h2);
   margin-bottom: var(--space-sm);
@@ -28,124 +26,232 @@ const HeaderRow = styled.div`
   gap: var(--gap-sm);
 `;
 const ButtonGroup = ActionsInline;
-// Use shared FE buttons for consistent style
-const Section = styled.div`
-  margin: var(--space-sm) 0;
-`;
+const Section = styled.div` margin: var(--space-sm) 0; `;
 const Grid = styled.div`
   display: grid;
   grid-template-columns: repeat(2, minmax(220px, 1fr));
   gap: var(--gap-sm) var(--space-lg);
 `;
-const Label = styled.div`
-  font-weight: 600;
-`;
-const ActionsWrap = styled(ActionsInline)`
-  margin-top: var(--space-xs);
-`;
-// Use shared Table, Th, Td (with zebra striping)
+const Label = styled.div` font-weight: 600; `;
+const ActionsWrap = styled(ActionsInline)` margin-top: var(--space-xs); `;
+
+/**
+ * Fetches action details from API
+ */
+async function fetchActionById(actionId) {
+  const response = await fetch(`/api/action/${actionId}`);
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Falha ao carregar ação');
+  }
+  return await response.json();
+}
+
+/**
+ * Fetches all colaboradores from API
+ */
+async function fetchColaboradores() {
+  try {
+    const response = await fetch('/api/colaborador');
+    return await response.json();
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Checks if user has permission to edit the action
+ */
+function canUserEditAction(action, userSession) {
+  if (userSession?.user?.role === 'admin') {
+    return true;
+  }
+
+  if (Array.isArray(action?.staff)) {
+    const staffNames = action.staff.map(staffMember => staffMember?.name);
+    return staffNames.includes(userSession?.user?.username);
+  }
+
+  return false;
+}
+
+/**
+ * Updates an action via the API
+ */
+async function updateAction(actionId, payload) {
+  const response = await fetch('/api/action/edit', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: actionId, ...payload })
+  });
+
+  if (!response.ok) {
+    throw new Error('Falha ao salvar');
+  }
+}
+
+/**
+ * Updates costs array for an action
+ */
+async function updateActionCosts(actionId, costs) {
+  const response = await fetch('/api/action/edit', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: actionId, costs })
+  });
+
+  if (!response.ok) {
+    throw new Error('Falha ao salvar custo');
+  }
+}
+
+/**
+ * Builds updated costs array with new/edited cost
+ */
+function buildUpdatedCosts(existingCosts, newCostData, editIndex) {
+  if (editIndex != null) {
+    return existingCosts.map((cost, index) =>
+      index === editIndex ? { ...cost, ...newCostData } : cost
+    );
+  }
+  return [...existingCosts, newCostData];
+}
+
+/**
+ * Builds updated costs array with cost removed
+ */
+function buildCostsWithRemoval(existingCosts, removeIndex) {
+  return existingCosts.filter((_, index) => index !== removeIndex);
+}
 
 
 export default function ActionDetailsPage({ params }) {
-  // Next.js 15: params is a Promise in client components
-  const { id } = useUnwrap(params);
+  const { id: actionId } = useUnwrap(params);
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: userSession } = useSession();
   const ActionModal = dynamic(() => import('../../components/ActionModal'), { ssr: false });
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState(null);
-  const [acao, setAcao] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [costModalOpen, setCostModalOpen] = useState(false);
-  const [costInitial, setCostInitial] = useState(null);
-  const [costEditIndex, setCostEditIndex] = useState(null);
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingAction, setEditingAction] = useState(null);
+  const [action, setAction] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isCostModalOpen, setIsCostModalOpen] = useState(false);
+  const [initialCostData, setInitialCostData] = useState(null);
+  const [editingCostIndex, setEditingCostIndex] = useState(null);
   const [colaboradores, setColaboradores] = useState([]);
 
   useEffect(() => {
-    let cancelled = false;
-    async function fetchAction() {
-      setLoading(true);
+    let isCancelled = false;
+
+    async function loadActionData() {
+      setIsLoading(true);
       try {
-        const res = await fetch(`/api/action/${id}`);
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.error || 'Falha ao carregar ação');
-        }
-        const data = await res.json();
-        if (!cancelled) setAcao(data);
-      } catch (e) {
-        if (!cancelled) setError(e.message || 'Erro ao carregar ação');
+        const actionData = await fetchActionById(actionId);
+        if (!isCancelled) setAction(actionData);
+      } catch (error) {
+        if (!isCancelled) setErrorMessage(error.message || 'Erro ao carregar ação');
+      } finally {
+        if (!isCancelled) setIsLoading(false);
       }
-      if (!cancelled) setLoading(false);
     }
-    if (id) fetchAction();
-    // fetch colaboradores for resolving linked nomes/empresa
-    fetch('/api/colaborador').then(r => r.json()).then(setColaboradores).catch(() => setColaboradores([]));
-    return () => { cancelled = true; };
-  }, [id]);
 
-  if (loading) return <Wrapper>Carregando…</Wrapper>;
-  if (error) return <Wrapper>Erro: {error}</Wrapper>;
-  if (!acao) return <Wrapper>Nenhuma ação encontrada.</Wrapper>;
+    async function loadColaboradores() {
+      const colaboradoresData = await fetchColaboradores();
+      if (!isCancelled) setColaboradores(colaboradoresData);
+    }
 
-  const criadoEm = formatDateBR(acao.date);
-  const inicio = formatDateBR(acao.startDate);
-  const fim = formatDateBR(acao.endDate);
-  const venc = formatDateBR(acao.dueDate);
+    if (actionId) {
+      loadActionData();
+      loadColaboradores();
+    }
 
-  const canEdit = session?.user?.role === 'admin' || (
-    Array.isArray(acao?.staff) && acao.staff.map(s => s?.name).includes(session?.user?.username)
-  );
+    return () => { isCancelled = true; };
+  }, [actionId]);
 
-  const openEdit = () => { setEditing(acao); setModalOpen(true); };
-  const closeEdit = () => { setModalOpen(false); setEditing(null); };
-  const handleModalSubmit = async (payload) => {
+  if (isLoading) return <Wrapper>Carregando…</Wrapper>;
+  if (errorMessage) return <Wrapper>Erro: {errorMessage}</Wrapper>;
+  if (!action) return <Wrapper>Nenhuma ação encontrada.</Wrapper>;
+
+  const createdDate = formatDateBR(action.date);
+  const startDate = formatDateBR(action.startDate);
+  const endDate = formatDateBR(action.endDate);
+  const dueDate = formatDateBR(action.dueDate);
+
+  const hasEditPermission = canUserEditAction(action, userSession);
+
+  const openEditModal = () => {
+    setEditingAction(action);
+    setIsModalOpen(true);
+  };
+
+  const closeEditModal = () => {
+    setIsModalOpen(false);
+    setEditingAction(null);
+  };
+
+  const handleActionSubmit = async (payload) => {
     try {
-      const res = await fetch('/api/action/edit', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: acao._id, ...payload }) });
-      if (!res.ok) throw new Error('Falha ao salvar');
-      closeEdit();
-      // refresh details
-      const r = await fetch(`/api/action/${id}`);
-      if (r.ok) setAcao(await r.json());
-    } catch (e) {
-      alert(e.message || 'Erro ao salvar ação');
+      await updateAction(action._id, payload);
+      closeEditModal();
+
+      // Refresh action details
+      const updatedAction = await fetchActionById(actionId);
+      setAction(updatedAction);
+    } catch (error) {
+      alert(error.message || 'Erro ao salvar ação');
     }
   };
 
-  async function saveCost(payload) {
+  async function handleCostSave(costPayload) {
     try {
-      let costs;
-      if (costEditIndex != null) {
-        const existing = Array.isArray(acao.costs) ? acao.costs : [];
-        costs = existing.map((c, i) => (i === costEditIndex ? { ...c, ...payload } : c));
-      } else {
-        costs = [...(acao.costs || []), payload];
-      }
-      const res = await fetch('/api/action/edit', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: acao._id, costs }) });
-      if (!res.ok) throw new Error('Falha ao salvar custo');
-      setCostModalOpen(false);
-      setCostInitial(null);
-      setCostEditIndex(null);
-      const r = await fetch(`/api/action/${id}`);
-      if (r.ok) setAcao(await r.json());
-    } catch (e) {
-      alert(e.message || 'Erro ao salvar custo');
+      const existingCosts = Array.isArray(action.costs) ? action.costs : [];
+      const updatedCosts = buildUpdatedCosts(existingCosts, costPayload, editingCostIndex);
+
+      await updateActionCosts(action._id, updatedCosts);
+
+      setIsCostModalOpen(false);
+      setInitialCostData(null);
+      setEditingCostIndex(null);
+
+      // Refresh action details
+      const updatedAction = await fetchActionById(actionId);
+      setAction(updatedAction);
+    } catch (error) {
+      alert(error.message || 'Erro ao salvar custo');
     }
   }
 
-  async function deleteCost(index) {
+  async function handleCostDelete(costIndex) {
     if (!globalThis.confirm('Tem certeza que deseja excluir este custo?')) return;
+
     try {
-      const existing = Array.isArray(acao.costs) ? acao.costs : [];
-      const costs = existing.filter((_, i) => i !== index);
-      const res = await fetch('/api/action/edit', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: acao._id, costs }) });
-      if (!res.ok) throw new Error('Falha ao excluir custo');
-      const r = await fetch(`/api/action/${id}`);
-      if (r.ok) setAcao(await r.json());
-    } catch (e) {
-      alert(e.message || 'Erro ao excluir custo');
+      const existingCosts = Array.isArray(action.costs) ? action.costs : [];
+      const updatedCosts = buildCostsWithRemoval(existingCosts, costIndex);
+
+      await updateActionCosts(action._id, updatedCosts);
+
+      // Refresh action details
+      const updatedAction = await fetchActionById(actionId);
+      setAction(updatedAction);
+    } catch (error) {
+      alert(error.message || 'Erro ao excluir custo');
     }
+  }
+
+  function openNewCostModal() {
+    const defaultVencimento = action.dueDate
+      ? String(action.dueDate).slice(0, 10)
+      : '';
+    setInitialCostData({ vencimento: defaultVencimento });
+    setEditingCostIndex(null);
+    setIsCostModalOpen(true);
+  }
+
+  function openEditCostModal(costData, costIndex) {
+    setInitialCostData(costData);
+    setEditingCostIndex(costIndex);
+    setIsCostModalOpen(true);
   }
 
   return (
@@ -154,8 +260,8 @@ export default function ActionDetailsPage({ params }) {
         <Title>Detalhes da Ação</Title>
         <ButtonGroup>
           <FE.SecondaryButton onClick={() => router.back()}>Voltar</FE.SecondaryButton>
-          {canEdit && (
-            <FE.Button onClick={openEdit}>Editar</FE.Button>
+          {hasEditPermission && (
+            <FE.Button onClick={openEditModal}>Editar</FE.Button>
           )}
         </ButtonGroup>
       </HeaderRow>
@@ -164,63 +270,75 @@ export default function ActionDetailsPage({ params }) {
         <Grid>
           <div>
             <Label>Criado em</Label>
-            <Value>{criadoEm}</Value>
+            <Value>{createdDate}</Value>
           </div>
           <div>
             <Label>Evento</Label>
-            <Value>{acao.name || acao.event || ''}</Value>
+            <Value>{action.name || action.event || ''}</Value>
           </div>
           <div>
             <Label>Início</Label>
-            <Value>{inicio}</Value>
+            <Value>{startDate}</Value>
           </div>
           <div>
             <Label>Fim</Label>
-            <Value>{fim}</Value>
+            <Value>{endDate}</Value>
           </div>
           <div>
             <Label>Cliente</Label>
-            <Value>{acao.clientName || acao.client || ''}</Value>
+            <Value>{action.clientName || action.client || ''}</Value>
           </div>
           <div>
             <Label>Vencimento</Label>
-            <Value>{venc}</Value>
+            <Value>{dueDate}</Value>
           </div>
           <div>
             <Label>Pagamento</Label>
-            <Value>{acao.paymentMethod || ''}</Value>
+            <Value>{action.paymentMethod || ''}</Value>
           </div>
           <div>
             <Label>Criado por</Label>
-            <Value>{acao.createdBy || ''}</Value>
+            <Value>{action.createdBy || ''}</Value>
           </div>
         </Grid>
       </Section>
 
       <Section>
         <h3>Colaboradores</h3>
-        <StaffTable acao={acao} staff={acao.staff} colaboradores={colaboradores} />
+        <StaffTable
+          acao={action}
+          staff={action.staff}
+          colaboradores={colaboradores}
+        />
       </Section>
 
       <Section>
         <h3>Custos extras</h3>
         <ActionsWrap>
-          <FE.TopButton onClick={() => { setCostInitial({ vencimento: acao.dueDate ? String(acao.dueDate).slice(0, 10) : '' }); setCostEditIndex(null); setCostModalOpen(true); }}>Novo Custo</FE.TopButton>
+          <FE.TopButton onClick={openNewCostModal}>
+            Novo Custo
+          </FE.TopButton>
         </ActionsWrap>
         <CostsTable
-          acao={acao}
-          costs={acao.costs}
+          acao={action}
+          costs={action.costs}
           colaboradores={colaboradores}
-          onEdit={(c, idx) => { setCostInitial(c); setCostEditIndex(idx); setCostModalOpen(true); }}
-          onDelete={(idx) => deleteCost(idx)}
+          onEdit={openEditCostModal}
+          onDelete={handleCostDelete}
         />
-        <CostModal open={costModalOpen} onClose={() => setCostModalOpen(false)} onSubmit={saveCost} initial={costInitial} />
+        <CostModal
+          open={isCostModalOpen}
+          onClose={() => setIsCostModalOpen(false)}
+          onSubmit={handleCostSave}
+          initial={initialCostData}
+        />
       </Section>
-      {modalOpen && (
+
+      {isModalOpen && (
         <ActionModal
-          editing={editing}
-          onClose={closeEdit}
-          onSubmit={handleModalSubmit}
+          editing={editingAction}
+          onClose={closeEditModal}
+          onSubmit={handleActionSubmit}
         />
       )}
     </Wrapper>

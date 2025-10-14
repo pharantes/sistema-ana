@@ -4,66 +4,54 @@ import { GridTwoGap as GridTwo } from './ui/primitives';
 import Modal from './Modal';
 import * as FE from './FormElements';
 import * as FL from './FormLayout';
+
 const Title = styled.h2`
   margin-bottom: var(--space-sm, var(--space-sm, var(--space-sm, 12px)));
 `;
-// const Input = styled.input``; // Removed unused local Input
-// GridTwo imported from primitives
 
+/**
+ * Creates initial empty cliente form state
+ */
+function createEmptyClienteForm() {
+  return {
+    nome: "",
+    endereco: "",
+    cidade: "",
+    uf: "",
+    telefone: "",
+    email: "",
+    nomeContato: "",
+    tipo: "",
+    cnpjCpf: "",
+    banco: "",
+    conta: "",
+    formaPgt: "",
+  };
+}
+
+/**
+ * ClienteModal - Form modal for creating and editing clientes
+ */
 export default function ClienteModal({ open, onClose, onSubmit, initial }) {
   const [form, setForm] = useState(() => {
-    if (initial) {
-      return {
-        ...initial,
-      };
-    }
-    return {
-      nome: "",
-      endereco: "",
-      cidade: "",
-      uf: "",
-      telefone: "",
-      email: "",
-      nomeContato: "",
-      tipo: "",
-      cnpjCpf: "",
-      banco: "",
-      conta: "",
-      formaPgt: "",
-    };
+    return initial ? { ...initial } : createEmptyClienteForm();
   });
 
-  // Update form state when initial changes (for editing)
   React.useEffect(() => {
     if (initial) {
-      setForm({
-        ...initial,
-      });
+      setForm({ ...initial });
     }
   }, [initial]);
 
   function handleChange(e) {
-    let value = e.target.value;
-    setForm({ ...form, [e.target.name]: value });
+    const { name, value } = e.target;
+    setForm(previousForm => ({ ...previousForm, [name]: value }));
   }
 
   function handleSubmit(e) {
     e.preventDefault();
     onSubmit(form);
-    setForm({
-      nome: "",
-      endereco: "",
-      cidade: "",
-      uf: "",
-      telefone: "",
-      email: "",
-      nomeContato: "",
-      tipo: "",
-      cnpjCpf: "",
-      banco: "",
-      conta: "",
-      formaPgt: "",
-    });
+    setForm(createEmptyClienteForm());
   }
 
   if (!open) return null;

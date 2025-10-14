@@ -8,6 +8,11 @@ import { formatDateBR } from "@/lib/utils/dates";
 import LinkButton from '../../components/ui/LinkButton';
 import { Note } from "../../components/ui/primitives";
 
+/**
+ * Table displaying actions for a specific cliente with sorting and pagination
+ * @param {Object} props - Component props
+ * @param {Array} props.actions - Array of actions to display
+ */
 export default function ClienteAcoesTable({ actions = [] }) {
   const router = useRouter();
   const [sortKey, setSortKey] = useState('date'); // 'date' | 'name' | 'start' | 'end'

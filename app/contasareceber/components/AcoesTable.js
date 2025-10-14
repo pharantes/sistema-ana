@@ -7,6 +7,21 @@ import StatusSelect from "../../components/ui/StatusSelect";
 import { formatDateBR } from "@/lib/utils/dates";
 import { formatBRL } from "@/app/utils/currency";
 
+/**
+ * Table component for displaying accounts receivable (Contas a Receber) by action.
+ * Shows sortable, paginated list with clickable rows and status management.
+ * @param {object} props - Component props
+ * @param {Array} props.rows - Array of action receivable objects
+ * @param {number} props.page - Current page number
+ * @param {number} props.pageSize - Number of items per page
+ * @param {number} props.total - Total number of items
+ * @param {Function} props.onChangePage - Handler for changing page
+ * @param {Function} props.onChangePageSize - Handler for changing page size
+ * @param {string} props.sortKey - Current sort key
+ * @param {string} props.sortDir - Current sort direction ('asc' or 'desc')
+ * @param {Function} props.onToggleSort - Handler for toggling sort
+ * @param {Function} props.onChangeStatus - Handler for changing status or opening edit modal
+ */
 export default function AcoesTable({
   rows = [],
   page,
@@ -55,36 +70,63 @@ export default function AcoesTable({
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => {
-            const r = row.receivable || {};
-            const venc = formatDateBR(r?.dataVencimento);
-            const receb = formatDateBR(r?.dataRecebimento);
-            const data = formatDateBR(row?.date);
+          {rows.map((actionRow) => {
+            const receivableData = actionRow.receivable || {};
+            const dueDate = formatDateBR(receivableData?.dataVencimento);
+            const receivedDate = formatDateBR(receivableData?.dataRecebimento);
+            const actionDate = formatDateBR(actionRow?.date);
+            const currentStatus = receivableData?.status || 'ABERTO';
+            const installmentValue = receivableData?.valorParcela != null
+              ? `R$ ${formatBRL(Number(receivableData.valorParcela))}`
+              : '';
+            const totalValue = receivableData?.valor != null
+              ? `R$ ${formatBRL(Number(receivableData.valor))}`
+              : '';
+
+            const handleRowClick = () => {
+              globalThis.location.assign(`/contasareceber/${actionRow._id}`);
+            };
+
+            const handleEditClick = (event) => {
+              event.stopPropagation();
+              onChangeStatus(actionRow, null, { openModal: true });
+            };
+
+            const handleStatusChange = (event) => {
+              event.stopPropagation();
+              onChangeStatus(actionRow, event.target.value);
+            };
+
             return (
-              <tr key={row._id} onClick={() => globalThis.location.assign(`/contasareceber/${row._id}`)}>
-                <Td>{data}</Td>
+              <tr key={actionRow._id} onClick={handleRowClick}>
+                <Td>{actionDate}</Td>
                 <Td>
-                  <TruncateName>{row.name}</TruncateName>
+                  <TruncateName>{actionRow.name}</TruncateName>
                 </Td>
-                <Td>{row.clientName || ''}</Td>
-                <Td>{r?.descricao || ''}</Td>
-                <Td>{r?.qtdeParcela ?? ''}</Td>
-                <Td>{r?.valorParcela != null ? `R$ ${formatBRL(Number(r.valorParcela))}` : ''}</Td>
-                <Td>{r?.valor != null ? `R$ ${formatBRL(Number(r.valor))}` : ''}</Td>
-                <Td>{venc}</Td>
-                <Td>{receb}</Td>
+                <Td>{actionRow.clientName || ''}</Td>
+                <Td>{receivableData?.descricao || ''}</Td>
+                <Td>{receivableData?.qtdeParcela ?? ''}</Td>
+                <Td>{installmentValue}</Td>
+                <Td>{totalValue}</Td>
+                <Td>{dueDate}</Td>
+                <Td>{receivedDate}</Td>
                 <Td>
                   <RowInline>
                     <StatusSelect
-                      value={(r?.status || 'ABERTO')}
-                      options={[{ value: 'ABERTO', label: 'ABERTO' }, { value: 'RECEBIDO', label: 'RECEBIDO' }]}
-                      onChange={(e) => onChangeStatus(row, e.target.value)}
+                      value={currentStatus}
+                      options={[
+                        { value: 'ABERTO', label: 'ABERTO' },
+                        { value: 'RECEBIDO', label: 'RECEBIDO' }
+                      ]}
+                      onChange={handleStatusChange}
                       onClick={(e) => e.stopPropagation()}
                     />
                   </RowInline>
                 </Td>
                 <Td>
-                  <ActionButton onClick={(e) => { e.stopPropagation(); onChangeStatus(row, null, { openModal: true }); }}>Editar</ActionButton>
+                  <ActionButton onClick={handleEditClick}>
+                    Editar
+                  </ActionButton>
                 </Td>
               </tr>
             );

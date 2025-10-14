@@ -57,9 +57,18 @@ const ModalContent = styled.div`
   }
 `;
 
+/**
+ * Modal - Reusable modal overlay with backdrop click-to-close functionality
+ */
 export default function Modal({ children, onClose, ariaLabel }) {
+  const handleBackdropClick = (event) => {
+    if (event.target === event.currentTarget && onClose) {
+      onClose();
+    }
+  };
+
   return (
-    <ModalOverlay role="presentation" onMouseDown={e => { if (e.target === e.currentTarget && onClose) onClose(); }}>
+    <ModalOverlay role="presentation" onMouseDown={handleBackdropClick}>
       <ModalContent role="dialog" aria-label={ariaLabel || 'Modal'}>
         {children}
       </ModalContent>

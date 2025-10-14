@@ -1,5 +1,13 @@
-// Columns for the actions LIST TABLE (UI only)
-// Order: Criado em, Evento, Início, Fim, Cliente
+/**
+ * @fileoverview Column definitions for action tables and PDF reports.
+ * Defines column configurations for UI tables and PDF generation with proper ordering and widths.
+ */
+
+/**
+ * Column definitions for the actions list table (UI only).
+ * Order: Criado em, Evento, Início, Fim, Cliente
+ * @type {Array<{key: string, label: string}>}
+ */
 export const actionListColumns = [
   { key: "date", label: "Criado em" },
   { key: "event", label: "Evento" },
@@ -8,8 +16,11 @@ export const actionListColumns = [
   { key: "client", label: "Cliente" },
 ];
 
-// Columns for the PDF REPORT
-// Order: Criado em, Evento, Início, Fim, Cliente, Profissional, Valor, Vencimento, PIX, Pgt, Banco
+/**
+ * Column definitions for PDF reports.
+ * Order: Criado em, Evento, Início, Fim, Cliente, Profissional, Valor, Vencimento, PIX, Pgt, Banco
+ * @type {Array<{key: string, label: string}>}
+ */
 export const actionReportColumns = [
   { key: "date", label: "Criado em" },
   { key: "event", label: "Evento" },
@@ -24,7 +35,10 @@ export const actionReportColumns = [
   { key: "bank", label: "Banco" },
 ];
 
-// Widths used by the PDF generator (in points, A4 landscape) for report
+/**
+ * Column widths for PDF report generation (in points, A4 landscape format).
+ * @type {Object<string, number>}
+ */
 export const actionReportWidths = {
   date: 55,
   event: 80,

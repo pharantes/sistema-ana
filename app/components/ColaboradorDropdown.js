@@ -3,67 +3,119 @@
 import { useEffect, useRef, useState } from "react";
 import * as FL from './FormLayout';
 import { Note } from './ui/primitives';
-void FL;
 
+/**
+ * Filters colaboradores by search query (nome, name, or codigo)
+ */
+function filterColaboradoresBySearch(items, searchQuery) {
+  if (!searchQuery) return items;
+
+  const lowerQuery = searchQuery.toLowerCase();
+  return items.filter(colaborador => {
+    const nome = String(colaborador.nome || colaborador.name || '').toLowerCase();
+    const codigo = String(colaborador.codigo || '');
+    return nome.includes(lowerQuery) || codigo.includes(searchQuery);
+  });
+}
+
+/**
+ * Formats colaborador display label
+ */
+function formatColaboradorLabel(colaborador) {
+  const codigo = colaborador.codigo || '';
+  const nome = colaborador.nome || colaborador.name || '';
+  return `${codigo} ${nome}`.trim();
+}
+
+/**
+ * ColaboradorDropdown - Searchable dropdown for selecting colaboradores with keyboard navigation
+ */
 export default function ColaboradorDropdown({ items, onSelect }) {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState("");
-  const [highlight, setHighlight] = useState(0);
-  const ref = useRef(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const dropdownRef = useRef(null);
   const inputRef = useRef(null);
 
+  // Close dropdown when clicking outside
   useEffect(() => {
-    function onDoc(e) {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
     }
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Focus input when dropdown opens
   useEffect(() => {
-    if (open && inputRef.current) {
-      try { inputRef.current.focus(); } catch (e) { void e; }
+    if (isOpen && inputRef.current) {
+      try {
+        inputRef.current.focus();
+      } catch (error) {
+        void error;
+      }
     }
-  }, [open]);
+  }, [isOpen]);
 
-  const filtered = items.filter(s => {
-    if (!search) return true;
-    return String(s.nome || s.name || '').toLowerCase().includes(search.toLowerCase()) || String(s.codigo || '').includes(search);
-  });
+  const filteredColaboradores = filterColaboradoresBySearch(items, searchQuery);
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightedIndex(index => Math.min(index + 1, filteredColaboradores.length - 1));
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedIndex(index => Math.max(index - 1, 0));
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (filteredColaboradores[highlightedIndex]) {
+        onSelect(filteredColaboradores[highlightedIndex]._id);
+        setIsOpen(false);
+      }
+    }
+    if (e.key === 'Escape') {
+      setIsOpen(false);
+    }
+  };
 
   return (
-    <FL.DropdownWrapper ref={ref}>
-      <FL.DropdownButton type="button" onClick={() => setOpen(v => !v)}>
+    <FL.DropdownWrapper ref={dropdownRef}>
+      <FL.DropdownButton type="button" onClick={() => setIsOpen(isCurrentlyOpen => !isCurrentlyOpen)}>
         -- selecione um colaborador --
       </FL.DropdownButton>
-      {open && (
+      {isOpen && (
         <FL.DropdownPanel role="listbox" aria-label="Colaboradores">
           <FL.DropdownInput
             ref={inputRef}
             placeholder='Buscar colaborador...'
-            value={search}
-            onChange={e => { setSearch(e.target.value); setHighlight(0); }}
-            onKeyDown={e => {
-              if (e.key === 'ArrowDown') { e.preventDefault(); setHighlight(i => Math.min(i + 1, filtered.length - 1)); }
-              if (e.key === 'ArrowUp') { e.preventDefault(); setHighlight(i => Math.max(i - 1, 0)); }
-              if (e.key === 'Enter') { e.preventDefault(); if (filtered[highlight]) { onSelect(filtered[highlight]._id); setOpen(false); } }
-              if (e.key === 'Escape') { setOpen(false); }
+            value={searchQuery}
+            onChange={e => {
+              setSearchQuery(e.target.value);
+              setHighlightedIndex(0);
             }}
+            onKeyDown={handleKeyDown}
           />
           <div>
-            {filtered.map((s, idx) => (
+            {filteredColaboradores.map((colaborador, index) => (
               <FL.OptionItem
                 role="option"
-                aria-selected={idx === highlight}
-                key={s._id}
-                onClick={() => { onSelect(s._id); setOpen(false); }}
-                onMouseEnter={() => setHighlight(idx)}
-                $highlight={idx === highlight}
+                aria-selected={index === highlightedIndex}
+                key={colaborador._id}
+                onClick={() => {
+                  onSelect(colaborador._id);
+                  setIsOpen(false);
+                }}
+                onMouseEnter={() => setHighlightedIndex(index)}
+                $highlight={index === highlightedIndex}
               >
-                {`${s.codigo || ''} ${s.nome || s.name}`}
+                {formatColaboradorLabel(colaborador)}
               </FL.OptionItem>
             ))}
-            {filtered.length === 0 && <Note>Nenhum colaborador</Note>}
+            {filteredColaboradores.length === 0 && <Note>Nenhum colaborador</Note>}
           </div>
         </FL.DropdownPanel>
       )}

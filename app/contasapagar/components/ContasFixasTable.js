@@ -10,7 +10,24 @@ import { formatMonthYearBR } from "@/lib/utils/dates";
 import { formatBRL } from "../../utils/currency";
 import { Note } from "../../components/ui/primitives";
 
-// Small, reusable Contas Fixas table with sorting and pagination
+/**
+ * Table component for displaying Contas Fixas (Fixed Accounts).
+ * Shows sortable, paginated list with status management and CRUD operations.
+ * @param {object} props - Component props
+ * @param {Array} props.rows - Array of fixed account objects
+ * @param {string} props.sortKey - Current sort key
+ * @param {string} props.sortDir - Current sort direction ('asc' or 'desc')
+ * @param {Function} props.onToggleSort - Handler for toggling sort
+ * @param {number} props.page - Current page number
+ * @param {number} props.pageSize - Number of items per page
+ * @param {Function} props.onChangePage - Handler for changing page
+ * @param {Function} props.onChangePageSize - Handler for changing page size
+ * @param {Function} props.getDisplayStatus - Function to get display status for an account
+ * @param {Function} props.formatDateBR - Function to format dates in BR format
+ * @param {Function} props.onEdit - Handler for editing an account
+ * @param {Function} props.onDelete - Handler for deleting an account
+ * @param {Function} props.onStatusChange - Handler for changing account status
+ */
 export default function ContasFixasTable({
   rows = [],
   sortKey = "vencimento",
@@ -26,10 +43,14 @@ export default function ContasFixasTable({
   onDelete,
   onStatusChange,
 }) {
-  const total = rows.length;
-  const pageData = useMemo(() => {
-    const start = (page - 1) * pageSize;
-    return rows.slice(start, start + pageSize);
+  const totalRows = rows.length;
+
+  /**
+   * Paginates the rows based on current page and page size.
+   */
+  const paginatedRows = useMemo(() => {
+    const startIndex = (page - 1) * pageSize;
+    return rows.slice(startIndex, startIndex + pageSize);
   }, [rows, page, pageSize]);
 
   return (
@@ -37,9 +58,12 @@ export default function ContasFixasTable({
       <HeaderControls
         page={page}
         pageSize={pageSize}
-        total={total}
+        total={totalRows}
         onChangePage={onChangePage}
-        onChangePageSize={(n) => { onChangePage?.(1); onChangePageSize?.(n); }}
+        onChangePageSize={(newSize) => {
+          onChangePage?.(1);
+          onChangePageSize?.(newSize);
+        }}
       />
       <Table>
         <thead>
@@ -66,35 +90,54 @@ export default function ContasFixasTable({
           </tr>
         </thead>
         <tbody>
-          {pageData.map((c) => (
-            <tr key={c._id}>
-              <Td>{c.name}</Td>
-              <Td>{c.empresa}</Td>
-              <CapitalTd>{c.tipo}</CapitalTd>
-              <Td>{(c.valor != null && c.valor !== '') ? formatBRL(Number(c.valor || 0)) : '-'}</Td>
-              <Td>{formatDateBR?.(c.vencimento)}</Td>
-              <Td>
-                <RowInline>
-                  <StatusSelect
-                    value={getDisplayStatus?.(c)}
-                    options={[{ value: 'ABERTO', label: 'ABERTO' }, { value: 'PAGO', label: 'PAGO' }]}
-                    onChange={(e) => onStatusChange?.(c, e.target.value)}
-                  />
-                  {getDisplayStatus?.(c) === 'PAGO' && c.lastPaidAt && (
-                    <Badge>{formatMonthYearBR(c.lastPaidAt)}</Badge>
-                  )}
-                </RowInline>
-              </Td>
-              <Td>
-                <FE.ActionsRow>
-                  <FE.SmallSecondaryButton onClick={() => onEdit?.(c)}>Editar</FE.SmallSecondaryButton>
-                  <FE.SmallInlineButton onClick={() => onDelete?.(c._id)}>Excluir</FE.SmallInlineButton>
-                </FE.ActionsRow>
+          {paginatedRows.map((fixedAccount) => {
+            const displayStatus = getDisplayStatus?.(fixedAccount);
+            const isPaid = displayStatus === 'PAGO' && fixedAccount.lastPaidAt;
+            const formattedValue = (fixedAccount.valor != null && fixedAccount.valor !== '')
+              ? formatBRL(Number(fixedAccount.valor || 0))
+              : '-';
+
+            return (
+              <tr key={fixedAccount._id}>
+                <Td>{fixedAccount.name}</Td>
+                <Td>{fixedAccount.empresa}</Td>
+                <CapitalTd>{fixedAccount.tipo}</CapitalTd>
+                <Td>{formattedValue}</Td>
+                <Td>{formatDateBR?.(fixedAccount.vencimento)}</Td>
+                <Td>
+                  <RowInline>
+                    <StatusSelect
+                      value={displayStatus}
+                      options={[
+                        { value: 'ABERTO', label: 'ABERTO' },
+                        { value: 'PAGO', label: 'PAGO' }
+                      ]}
+                      onChange={(e) => onStatusChange?.(fixedAccount, e.target.value)}
+                    />
+                    {isPaid && (
+                      <Badge>{formatMonthYearBR(fixedAccount.lastPaidAt)}</Badge>
+                    )}
+                  </RowInline>
+                </Td>
+                <Td>
+                  <FE.ActionsRow>
+                    <FE.SmallSecondaryButton onClick={() => onEdit?.(fixedAccount)}>
+                      Editar
+                    </FE.SmallSecondaryButton>
+                    <FE.SmallInlineButton onClick={() => onDelete?.(fixedAccount._id)}>
+                      Excluir
+                    </FE.SmallInlineButton>
+                  </FE.ActionsRow>
+                </Td>
+              </tr>
+            );
+          })}
+          {!rows.length && (
+            <tr>
+              <Td colSpan={7}>
+                <Note>Nenhuma conta fixa cadastrada</Note>
               </Td>
             </tr>
-          ))}
-          {!rows.length && (
-            <tr><Td colSpan={7}><Note>Nenhuma conta fixa cadastrada</Note></Td></tr>
           )}
         </tbody>
       </Table>

@@ -10,67 +10,108 @@ import * as FE from "../components/FormElements";
 import ActionListTable from "./components/ActionListTable";
 import Filters from "../components/Filters";
 import dynamic from 'next/dynamic';
+
 const ActionModal = dynamic(() => import('../components/ActionModal'), { ssr: false });
+
+// Styled Components
 const Title = styled.h1`
   font-size: var(--font-h3, 1.6rem);
   margin-bottom: var(--space-xs, var(--space-xs, var(--space-xs, 8px)));
 `;
-// TopWrap imported from primitives
+
 const TopWrap = styled.div`
   padding: var(--page-padding);
 `;
+
 const SectionWrap = styled.div`
   margin-top: var(--space-md, var(--space-md, var(--space-md, 16px)));
 `;
-const ButtonsRow = RowTopGap;
-// using shared Note from primitives
 
+const ButtonsRow = RowTopGap;
+
+/**
+ * Builds URL search parameters for action filtering.
+ */
+function buildFilterParams(searchQuery, rangeMode, rangeFrom, rangeTo) {
+  const params = new globalThis.URLSearchParams();
+
+  if (searchQuery) {
+    params.set('q', searchQuery);
+  }
+
+  if (rangeFrom || rangeTo) {
+    if (rangeMode === 'inicio') {
+      if (rangeFrom) params.set('startFrom', rangeFrom);
+      if (rangeTo) params.set('startTo', rangeTo);
+    } else if (rangeMode === 'fim') {
+      if (rangeFrom) params.set('endFrom', rangeFrom);
+      if (rangeTo) params.set('endTo', rangeTo);
+    }
+  }
+
+  return params;
+}
+
+/**
+ * Fetches actions from the API with current filter parameters.
+ */
+async function fetchActions(filterParams) {
+  const url = '/api/action' + (filterParams.toString() ? `?${filterParams.toString()}` : '');
+  const response = await globalThis.fetch(url);
+
+  if (response.status === 401) {
+    return [];
+  }
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch actions');
+  }
+
+  return await response.json();
+}
+
+/**
+ * Main page component for managing actions (acoes).
+ * Provides filtering, creation, editing, and deletion of actions.
+ */
 export default function AcoesPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
+  // State - Data
   const [acoes, setAcoes] = useState([]);
   const [initialLoading, setInitialLoading] = useState(true);
   const [isFetching, setIsFetching] = useState(false);
-  const [q, setQ] = useState("");
+
+  // State - Filters
+  const [searchQuery, setSearchQuery] = useState("");
   const [rangeMode, setRangeMode] = useState('inicio');
   const [rangeFrom, setRangeFrom] = useState("");
   const [rangeTo, setRangeTo] = useState("");
 
+  // State - Modal
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
 
   const fetchAcoesWithFilters = async (isInitial = false) => {
     try {
-      if (isInitial) setInitialLoading(true);
-      else setIsFetching(true);
-
-      const params = new globalThis.URLSearchParams();
-      if (q) params.set('q', q);
-      if (rangeFrom || rangeTo) {
-        if (rangeMode === 'inicio') {
-          if (rangeFrom) params.set('startFrom', rangeFrom);
-          if (rangeTo) params.set('startTo', rangeTo);
-        } else if (rangeMode === 'fim') {
-          if (rangeFrom) params.set('endFrom', rangeFrom);
-          if (rangeTo) params.set('endTo', rangeTo);
-        }
+      if (isInitial) {
+        setInitialLoading(true);
+      } else {
+        setIsFetching(true);
       }
 
-      const url = '/api/action' + (params.toString() ? `?${params.toString()}` : '');
-      const res = await globalThis.fetch(url);
-      if (res.status === 401) {
-        setAcoes([]);
-        return;
-      }
-      if (!res.ok) throw new Error('Failed to fetch actions');
-      const data = await res.json();
+      const params = buildFilterParams(searchQuery, rangeMode, rangeFrom, rangeTo);
+      const data = await fetchActions(params);
       setAcoes(data);
     } catch {
-      // keep UI simple; user can retry by changing filters
+      // Keep UI simple; user can retry by changing filters
     } finally {
-      if (isInitial) setInitialLoading(false);
-      else setIsFetching(false);
+      if (isInitial) {
+        setInitialLoading(false);
+      } else {
+        setIsFetching(false);
+      }
     }
   };
 
@@ -84,9 +125,9 @@ export default function AcoesPage() {
   useEffect(() => {
     if (status === 'loading') return;
     if (!session) return;
-    const t = globalThis.setTimeout(() => fetchAcoesWithFilters(false), 300);
-    return () => globalThis.clearTimeout(t);
-  }, [q, rangeMode, rangeFrom, rangeTo, status, session]);
+    const timeoutId = globalThis.setTimeout(() => fetchAcoesWithFilters(false), 300);
+    return () => globalThis.clearTimeout(timeoutId);
+  }, [searchQuery, rangeMode, rangeFrom, rangeTo, status, session]);
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -134,24 +175,16 @@ export default function AcoesPage() {
 
   const generatePdf = async () => {
     try {
-      const params = new globalThis.URLSearchParams();
-      if (q) params.set('q', q);
-      if (rangeFrom || rangeTo) {
-        if (rangeMode === 'inicio') {
-          if (rangeFrom) params.set('startFrom', rangeFrom);
-          if (rangeTo) params.set('startTo', rangeTo);
-        } else if (rangeMode === 'fim') {
-          if (rangeFrom) params.set('endFrom', rangeFrom);
-          if (rangeTo) params.set('endTo', rangeTo);
-        }
-      }
+      const params = buildFilterParams(searchQuery, rangeMode, rangeFrom, rangeTo);
       const url = '/api/action/report' + (params.toString() ? `?${params.toString()}` : '');
-      const res = await globalThis.fetch(url);
-      if (!res.ok) {
-        const txt = await res.text().catch(() => '');
-        throw new Error(`Failed to generate PDF: ${res.status} ${txt}`);
+      const response = await globalThis.fetch(url);
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '');
+        throw new Error(`Failed to generate PDF: ${response.status} ${errorText}`);
       }
-      const blob = await res.blob();
+
+      const blob = await response.blob();
       const blobUrl = globalThis.URL.createObjectURL(blob);
       globalThis.window.open(blobUrl, '_blank');
     } catch {
@@ -174,7 +207,7 @@ export default function AcoesPage() {
       <Title>Ações</Title>
       <SectionWrap>
         <Filters
-          q={q} setQ={setQ}
+          q={searchQuery} setQ={setSearchQuery}
           rangeMode={rangeMode} setRangeMode={setRangeMode}
           rangeFrom={rangeFrom} setRangeFrom={setRangeFrom}
           rangeTo={rangeTo} setRangeTo={setRangeTo}

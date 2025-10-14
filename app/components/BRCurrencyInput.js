@@ -4,96 +4,141 @@ import * as FE from './FormElements';
 import { formatBRL, parseCurrency } from '../utils/currency';
 import { useState, useEffect, useRef } from 'react';
 
-// Controlled currency input that normalizes value as a Number via onChange.
-// - Accepts `value` as number or formatted string.
-// - Calls onChange(number|undefined) whenever the input changes or blurs.
-// - Shows a formatted string when blurred, and raw numeric on focus.
-export default function BRCurrencyInput({ value, onChange, onBlur, ...rest }) {
-  const [display, setDisplay] = useState('');
-  const [isFocused, setIsFocused] = useState(false);
+/**
+ * Extracts only digits from a string
+ * @param {string} text - Input text
+ * @returns {string} Digits only
+ */
+function extractDigits(text) {
+  return String(text).replace(/\D/g, '');
+}
 
-  // keep display in sync when value prop changes from outside
+/**
+ * Groups integer part with thousands separator (pt-BR format)
+ * @param {string} integerPart - Integer part to group
+ * @returns {string} Grouped integer with '.' separator
+ */
+function groupThousands(integerPart) {
+  const reversedDigits = integerPart.split('').reverse();
+  const groups = [];
+
+  for (let i = 0; i < reversedDigits.length; i += 3) {
+    const group = reversedDigits.slice(i, i + 3).reverse().join('');
+    groups.push(group);
+  }
+
+  return groups.reverse().join('.');
+}
+
+/**
+ * Formats currency value while user is typing (pt-BR format with live feedback)
+ * @param {string} rawInput - Raw input string
+ * @returns {string} Formatted currency string
+ */
+function formatWhileTyping(rawInput) {
+  if (rawInput == null) return '';
+
+  const inputString = String(rawInput);
+  const digitsOnly = extractDigits(inputString);
+
+  if (!digitsOnly) return '';
+
+  // Preserve leading zeros only if result would be empty
+  let trimmedDigits = digitsOnly.replace(/^0+/, '');
+  if (trimmedDigits === '') trimmedDigits = digitsOnly;
+
+  const isNegative = inputString.trim().startsWith('-');
+  const signPrefix = isNegative ? '-' : '';
+
+  // Handle cents-only values (2 digits or less)
+  if (trimmedDigits.length <= 2) {
+    const centsPart = trimmedDigits.padStart(2, '0').slice(0, 2);
+    return `0,${centsPart}`;
+  }
+
+  // Split into integer and decimal parts
+  const integerPart = trimmedDigits.slice(0, trimmedDigits.length - 2);
+  const decimalPart = trimmedDigits.slice(-2);
+
+  const groupedInteger = groupThousands(integerPart);
+  const formattedInteger = signPrefix + groupedInteger;
+
+  return `${formattedInteger},${decimalPart}`;
+}
+
+/**
+ * Moves cursor to end of input field
+ * @param {HTMLInputElement} inputElement - Input element
+ */
+function moveCursorToEnd(inputElement) {
+  setTimeout(() => {
+    try {
+      if (inputElement) {
+        inputElement.selectionStart = inputElement.selectionEnd = inputElement.value.length;
+      }
+    } catch {
+      // Ignore errors (e.g., input not focused)
+    }
+  }, 0);
+}
+
+/**
+ * Controlled currency input that normalizes value as a Number via onChange.
+ * - Accepts `value` as number or formatted string.
+ * - Calls onChange(number|undefined) whenever the input changes or blurs.
+ * - Shows a formatted string when blurred, and raw numeric on focus.
+ * @param {Object} props - Component props
+ * @param {number|string} props.value - Current value
+ * @param {Function} props.onChange - Change handler
+ * @param {Function} props.onBlur - Blur handler
+ */
+export default function BRCurrencyInput({ value, onChange, onBlur, ...rest }) {
+  const [displayValue, setDisplayValue] = useState('');
+  const [isFocused, setIsFocused] = useState(false);
+  const inputRef = useRef(null);
+
+  // Keep display in sync when value prop changes from outside
   useEffect(() => {
-    // Don't overwrite the user's ongoing edit while focused.
+    // Don't overwrite the user's ongoing edit while focused
     if (isFocused) return;
 
     if (value == null || value === '') {
-      setDisplay('');
+      setDisplayValue('');
     } else if (typeof value === 'number') {
-      setDisplay(formatBRL(value));
+      setDisplayValue(formatBRL(value));
     } else {
-      // if string, try to parse then format
-      const n = parseCurrency(value);
-      setDisplay(n == null ? '' : formatBRL(n));
+      // If string, try to parse then format
+      const parsedNumber = parseCurrency(value);
+      setDisplayValue(parsedNumber == null ? '' : formatBRL(parsedNumber));
     }
   }, [value, isFocused]);
 
-  // Format a raw input string while the user is typing so they can see
-  // thousands separators and the decimal comma for readability.
-  const formatWhileTyping = (raw) => {
-    if (raw == null) return '';
-    const s = String(raw);
-    // Extract only digits (ignore separators). Treat input as typed digits representing cents
-    const digitsOnly = s.replace(/\D/g, '');
-    if (!digitsOnly) return '';
-
-    // Remove leading zeros for processing but preserve when result would be empty
-    let trimmed = digitsOnly.replace(/^0+/, '');
-    if (trimmed === '') trimmed = digitsOnly;
-
-    const sign = s.trim().startsWith('-') ? '-' : '';
-
-    if (trimmed.length <= 2) {
-      const cents = trimmed.padStart(2, '0').slice(0, 2);
-      return `0,${cents}`;
-    }
-
-    const intPartRaw = trimmed.slice(0, trimmed.length - 2);
-    const decPartRaw = trimmed.slice(-2);
-
-    // Group thousands using '.' as in pt-BR (safe implementation)
-    const rev = intPartRaw.split('').reverse();
-    const parts = [];
-    for (let i = 0; i < rev.length; i += 3) {
-      parts.push(rev.slice(i, i + 3).reverse().join(''));
-    }
-    const grouped = parts.reverse().join('.');
-    const displayInt = sign + grouped;
-    return `${displayInt},${decPartRaw}`;
-  };
-
-  const inputRef = useRef(null);
-
   const handleFocus = (e) => {
     setIsFocused(true);
-    // expose a formatted-but-editable string while editing so the user
+    // Expose a formatted-but-editable string while editing so the user
     // sees thousands separators and any decimal digits they typed
-    const raw = display || (typeof value === 'number' ? String(value) : String(value || ''));
-    setDisplay(formatWhileTyping(raw));
-    // place caret at end after React updates
-    setTimeout(() => {
-      try { e.target.selectionStart = e.target.selectionEnd = e.target.value.length; } catch { /* ignore */ }
-    }, 0);
+    const rawValue = displayValue || (typeof value === 'number' ? String(value) : String(value || ''));
+    setDisplayValue(formatWhileTyping(rawValue));
+    // Place caret at end after React updates
+    moveCursorToEnd(e.target);
   };
 
   const handleChange = (e) => {
-    const v = e.target.value;
-    // keep a human-friendly format while editing
-    setDisplay(formatWhileTyping(v));
-    const n = parseCurrency(v);
-    onChange && onChange(n);
-    // keep caret at the end for better UX after formatting
-    setTimeout(() => {
-      try { if (inputRef.current) inputRef.current.selectionStart = inputRef.current.selectionEnd = inputRef.current.value.length; } catch { /* ignore */ }
-    }, 0);
+    const inputValue = e.target.value;
+    // Keep a human-friendly format while editing
+    setDisplayValue(formatWhileTyping(inputValue));
+    const parsedNumber = parseCurrency(inputValue);
+    if (onChange) onChange(parsedNumber);
+    // Keep caret at the end for better UX after formatting
+    moveCursorToEnd(inputRef.current);
   };
 
   const handleBlur = (e) => {
     setIsFocused(false);
-    const n = parseCurrency(display);
-    setDisplay(n == null ? '' : formatBRL(n));
-    onChange && onChange(n);
-    onBlur && onBlur(e);
+    const parsedNumber = parseCurrency(displayValue);
+    setDisplayValue(parsedNumber == null ? '' : formatBRL(parsedNumber));
+    if (onChange) onChange(parsedNumber);
+    if (onBlur) onBlur(e);
   };
 
   return (
@@ -101,7 +146,7 @@ export default function BRCurrencyInput({ value, onChange, onBlur, ...rest }) {
       type="text"
       inputMode="decimal"
       ref={inputRef}
-      value={display}
+      value={displayValue}
       onFocus={handleFocus}
       onChange={handleChange}
       onBlur={handleBlur}

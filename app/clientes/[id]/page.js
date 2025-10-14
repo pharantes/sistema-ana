@@ -12,39 +12,98 @@ import { Loading } from '../../components/ui/primitives';
 
 // use shared Table/Th/Td for consistency
 
+/**
+ * Fetches cliente data from API
+ * @param {string} clienteId - Cliente ID
+ * @returns {Promise<Object>} Cliente data
+ * @throws {Error} If request fails
+ */
+async function fetchCliente(clienteId) {
+  const response = await globalThis.fetch(`/api/cliente/${clienteId}`);
+  if (!response.ok) throw new Error('Falha ao carregar cliente');
+  return response.json();
+}
+
+/**
+ * Fetches actions for a specific cliente
+ * @param {string} clienteId - Cliente ID
+ * @returns {Promise<Array>} Array of actions
+ */
+async function fetchClienteActions(clienteId) {
+  try {
+    const encodedId = encodeURIComponent(String(clienteId));
+    const response = await globalThis.fetch(`/api/action?clientId=${encodedId}`);
+    if (!response.ok) return [];
+    const data = await response.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Updates cliente data via API
+ * @param {Object} updatedData - Updated cliente data
+ * @param {string} clienteId - Cliente ID
+ * @returns {Promise<Object>} Updated cliente data
+ * @throws {Error} If request fails
+ */
+async function updateCliente(updatedData, clienteId) {
+  const response = await globalThis.fetch('/api/cliente', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...updatedData, _id: clienteId })
+  });
+
+  if (!response.ok) throw new Error('Falha ao salvar');
+
+  return fetchCliente(clienteId);
+}
+
+/**
+ * Cliente details page with actions table
+ */
 export default function ClienteDetailsPage() {
   const params = useParams();
-  const id = params?.id;
+  const clienteId = params?.id;
   const router = useRouter();
-  const { status } = useSession();
+  const { status: sessionStatus } = useSession();
   const [cliente, setCliente] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [editOpen, setEditOpen] = useState(false);
-  const [acoes, setAcoes] = useState([]);
-  // Related actions table now handled by ClienteAcoesTable (sorting/pagination internal)
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [clienteActions, setClienteActions] = useState([]);
 
   useEffect(() => {
-    if (!id) return;
-    let cancelled = false;
+    if (!clienteId) return;
+
+    let isCancelled = false;
+
     (async () => {
       try {
-        const res = await globalThis.fetch(`/api/cliente/${id}`);
-        if (!res.ok) throw new Error('Falha ao carregar cliente');
-        const data = await res.json();
-        if (!cancelled) setCliente(data);
-        // fetch actions for this client using server-side filter
-        try {
-          const list = await globalThis.fetch(`/api/action?clientId=${encodeURIComponent(String(data._id))}`).then(r => r.ok ? r.json() : []);
-          if (!cancelled) setAcoes(Array.isArray(list) ? list : []);
-        } catch { /* ignore */ }
-      } catch (e) {
-        if (!cancelled) setError(e.message || 'Erro ao carregar');
+        const clienteData = await fetchCliente(clienteId);
+        if (isCancelled) return;
+        setCliente(clienteData);
+
+        // Fetch actions for this client
+        const actionsList = await fetchClienteActions(clienteData._id);
+        if (isCancelled) return;
+        setClienteActions(actionsList);
+      } catch (error) {
+        if (!isCancelled) {
+          setErrorMessage(error.message || 'Erro ao carregar');
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoading(false);
+        }
       }
-      if (!cancelled) setLoading(false);
     })();
-    return () => { cancelled = true; };
-  }, [id]);
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [clienteId]);
 
   const PageWrap = styled.div`
   padding: 0;
@@ -64,18 +123,39 @@ export default function ClienteDetailsPage() {
     margin-bottom: var(--space-xxs, var(--gap-xs, var(--gap-xs, 6px)));
   `;
 
-  if (status === 'loading' || loading) return <PageWrap>Carregando…</PageWrap>;
-  if (status === 'loading' || loading) return <PageWrap><Loading /></PageWrap>;
-  if (error) return <PageWrap>Erro: {error}</PageWrap>;
-  if (!cliente) return <PageWrap>Cliente não encontrado</PageWrap>;
+  const handleEditSubmit = async (updatedData) => {
+    try {
+      const freshData = await updateCliente(updatedData, cliente._id);
+      setCliente(freshData);
+      setIsEditModalOpen(false);
+    } catch (error) {
+      globalThis.alert(error.message || 'Erro ao salvar');
+    }
+  };
+
+  if (sessionStatus === 'loading' || isLoading) {
+    return <PageWrap><Loading /></PageWrap>;
+  }
+
+  if (errorMessage) {
+    return <PageWrap>Erro: {errorMessage}</PageWrap>;
+  }
+
+  if (!cliente) {
+    return <PageWrap>Cliente não encontrado</PageWrap>;
+  }
 
   return (
     <PageWrap>
       <HeaderRow>
         <h1>Cliente</h1>
         <ButtonGroup>
-          <FE.SecondaryButton onClick={() => router.back()}>Voltar</FE.SecondaryButton>
-          <FE.Button onClick={() => setEditOpen(true)}>Editar</FE.Button>
+          <FE.SecondaryButton onClick={() => router.back()}>
+            Voltar
+          </FE.SecondaryButton>
+          <FE.Button onClick={() => setIsEditModalOpen(true)}>
+            Editar
+          </FE.Button>
         </ButtonGroup>
       </HeaderRow>
       <Grid2>
@@ -92,24 +172,14 @@ export default function ClienteDetailsPage() {
       </Grid2>
 
       <H2>Ações deste cliente</H2>
-      <ClienteAcoesTable actions={acoes} />
+      <ClienteAcoesTable actions={clienteActions} />
 
-      {editOpen && (
+      {isEditModalOpen && (
         <ClienteModal
-          open={editOpen}
-          onClose={() => setEditOpen(false)}
+          open={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
           initial={cliente}
-          onSubmit={async (updated) => {
-            try {
-              const res = await globalThis.fetch('/api/cliente', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...updated, _id: cliente._id }) });
-              if (!res.ok) throw new Error('Falha ao salvar');
-              const fresh = await globalThis.fetch(`/api/cliente/${id}`).then(r => r.json());
-              setCliente(fresh);
-              setEditOpen(false);
-            } catch (e) {
-              globalThis.alert(e.message || 'Erro ao salvar');
-            }
-          }}
+          onSubmit={handleEditSubmit}
         />
       )}
     </PageWrap>

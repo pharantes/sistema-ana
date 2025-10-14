@@ -8,59 +8,185 @@
 // - placeholder: optional placeholder (defaults to dd/mm/aaaa)
 // - style, className, id, name, disabled, required, ...rest
 import { useRef, useState, useEffect } from 'react';
-// removed unused FE import
 
-function isoToBR(iso) {
-  if (!iso) return '';
-  const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!m) return '';
-  return `${m[3]}/${m[2]}/${m[1]}`;
-}
-function brToISO(br) {
-  if (!br) return '';
-  const only = String(br).replace(/[^0-9]/g, '').slice(0, 8);
-  if (only.length < 8) return '';
-  const dd = only.slice(0, 2);
-  const mm = only.slice(2, 4);
-  const yyyy = only.slice(4, 8);
-  const mi = Number(mm), di = Number(dd);
-  if (mi < 1 || mi > 12 || di < 1 || di > 31) return '';
-  return `${yyyy}-${mm}-${dd}`;
-}
-function maskBR(s) {
-  const only = String(s || '').replace(/[^0-9]/g, '').slice(0, 8);
-  const p1 = only.slice(0, 2);
-  const p2 = only.slice(2, 4);
-  const p3 = only.slice(4, 8);
-  let out = p1;
-  if (p2) out += (out ? '/' : '') + p2;
-  if (p3) out += (out ? '/' : '') + p3;
-  return out;
+/**
+ * Converts ISO date format (yyyy-MM-dd) to Brazilian format (dd/MM/yyyy)
+ * @param {string} isoDate - ISO formatted date string
+ * @returns {string} Brazilian formatted date string
+ */
+function isoToBR(isoDate) {
+  if (!isoDate) return '';
+  const dateMatch = String(isoDate).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!dateMatch) return '';
+  return `${dateMatch[3]}/${dateMatch[2]}/${dateMatch[1]}`;
 }
 
-export default function BRDateInput({ value, onChange, placeholder = 'dd/mm/aaaa', onBlur, className, disabled, ...rest }) {
-  const dateRef = useRef(null);
+/**
+ * Validates month and day values for date conversion
+ * @param {number} month - Month value
+ * @param {number} day - Day value
+ * @returns {boolean} Whether the values are valid
+ */
+function isValidMonthAndDay(month, day) {
+  return month >= 1 && month <= 12 && day >= 1 && day <= 31;
+}
+
+/**
+ * Converts Brazilian format (dd/MM/yyyy) to ISO date format (yyyy-MM-dd)
+ * @param {string} brDate - Brazilian formatted date string
+ * @returns {string} ISO formatted date string or empty if invalid
+ */
+function brToISO(brDate) {
+  if (!brDate) return '';
+  const digitsOnly = String(brDate).replace(/[^0-9]/g, '').slice(0, 8);
+  if (digitsOnly.length < 8) return '';
+
+  const dayPart = digitsOnly.slice(0, 2);
+  const monthPart = digitsOnly.slice(2, 4);
+  const yearPart = digitsOnly.slice(4, 8);
+
+  const monthNumber = Number(monthPart);
+  const dayNumber = Number(dayPart);
+
+  if (!isValidMonthAndDay(monthNumber, dayNumber)) return '';
+
+  return `${yearPart}-${monthPart}-${dayPart}`;
+}
+
+/**
+ * Applies Brazilian date mask (dd/MM/yyyy) to input string
+ * @param {string} input - Raw input string
+ * @returns {string} Masked date string
+ */
+function maskBR(input) {
+  const digitsOnly = String(input || '').replace(/[^0-9]/g, '').slice(0, 8);
+  const dayPart = digitsOnly.slice(0, 2);
+  const monthPart = digitsOnly.slice(2, 4);
+  const yearPart = digitsOnly.slice(4, 8);
+
+  let maskedOutput = dayPart;
+  if (monthPart) maskedOutput += (maskedOutput ? '/' : '') + monthPart;
+  if (yearPart) maskedOutput += (maskedOutput ? '/' : '') + yearPart;
+  return maskedOutput;
+}
+
+/**
+ * Moves cursor to end of input field
+ * @param {HTMLInputElement} inputElement - Input element
+ */
+function moveCursorToEnd(inputElement) {
+  setTimeout(() => {
+    try {
+      if (inputElement) {
+        inputElement.selectionStart = inputElement.selectionEnd = inputElement.value.length;
+      }
+    } catch {
+      // Ignore errors
+    }
+  }, 0);
+}
+
+/**
+ * Attempts to open the native date picker
+ * @param {HTMLInputElement} dateInput - Date input element
+ */
+function openNativePicker(dateInput) {
+  try {
+    dateInput?.showPicker?.();
+  } catch {
+    // Fallback to focus if showPicker not available
+    try {
+      if (!dateInput?.showPicker) {
+        dateInput?.focus?.();
+      }
+    } catch {
+      // Ignore errors
+    }
+  }
+}
+
+/**
+ * Brazilian date input component with native picker support
+ * Displays dates in dd/MM/yyyy format while maintaining ISO format internally
+ * @param {Object} props - Component props
+ * @param {string} props.value - ISO date string (yyyy-MM-dd)
+ * @param {Function} props.onChange - Change callback with ISO date
+ * @param {string} props.placeholder - Placeholder text
+ * @param {Function} props.onBlur - Blur callback
+ * @param {string} props.className - CSS class name
+ * @param {boolean} props.disabled - Whether input is disabled
+ */
+export default function BRDateInput({
+  value,
+  onChange,
+  placeholder = 'dd/mm/aaaa',
+  onBlur,
+  className,
+  disabled,
+  ...rest
+}) {
+  const datePickerRef = useRef(null);
   const rootRef = useRef(null);
   const [isInDialog, setIsInDialog] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
-  const [display, setDisplay] = useState(() => isoToBR(value || ''));
+  const [displayValue, setDisplayValue] = useState(() => isoToBR(value || ''));
 
-  // keep display in sync when value prop changes, but don't stomp while editing
+  // Keep display in sync when value prop changes, but don't stomp while editing
   useEffect(() => {
     if (isFocused) return;
-    setDisplay(isoToBR(value || ''));
+    setDisplayValue(isoToBR(value || ''));
   }, [value, isFocused]);
 
-  // replace inline merged style with a local styled input to avoid style={...}
-
+  // Detect if input is inside a modal dialog
   useEffect(() => {
     try {
-      const root = rootRef.current;
-      if (!root) return;
-      const dialog = root.closest && root.closest('[role="dialog"]');
-      setIsInDialog(!!dialog);
-    } catch { /* noop */ }
+      const rootElement = rootRef.current;
+      if (!rootElement) return;
+      const dialogElement = rootElement.closest && rootElement.closest('[role="dialog"]');
+      setIsInDialog(!!dialogElement);
+    } catch {
+      // Ignore errors
+    }
   }, []);
+
+  const handleFocus = (e) => {
+    setIsFocused(true);
+    moveCursorToEnd(e.target);
+  };
+
+  const handleChange = (e) => {
+    const maskedValue = maskBR(e.target.value);
+    setDisplayValue(maskedValue);
+    const isoDate = brToISO(maskedValue);
+    // Only notify parent when we have a full ISO (complete date)
+    if (isoDate && onChange) {
+      onChange(isoDate);
+    }
+  };
+
+  const handleBlur = (e) => {
+    setIsFocused(false);
+    const isoDate = brToISO(displayValue);
+
+    if (!isoDate) {
+      if (onChange) onChange('');
+      setDisplayValue('');
+    } else {
+      // Ensure parent has the final ISO
+      if (onChange) onChange(isoDate);
+      setDisplayValue(isoToBR(isoDate));
+    }
+
+    if (onBlur) onBlur(e);
+  };
+
+  const handleCalendarClick = () => {
+    openNativePicker(datePickerRef.current);
+  };
+
+  const handleNativePickerChange = (e) => {
+    if (onChange) onChange(e.target.value);
+  };
 
   return (
     <Root className={className} ref={rootRef}>
@@ -70,34 +196,11 @@ export default function BRDateInput({ value, onChange, placeholder = 'dd/mm/aaaa
         type="text"
         inputMode="numeric"
         placeholder={placeholder}
-        value={display}
+        value={displayValue}
         disabled={disabled}
-        onFocus={(e) => {
-          setIsFocused(true);
-          // keep caret at end
-          setTimeout(() => { try { e.target.selectionStart = e.target.selectionEnd = e.target.value.length; } catch (err) { void err; } }, 0);
-        }}
-        onChange={(e) => {
-          const masked = maskBR(e.target.value);
-          setDisplay(masked);
-          const iso = brToISO(masked);
-          // only notify parent when we have a full ISO (complete date)
-          if (iso) onChange && onChange(iso);
-        }}
-        onBlur={(e) => {
-          setIsFocused(false);
-          const iso = brToISO(display);
-          if (!iso) {
-            onChange && onChange('');
-            setDisplay('');
-          } else {
-            // ensure parent has the final ISO
-            onChange && onChange(iso);
-            setDisplay(isoToBR(iso));
-          }
-          onBlur && onBlur(e);
-        }}
-
+        onFocus={handleFocus}
+        onChange={handleChange}
+        onBlur={handleBlur}
         {...rest}
       />
 
@@ -106,13 +209,18 @@ export default function BRDateInput({ value, onChange, placeholder = 'dd/mm/aaaa
         type="button"
         aria-label="Abrir calendário"
         data-in-dialog={isInDialog ? 'true' : 'false'}
-        onClick={() => {
-          try { dateRef.current?.showPicker?.(); } catch { /* noop */ }
-          try { if (!dateRef.current?.showPicker) dateRef.current?.focus?.(); } catch { /* noop */ }
-        }}
+        onClick={handleCalendarClick}
         disabled={disabled}
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" style={{ width: '18px', height: '18px' }}>
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+          focusable="false"
+          style={{ width: '18px', height: '18px' }}
+        >
           <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" fill="none" strokeWidth="1.6" />
           <line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" strokeWidth="1.6" />
           <line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" strokeWidth="1.6" />
@@ -122,10 +230,10 @@ export default function BRDateInput({ value, onChange, placeholder = 'dd/mm/aaaa
 
       {/* Hidden native date input to drive the picker */}
       <HiddenDate
-        ref={dateRef}
+        ref={datePickerRef}
         type="date"
         value={value || ''}
-        onChange={(e) => onChange && onChange(e.target.value)}
+        onChange={handleNativePickerChange}
         tabIndex={-1}
         aria-hidden="true"
         disabled={disabled}

@@ -1,26 +1,35 @@
 import { NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 
-const publicRoutes = [
+const PUBLIC_ROUTES = [
   "/login",
   "/api/auth",
   "/_next",
   "/favicon.ico"
 ];
 
-export async function middleware(req) {
+/**
+ * Checks if the requested path is a public route that doesn't require authentication.
+ */
+function isPublicRoute(pathname) {
+  return PUBLIC_ROUTES.some(route => pathname.startsWith(route));
+}
+
+/**
+ * Middleware that protects routes by checking authentication status.
+ * Redirects unauthenticated users to login for protected routes.
+ */
+export async function middleware(request) {
   const token = await getToken({
-    req,
+    req: request,
     secret: process.env.NEXTAUTH_SECRET
   });
-  const pathname = req.nextUrl.pathname;
 
-  // Check if the route is public
-  const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
+  const pathname = request.nextUrl.pathname;
+  const isPublic = isPublicRoute(pathname);
 
-  // If not authenticated and trying to access protected route, redirect to login
-  if (!token && !isPublicRoute) {
-    return NextResponse.redirect(new URL("/login", req.url));
+  if (!token && !isPublic) {
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
   return NextResponse.next();

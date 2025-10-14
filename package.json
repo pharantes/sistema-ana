@@ -12,6 +12,7 @@
     "prepare": "husky install",
     "test": "vitest --run",
     "db:clean": "node scripts/cleanDb.js",
+    "db:seed": "node scripts/seed-db.js",
     "db:seed:users": "node scripts/seedUsers.js",
     "db:reset": "node scripts/cleanDb.js && node lib/db/seedAll.mjs",
     "db:migrate:cliente-banks": "node scripts/migrations/addClienteBankFields.js",

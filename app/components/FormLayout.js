@@ -1,6 +1,14 @@
+/**
+ * @fileoverview Form layout components for consistent form styling.
+ * Provides containers, labels, and layout utilities for forms and dropdowns.
+ */
+
 import styled from 'styled-components';
 import { Note as PrimitiveNote } from './ui/primitives';
 
+/**
+ * Form label with consistent styling.
+ */
 export const Label = styled.label`
   font-weight: 600;
   display: block;

@@ -1,36 +1,84 @@
-// Utilities to handle pt-BR currency formatting and parsing consistently across the app
-
-export function formatBRL(value) {
-  if (value == null || value === '') return '';
-  // Normalize using the same logic as parseCurrency so we format consistently
-  const n = parseCurrency(value);
-  if (n == null) return '';
-  return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+/**
+ * Checks if a value is empty (null, undefined, or empty string).
+ * @param {*} value - Value to check
+ * @returns {boolean} True if value is empty
+ */
+function isEmptyValue(value) {
+  return value == null || value === '';
 }
 
-export function parseCurrency(value) {
-  if (value == null || value === '') return undefined;
-  if (typeof value === 'number') return value;
+/**
+ * Extracts only digits and valid separators from a value string.
+ * @param {string} valueString - String to extract from
+ * @returns {string} String containing only digits and separators (.,-)
+ */
+function extractDigitsAndSeparators(valueString) {
+  return String(valueString).trim().replace(/[^0-9.,-]/g, '');
+}
 
-  // Keep only digits and separators
-  const s = String(value).trim().replace(/[^0-9.,-]/g, '');
-  if (!s) return undefined;
+/**
+ * Finds the index of the decimal separator (comma or dot).
+ * Returns the position of the last comma or dot, whichever appears last.
+ * @param {string} valueString - String to search
+ * @returns {number} Index of decimal separator, or -1 if none found
+ */
+function findDecimalSeparatorIndex(valueString) {
+  const lastCommaIndex = valueString.lastIndexOf(',');
+  const lastDotIndex = valueString.lastIndexOf('.');
+  return Math.max(lastCommaIndex, lastDotIndex);
+}
 
-  // Find last separator (comma or dot) — treat it as decimal separator
-  const lastComma = s.lastIndexOf(',');
-  const lastDot = s.lastIndexOf('.');
-  const sepIndex = Math.max(lastComma, lastDot);
+/**
+ * Normalizes a currency string to a float-parseable format.
+ * Separates integer and decimal parts and formats with dot decimal separator.
+ * @param {string} valueString - Currency string to normalize
+ * @returns {string} Normalized string ready for parseFloat
+ */
+function normalizeToFloat(valueString) {
+  const separatorIndex = findDecimalSeparatorIndex(valueString);
 
-  let normalized;
-  if (sepIndex > -1) {
-    const intPart = s.slice(0, sepIndex).replace(/[^0-9-]/g, '');
-    const decPart = s.slice(sepIndex + 1).replace(/[^0-9]/g, '');
-    normalized = intPart + (decPart ? '.' + decPart : '');
-  } else {
-    // No separators, just digits
-    normalized = s.replace(/[^0-9-]/g, '');
+  if (separatorIndex > -1) {
+    const integerPart = valueString.slice(0, separatorIndex).replace(/[^0-9-]/g, '');
+    const decimalPart = valueString.slice(separatorIndex + 1).replace(/[^0-9]/g, '');
+    return integerPart + (decimalPart ? '.' + decimalPart : '');
   }
 
-  const n = parseFloat(normalized);
-  return Number.isFinite(n) ? n : undefined;
+  return valueString.replace(/[^0-9-]/g, '');
+}
+
+/**
+ * Parses a currency value from various formats (string, number) to a numeric value.
+ * Handles Brazilian format (1.234,56) and international format (1,234.56).
+ * @param {string|number} value - Value to parse
+ * @returns {number|undefined} Parsed numeric value, or undefined if invalid
+ */
+export function parseCurrency(value) {
+  if (isEmptyValue(value)) return undefined;
+  if (typeof value === 'number') return value;
+
+  const cleanedValue = extractDigitsAndSeparators(value);
+  if (!cleanedValue) return undefined;
+
+  const normalized = normalizeToFloat(cleanedValue);
+  const parsedNumber = parseFloat(normalized);
+
+  return Number.isFinite(parsedNumber) ? parsedNumber : undefined;
+}
+
+/**
+ * Formats a numeric value as Brazilian Real currency (pt-BR format).
+ * Returns formatted string like "1.234,56" or empty string for invalid values.
+ * @param {string|number} value - Value to format
+ * @returns {string} Formatted currency string or empty string if invalid
+ */
+export function formatBRL(value) {
+  if (isEmptyValue(value)) return '';
+
+  const numericValue = parseCurrency(value);
+  if (numericValue == null) return '';
+
+  return numericValue.toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
 }

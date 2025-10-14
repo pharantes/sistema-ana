@@ -9,58 +9,139 @@ import { ok, badRequest, notFound, unauthorized, forbidden, serverError } from "
 import { toPlainDoc } from "../../../../lib/utils/mongo";
 import { rateLimit } from "../../../../lib/utils/rateLimit";
 
-const idFn = (req) => req.headers?.get?.('x-forwarded-for')?.split(',')[0]?.trim() || req.ip || 'anon';
-const getLimiter = rateLimit({ windowMs: 10_000, limit: 40, idFn });
-const delLimiter = rateLimit({ windowMs: 10_000, limit: 20, idFn });
+// Rate limiter configuration
+const getClientIdentifier = (request) =>
+  request.headers?.get?.('x-forwarded-for')?.split(',')[0]?.trim() || request.ip || 'anon';
 
+const getLimiter = rateLimit({ windowMs: 10_000, limit: 40, idFn: getClientIdentifier });
+const delLimiter = rateLimit({ windowMs: 10_000, limit: 20, idFn: getClientIdentifier });
+
+function logError(message, error) {
+  try {
+    process.stderr.write(`${message}: ${String(error)}\n`);
+  } catch {
+    // Ignore logging errors
+  }
+}
+
+function isValidObjectId(id) {
+  return /^[0-9a-fA-F]{24}$/.test(String(id || ''));
+}
+
+async function enrichActionWithClientName(action) {
+  try {
+    const clientId = String(action.client || '');
+
+    if (!isValidObjectId(clientId)) {
+      return;
+    }
+
+    const cliente = await Cliente.findById(clientId)
+      .select('nome codigo')
+      .lean()
+      .exec();
+
+    if (cliente) {
+      const codigoPart = cliente.codigo ? `${cliente.codigo} ` : '';
+      const nomePart = cliente.nome || '';
+      action.clientName = `${codigoPart}${nomePart}`.trim();
+    }
+  } catch {
+    // Ignore client resolution errors
+  }
+}
+
+async function getValidatedSession() {
+  const session = await getServerSession(baseOptions);
+  if (!session || !session.user) {
+    return { error: unauthorized() };
+  }
+  return { session };
+}
+
+async function getActionParams(context) {
+  const params = await context?.params;
+  const { id } = params || {};
+
+  if (!id) {
+    return { error: badRequest("Missing id") };
+  }
+
+  return { id };
+}
+
+/**
+ * GET handler - Retrieves a single action by ID with enriched client information.
+ */
 export async function GET(request, context) {
   try {
-    const session = await getServerSession(baseOptions);
-    if (!session || !session.user) return unauthorized();
+    const { error: sessionError } = await getValidatedSession();
+    if (sessionError) return sessionError;
 
     getLimiter.check(request);
-    const params = await (context?.params);
-    const { id } = params || {};
-    if (!id) return badRequest("Missing id");
+
+    const { id, error: paramsError } = await getActionParams(context);
+    if (paramsError) return paramsError;
+
     await dbConnect();
+
     const action = await Action.findById(id).lean().exec();
-    if (!action) return notFound("Not found");
-    try {
-      const cid = String(action.client || '');
-      if (/^[0-9a-fA-F]{24}$/.test(cid)) {
-        const c = await Cliente.findById(cid).select('nome codigo').lean().exec();
-        if (c) action.clientName = `${c.codigo ? c.codigo + ' ' : ''}${c.nome || ''}`.trim();
-      }
-    } catch { void 0; /* noop: ignore client resolve */ }
+    if (!action) {
+      return notFound("Not found");
+    }
+
+    await enrichActionWithClientName(action);
+
     return ok(toPlainDoc(action));
-  } catch (err) {
-    try { process.stderr.write('GET /api/action/[id] error: ' + String(err) + '\n'); } catch { void 0; /* noop */ }
+  } catch (error) {
+    logError('GET /api/action/[id] error', error);
     return serverError('Internal Server Error');
   }
 }
 
+async function cascadeDeletePaymentEntries(actionId) {
+  try {
+    await ContasAPagar.deleteMany({ actionId });
+  } catch {
+    // Ignore cascade delete errors
+  }
+}
+
+function checkAdminPermission(session) {
+  if (session.user.role !== "admin") {
+    return { error: forbidden() };
+  }
+  return {};
+}
+
+/**
+ * DELETE handler - Deletes an action and its associated payment entries (admin only).
+ */
 export async function DELETE(request, context) {
   try {
-    const session = await getServerSession(baseOptions);
-    if (!session || !session.user) return unauthorized();
+    const { session, error: sessionError } = await getValidatedSession();
+    if (sessionError) return sessionError;
 
     delLimiter.check(request);
-    if (session.user.role !== "admin") return forbidden();
 
-    const params = await (context?.params);
-    const { id } = params || {};
-    if (!id) return badRequest("Missing id");
+    const { error: permissionError } = checkAdminPermission(session);
+    if (permissionError) return permissionError;
+
+    const { id, error: paramsError } = await getActionParams(context);
+    if (paramsError) return paramsError;
 
     await dbConnect();
-    const deleted = await Action.findByIdAndDelete(id);
-    if (!deleted) return notFound("Not found");
-    // Cascade delete contas a pagar entries for this action
-    try { await ContasAPagar.deleteMany({ actionId: id }); } catch { void 0; /* noop */ }
 
-    // 204 with empty body
+    const deleted = await Action.findByIdAndDelete(id);
+    if (!deleted) {
+      return notFound("Not found");
+    }
+
+    await cascadeDeletePaymentEntries(id);
+
     return new Response(null, { status: 204 });
-  } catch (err) {
-    try { process.stderr.write('DELETE /api/action/[id] error: ' + String(err) + '\n'); } catch { void 0; /* noop */ }
+  } catch (error) {
+    logError('DELETE /api/action/[id] error', error);
     return serverError('Internal Server Error');
   }
 }

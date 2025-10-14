@@ -1,7 +1,14 @@
+/**
+ * @fileoverview Reusable primitive UI components for consistent styling.
+ * Provides styled-components wrappers for common layout patterns and elements.
+ */
+
 import React from 'react';
 import styled from 'styled-components';
 
-// Small wrappers used across modals and filters to standardize spacing/sizes
+/**
+ * Small wrappers used across modals and filters to standardize spacing/sizes.
+ */
 export const InputWrap = styled.div`
   & > * { height: var(--control-height); width: 100%; box-sizing: border-box; }
 `;
@@ -114,6 +121,12 @@ export const VisuallyHidden = styled.span`
   border: 0;
 `;
 
+/**
+ * Loading indicator component with accessible status role.
+ * @param {object} props - Component props
+ * @param {string} [props.children='Carregando…'] - Loading message text
+ * @returns {React.Element} Loading indicator with animated dot and accessible text
+ */
 export function Loading({ children = 'Carregando…' }) {
   // include accessible status role and visually-hidden label
   return React.createElement(

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import styled from 'styled-components';
 import { Label, RowGap6, ActionsInline } from "../components/ui/primitives";
 import * as FE from "../components/FormElements";
@@ -28,73 +28,131 @@ const ButtonsRow = styled(ActionsInline)`
   & > button { height: calc(var(--control-height, 36px) - 2px); padding: var(--space-xxs, var(--gap-xs, var(--gap-xs, 6px))) var(--space-sm, 10px); font-size: 0.86rem; }
 `;
 
-export default function FiltersClient({ clients = [], filterClient, setFilterClient, filterFrom, setFilterFrom, filterTo, setFilterTo, onApply }) {
-  const [selected, setSelected] = useState(null);
+/**
+ * Formats cliente for display in select option
+ * @param {Object} cliente - Cliente object
+ * @returns {string} Formatted label
+ */
+function formatClienteLabel(cliente) {
+  const codigoPrefix = cliente.codigo ? `${cliente.codigo} ` : '';
+  const clienteName = cliente.nome || cliente.name;
+  return `${codigoPrefix}${clienteName}`;
+}
+
+/**
+ * Finds selected cliente by ID
+ * @param {Array} clientes - Array of clientes
+ * @param {string} clienteId - Cliente ID to find
+ * @returns {Object|null} Select option or null
+ */
+function findSelectedCliente(clientes, clienteId) {
+  const foundCliente = clientes.find((c) => String(c._id) === String(clienteId));
+  if (!foundCliente) return null;
+
+  return {
+    value: String(foundCliente._id),
+    label: formatClienteLabel(foundCliente)
+  };
+}
+
+/**
+ * Dashboard filters component with cliente selector and date range
+ * @param {Object} props - Component props
+ * @param {Array} props.clients - Array of available clientes
+ * @param {string} props.filterClient - Selected cliente ID
+ * @param {Function} props.setFilterClient - Set cliente filter
+ * @param {string} props.filterFrom - Start date (ISO)
+ * @param {Function} props.setFilterFrom - Set start date
+ * @param {string} props.filterTo - End date (ISO)
+ * @param {Function} props.setFilterTo - Set end date
+ * @param {Function} props.onApply - Apply filters callback
+ */
+export default function FiltersClient({
+  clients = [],
+  filterClient,
+  setFilterClient,
+  filterFrom,
+  setFilterFrom,
+  filterTo,
+  setFilterTo,
+  onApply
+}) {
+  const [selectedOption, setSelectedOption] = useState(null);
 
   useEffect(() => {
     if (filterClient) {
-      const sel = clients.find((c) => String(c._id) === String(filterClient));
-      if (sel) setSelected({ value: String(sel._id), label: `${sel.codigo ? sel.codigo + ' ' : ''}${sel.nome || sel.name}` });
-      else setSelected(null);
-    } else setSelected(null);
+      const selectedCliente = findSelectedCliente(clients, filterClient);
+      setSelectedOption(selectedCliente);
+    } else {
+      setSelectedOption(null);
+    }
   }, [filterClient, clients]);
 
-  const options = clients.map((c) => ({ value: String(c._id), label: `${c.codigo ? c.codigo + ' ' : ''}${c.nome || c.name}` }));
-  // refined control styles to better vertically center the select and match date input height
-  // compute values safely (avoid referencing window/document during SSR)
-  let controlHeightVal = 34;
-  let paddingLeftVal = 6;
-  if (typeof window !== 'undefined' && typeof document !== 'undefined') {
-    try {
-      const rootStyles = getComputedStyle(document.documentElement);
-      const parsedControl = parseInt(rootStyles.getPropertyValue('--control-height') || '36', 10) - 2;
-      controlHeightVal = Number.isFinite(parsedControl) && !Number.isNaN(parsedControl) ? parsedControl : 34;
-      const parsedPad = parseInt(rootStyles.getPropertyValue('--space-xxs') || '6', 10);
-      paddingLeftVal = Number.isFinite(parsedPad) && !Number.isNaN(parsedPad) ? parsedPad : 6;
-    } catch {
-      // fallback to defaults when getComputedStyle fails
-      controlHeightVal = 34;
-      paddingLeftVal = 6;
-    }
-  }
+  const clientOptions = clients.map((cliente) => ({
+    value: String(cliente._id),
+    label: formatClienteLabel(cliente)
+  }));
 
+  // Static styles to prevent hydration mismatches
+  // Using fixed values instead of dynamic CSS property queries
   const controlStyles = {
-    control: (p) => ({
-      ...p,
-      minHeight: controlHeightVal,
-      height: controlHeightVal,
+    control: (baseStyles) => ({
+      ...baseStyles,
+      minHeight: '34px',
+      height: '34px',
       display: 'flex',
       alignItems: 'center',
       fontSize: '0.88rem',
-      paddingLeft: paddingLeftVal,
+      paddingLeft: '6px',
       paddingTop: 0,
       paddingBottom: 0,
-      // small upward nudge to better align with adjacent date inputs
+      // Small upward nudge to better align with adjacent date inputs
       marginTop: '-6px',
     }),
-    valueContainer: (p) => ({ ...p, padding: `0 var(--space-xxs, var(--gap-xs, var(--gap-xs, 6px)))` }),
-    indicatorsContainer: (p) => ({ ...p, height: controlHeightVal }),
-    input: (p) => ({ ...p, margin: 0, padding: 0 }),
-    singleValue: (p) => ({ ...p, fontSize: '0.88rem' }),
-    placeholder: (p) => ({ ...p, margin: 0 }),
-    menu: (p) => ({ ...p, zIndex: 60 })
+    valueContainer: (baseStyles) => ({
+      ...baseStyles,
+      padding: '0 6px'
+    }),
+    indicatorsContainer: (baseStyles) => ({ ...baseStyles, height: '34px' }),
+    input: (baseStyles) => ({ ...baseStyles, margin: 0, padding: 0 }),
+    singleValue: (baseStyles) => ({ ...baseStyles, fontSize: '0.88rem' }),
+    placeholder: (baseStyles) => ({ ...baseStyles, margin: 0 }),
+    menu: (baseStyles) => ({ ...baseStyles, zIndex: 60 })
   };
 
-  const instanceRef = useRef(`client-select-${Math.random().toString(36).slice(2, 9)}`);
-  const inputId = `${instanceRef.current}-input`;
-  const placeholderId = `${instanceRef.current}-placeholder`;
+  // Use stable ID for SSR hydration consistency
+  const instanceId = 'dashboard-client-select';
+  const inputId = `${instanceId}-input`;
+  const placeholderId = `${instanceId}-placeholder`;
+
+  const handleClienteChange = (selectedValue) => {
+    setSelectedOption(selectedValue);
+    setFilterClient(selectedValue ? selectedValue.value : "");
+  };
+
+  const handleClearFilters = () => {
+    setFilterClient('');
+    setFilterFrom('');
+    setFilterTo('');
+    setSelectedOption(null);
+    if (onApply) onApply();
+  };
+
+  const handleApplyFilters = () => {
+    if (onApply) onApply();
+  };
 
   return (
     <FilterRow>
       <ClientField>
         <Label>Cliente</Label>
         <Select
-          value={selected}
-          onChange={(v) => { setSelected(v); setFilterClient(v ? v.value : ""); }}
-          options={options}
+          value={selectedOption}
+          onChange={handleClienteChange}
+          options={clientOptions}
           isClearable
           styles={controlStyles}
-          instanceId={instanceRef.current}
+          instanceId={instanceId}
           inputId={inputId}
           aria-describedby={placeholderId}
           placeholder={<div id={placeholderId}>Pesquisar cliente...</div>}
@@ -111,11 +169,14 @@ export default function FiltersClient({ clients = [], filterClient, setFilterCli
           <BRDateInput value={filterTo} onChange={(iso) => setFilterTo(iso)} />
         </DateField>
         <ButtonsRow>
-          <FE.SecondaryButton onClick={() => { setFilterClient(''); setFilterFrom(''); setFilterTo(''); setSelected(null); if (onApply) onApply(); }}>Limpar</FE.SecondaryButton>
-          <FE.Button onClick={() => { if (onApply) onApply(); }}>Aplicar</FE.Button>
+          <FE.SecondaryButton onClick={handleClearFilters}>
+            Limpar
+          </FE.SecondaryButton>
+          <FE.Button onClick={handleApplyFilters}>
+            Aplicar
+          </FE.Button>
         </ButtonsRow>
       </DateRow>
     </FilterRow>
   );
-
 }

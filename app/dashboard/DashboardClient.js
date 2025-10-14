@@ -824,11 +824,11 @@ export default function DashboardClient() {
         </KPI>
         <KPI as="div" className="span-2">
           <KPILabel>Receita (recebida)</KPILabel>
-          <KPIValue>{showPlaceholder ? <Skeleton width={140} height={20} /> : `R$ ${kpis.receitaRecebida.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}</KPIValue>
+          <KPIValue style={{ color: '#16a34a' }}>{showPlaceholder ? <Skeleton width={140} height={20} /> : `R$ ${kpis.receitaRecebida.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}</KPIValue>
         </KPI>
         <KPI as="div" className="span-2">
           <KPILabel>Custos (pagos)</KPILabel>
-          <KPIValue>{showPlaceholder ? <Skeleton width={140} height={20} /> : `R$ ${kpis.custosPagos.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}</KPIValue>
+          <KPIValue style={{ color: '#ef4444' }}>{showPlaceholder ? <Skeleton width={140} height={20} /> : `R$ ${kpis.custosPagos.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}</KPIValue>
         </KPI>
         <Card className="span-7" $height={320}>
           <CardTitle>Receita x Custos (12 meses)</CardTitle>
@@ -896,7 +896,7 @@ export default function DashboardClient() {
                 margin={{ top: 10, right: 10, bottom: 80, left: 80 }}
                 axisBottom={{ tickRotation: -35 }}
                 padding={0.3}
-                colors={{ scheme: 'nivo' }}
+                colors={['#16a34a', '#ef4444']}
                 groupMode="stacked"
                 enableLabel={false}
               />
@@ -906,27 +906,75 @@ export default function DashboardClient() {
 
         <Card className="span-4" $height={320}>
           <CardTitle>Contas a pagar (status)</CardTitle>
-          <ChartBox $height={260}>
+          <RowBottomGap>
+            <Legend items={[{ label: 'Aberto', color: '#f59e0b' }, { label: 'Pago', color: '#10b981' }]} />
+          </RowBottomGap>
+          <ChartBox $height={220}>
             <ResponsivePie
               data={statusDistrib.pagar}
-              margin={{ top: 10, right: 10, bottom: 10, left: 10 }}
+              margin={{ top: 20, right: 80, bottom: 20, left: 80 }}
               innerRadius={0.5}
               padAngle={1}
+              cornerRadius={3}
               colors={["#f59e0b", "#10b981"]}
-              enableArcLabels={false}
+              enableArcLabels={true}
+              arcLabelsSkipAngle={10}
+              arcLabel={d => `${d.value}`}
+              arcLabelsTextColor="#ffffff"
+              legends={[
+                {
+                  anchor: 'bottom',
+                  direction: 'row',
+                  justify: false,
+                  translateX: 0,
+                  translateY: 20,
+                  itemsSpacing: 10,
+                  itemWidth: 80,
+                  itemHeight: 18,
+                  itemTextColor: '#333',
+                  itemDirection: 'left-to-right',
+                  itemOpacity: 1,
+                  symbolSize: 14,
+                  symbolShape: 'circle'
+                }
+              ]}
             />
           </ChartBox>
         </Card>
         <Card className="span-4" $height={320}>
           <CardTitle>Contas a receber (status)</CardTitle>
-          <ChartBox $height={260}>
+          <RowBottomGap>
+            <Legend items={[{ label: 'Aberto', color: '#f59e0b' }, { label: 'Recebido', color: '#22c55e' }]} />
+          </RowBottomGap>
+          <ChartBox $height={220}>
             <ResponsivePie
               data={statusDistrib.receber}
-              margin={{ top: 10, right: 10, bottom: 10, left: 10 }}
+              margin={{ top: 20, right: 80, bottom: 20, left: 80 }}
               innerRadius={0.5}
               padAngle={1}
+              cornerRadius={3}
               colors={["#f59e0b", "#22c55e"]}
-              enableArcLabels={false}
+              enableArcLabels={true}
+              arcLabelsSkipAngle={10}
+              arcLabel={d => `${d.value}`}
+              arcLabelsTextColor="#ffffff"
+              legends={[
+                {
+                  anchor: 'bottom',
+                  direction: 'row',
+                  justify: false,
+                  translateX: 0,
+                  translateY: 20,
+                  itemsSpacing: 10,
+                  itemWidth: 80,
+                  itemHeight: 18,
+                  itemTextColor: '#333',
+                  itemDirection: 'left-to-right',
+                  itemOpacity: 1,
+                  symbolSize: 14,
+                  symbolShape: 'circle'
+                }
+              ]}
             />
           </ChartBox>
         </Card>

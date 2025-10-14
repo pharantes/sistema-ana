@@ -110,6 +110,11 @@ export default function NavBar() {
 
         <RightArea>
           <NavItem>
+            <NavLink href="/api/resumo-executivo/pdf" target="_blank">
+              📄 Resumo Executivo (PDF)
+            </NavLink>
+          </NavItem>
+          <NavItem>
             <NavLink href="/documentation">📚 Documentação</NavLink>
           </NavItem>
           {session && (

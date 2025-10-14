@@ -569,7 +569,7 @@ export default function DashboardClient() {
 
     const receitaSeries = {
       id: "Receita",
-      color: "#16a34a",
+      color: "#22c55e",
       data: last12Months.map((key) => ({
         x: key,
         y: monthlyData.get(key)?.r || 0
@@ -824,7 +824,7 @@ export default function DashboardClient() {
         </KPI>
         <KPI as="div" className="span-2">
           <KPILabel>Receita (recebida)</KPILabel>
-          <KPIValue style={{ color: '#16a34a' }}>{showPlaceholder ? <Skeleton width={140} height={20} /> : `R$ ${kpis.receitaRecebida.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}</KPIValue>
+          <KPIValue style={{ color: '#22c55e' }}>{showPlaceholder ? <Skeleton width={140} height={20} /> : `R$ ${kpis.receitaRecebida.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}</KPIValue>
         </KPI>
         <KPI as="div" className="span-2">
           <KPILabel>Custos (pagos)</KPILabel>
@@ -881,7 +881,7 @@ export default function DashboardClient() {
         <Card className="span-4" $height={320}>
           <CardTitle>Margens por cliente (top 8)</CardTitle>
           <RowBottomGap>
-            <Legend items={[{ label: 'Receita', color: '#16a34a' }, { label: 'Custos', color: '#ef4444' }]} />
+            <Legend items={[{ label: 'Receita', color: '#22c55e' }, { label: 'Custos', color: '#ef4444' }]} />
           </RowBottomGap>
           <ChartBox $height={260}>
             {showPlaceholder ? (
@@ -896,7 +896,7 @@ export default function DashboardClient() {
                 margin={{ top: 10, right: 10, bottom: 80, left: 80 }}
                 axisBottom={{ tickRotation: -35 }}
                 padding={0.3}
-                colors={['#16a34a', '#ef4444']}
+                colors={['#22c55e', '#ef4444']}
                 groupMode="stacked"
                 enableLabel={false}
               />
@@ -907,7 +907,7 @@ export default function DashboardClient() {
         <Card className="span-4" $height={320}>
           <CardTitle>Contas a pagar (status)</CardTitle>
           <RowBottomGap>
-            <Legend items={[{ label: 'Aberto', color: '#f59e0b' }, { label: 'Pago', color: '#10b981' }]} />
+            <Legend items={[{ label: 'Aberto', color: '#f59e0b' }, { label: 'Pago', color: '#22c55e' }]} />
           </RowBottomGap>
           <ChartBox $height={220}>
             <ResponsivePie
@@ -916,7 +916,7 @@ export default function DashboardClient() {
               innerRadius={0.5}
               padAngle={1}
               cornerRadius={3}
-              colors={["#f59e0b", "#10b981"]}
+              colors={["#f59e0b", "#22c55e"]}
               enableArcLabels={true}
               arcLabelsSkipAngle={10}
               arcLabel={d => `${d.value}`}

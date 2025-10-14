@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 "use client";
 import styled from "styled-components";
 import { RowBottomGap } from '../components/ui/primitives';
@@ -365,7 +364,7 @@ export default function DashboardClient() {
                 if (clientExists) {
                   setFilterClient(parsed.client);
                 } else {
-                  console.log('⚠️ Invalid client in localStorage, ignoring:', parsed.client);
+                  // Remove invalid client from localStorage
                   globalThis.localStorage.removeItem('dashboard_filters');
                 }
               }

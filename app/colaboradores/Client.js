@@ -69,32 +69,27 @@ const BankTd = styled(Td)`
 `;
 const OptionsTd = styled(Td)`
   max-width: 160px;
-  /* Align the cell content vertically; don't force children width so buttons keep their natural size */
-  display: flex;
-  align-items: center;
-  justify-content: flex-end; /* align buttons to right so they don't overflow the table edge */
-  /* allow this flex table cell to shrink correctly and not force overflow */
-  min-width: 0;
-  /* hide the table divider just under the action buttons so they don't appear to have a line beneath */
   border-bottom: none !important;
   padding-right: var(--space-xs);
-  /* ensure ActionsRow inside this cell keeps inline layout and gap consistent with other lists */
-  ${FE.ActionsRow} {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--gap-xs);
-    min-width: 0;
-  }
-  /* ensure the small action buttons inside this cell use the same compact height as elsewhere */
-  ${FE.SmallSecondaryButton}, ${FE.SmallInlineButton} {
-    height: calc(var(--control-height, 36px) - var(--space-xs, 8px));
-    padding: var(--space-xxs, 4px) var(--space-xs, 8px);
-    font-size: var(--font-size-sm, 0.9rem);
-    line-height: 1;
-    box-sizing: border-box;
-  }
-  /* prevent accidental overflow from inner elements */
-  overflow: hidden;
+  vertical-align: middle !important;
+`;
+
+const PageSizeSelect = styled.select`
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background: none;
+  border: 1px solid rgba(0,0,0,0.12);
+  border-radius: 6px;
+  padding: 4px 28px 4px 8px;
+  height: calc(var(--control-height, 32px) - 6px);
+  font-size: var(--font-size-sm, 0.95rem);
+  cursor: pointer;
+  box-sizing: border-box;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><path d='M6 9l6 6 6-6'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 12px 12px;
 `;
 
 /**
@@ -436,14 +431,14 @@ export default function ColaboradoresClient({ initialColaboradores = [], isAdmin
           </div>
           <div className="info-row">
             <span className="label">Mostrar:</span>
-            <select value={pageSize} onChange={(e) => {
+            <PageSizeSelect value={pageSize} onChange={(e) => {
               setCurrentPage(1);
               setPageSize(Number(e.target.value));
             }}>
               <option value={10}>10</option>
               <option value={25}>25</option>
               <option value={50}>50</option>
-            </select>
+            </PageSizeSelect>
             <span className="label">Total: {colaboradores.length}</span>
           </div>
         </ControlsRow>

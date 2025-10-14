@@ -15,6 +15,23 @@ const TwoCol = styled.div`
   width: 100%;
 `;
 
+const ReadOnlyInput = styled.input`
+  background-color: #f0f0f0;
+  cursor: not-allowed;
+  padding: var(--space-xs, 8px);
+  border: 1px solid #ccc;
+  border-radius: var(--radius-sm, 4px);
+  font-size: 1rem;
+`;
+
+const DateInputWrapper = styled(SmallInputWrap)`
+  min-width: 160px;
+`;
+
+const ParcelaInputWrapper = styled(SmallInputWrap)`
+  min-width: 140px;
+`;
+
 export default function ContasReceberModal({
   open,
   onClose,
@@ -151,11 +168,10 @@ export default function ContasReceberModal({
 
       <label>Status {Number(form.qtdeParcela) > 1 && '(calculado automaticamente)'}</label>
       {Number(form.qtdeParcela) > 1 ? (
-        <input
+        <ReadOnlyInput
           readOnly
           value={form.status || 'ABERTO'}
           title="Status calculado automaticamente baseado nas parcelas individuais"
-          style={{ backgroundColor: '#f0f0f0', cursor: 'not-allowed' }}
         />
       ) : (
         <Select value={form.status || 'ABERTO'} onChange={e => update({ status: e.target.value })}>
@@ -167,9 +183,9 @@ export default function ContasReceberModal({
       <TwoCol>
         <div>
           <label>Data do documento</label>
-          <SmallInputWrap style={{ minWidth: 160 }}>
+          <DateInputWrapper>
             <BRDateInput value={form.reportDate || ''} onChange={(iso) => update({ reportDate: iso })} />
-          </SmallInputWrap>
+          </DateInputWrapper>
         </div>
         <div />
       </TwoCol>
@@ -206,9 +222,9 @@ export default function ContasReceberModal({
           <input type="number" value={form.qtdeParcela ?? ''} onChange={e => update({ qtdeParcela: e.target.value })} />
 
           <label>Data de vencimento</label>
-          <SmallInputWrap style={{ minWidth: 160 }}>
+          <DateInputWrapper>
             <BRDateInput value={form.dataVencimento || ''} onChange={(iso) => update({ dataVencimento: iso })} />
-          </SmallInputWrap>
+          </DateInputWrapper>
         </div>
         <div>
           <label>Valor da parcela</label>
@@ -249,12 +265,12 @@ export default function ContasReceberModal({
                     />
                   </td>
                   <td>
-                    <SmallInputWrap style={{ minWidth: 140 }}>
+                    <ParcelaInputWrapper>
                       <BRDateInput
                         value={inst.dueDate || ''}
                         onChange={(iso) => updateInstallment(idx, { dueDate: iso })}
                       />
-                    </SmallInputWrap>
+                    </ParcelaInputWrapper>
                   </td>
                   <td>
                     <Select
@@ -266,12 +282,12 @@ export default function ContasReceberModal({
                     </Select>
                   </td>
                   <td>
-                    <SmallInputWrap style={{ minWidth: 140 }}>
+                    <ParcelaInputWrapper>
                       <BRDateInput
                         value={inst.paidDate || ''}
                         onChange={(iso) => updateInstallment(idx, { paidDate: iso })}
                       />
-                    </SmallInputWrap>
+                    </ParcelaInputWrapper>
                   </td>
                 </tr>
               ))}

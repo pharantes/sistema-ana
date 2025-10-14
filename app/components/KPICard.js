@@ -14,6 +14,7 @@ const CardContainer = styled.div`
   gap: var(--gap-xs, 6px);
   min-height: 90px;
   transition: box-shadow 0.2s;
+  cursor: ${props => props.$clickable ? 'pointer' : 'default'};
   
   &:hover {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -54,7 +55,7 @@ export default function KPICard({ label, value, subtext, color, onClick }) {
   return (
     <CardContainer
       onClick={onClick}
-      style={onClick ? { cursor: 'pointer' } : undefined}
+      $clickable={!!onClick}
     >
       <CardLabel>{label}</CardLabel>
       <CardValue $color={color}>{value}</CardValue>

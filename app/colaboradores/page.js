@@ -1,7 +1,10 @@
 "use client";
+import { useSession } from "next-auth/react";
 import ColaboradoresClient from "./Client";
 
 export default function ColaboradoresPage() {
-  // Client component - all data fetching happens in ColaboradoresClient
-  return <ColaboradoresClient initialColaboradores={[]} isAdmin={false} />;
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "admin";
+
+  return <ColaboradoresClient initialColaboradores={[]} isAdmin={isAdmin} />;
 }

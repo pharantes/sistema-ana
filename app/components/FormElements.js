@@ -80,6 +80,8 @@ export const SmallSecondaryButton = styled(SecondaryButton)`
   font-size: var(--font-size-sm, 0.9rem);
   height: calc(var(--control-height, 36px) - var(--space-xs, var(--space-xs, 8px)));
   line-height: 1;
+  display: inline-flex;
+  align-items: center;
 `;
 
 export const SmallInlineButton = styled(InlineButton)`
@@ -87,6 +89,8 @@ export const SmallInlineButton = styled(InlineButton)`
   font-size: var(--font-size-sm, 0.9rem);
   height: calc(var(--control-height, 36px) - var(--space-xs, var(--space-xs, 8px)));
   line-height: 1;
+  display: inline-flex;
+  align-items: center;
 `;
 
 // named exports are already declared above

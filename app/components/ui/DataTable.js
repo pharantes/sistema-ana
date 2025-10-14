@@ -2,9 +2,29 @@
  * Generic reusable DataTable component with sorting, pagination, and actions
  */
 "use client";
-import { CompactTable, ThClickable, Th, Td } from "./Table";
+import styled from 'styled-components';
+import { CompactTable, ThClickable as BaseThClickable, Th as BaseTh, Td as BaseTd } from "./Table";
 import HeaderControls from "./HeaderControls";
 import * as FE from "../FormElements";
+
+// Styled components with dynamic width and alignment
+const ThClickable = styled(BaseThClickable)`
+  width: ${props => props.$width || 'auto'};
+  text-align: ${props => props.$align || 'left'} !important;
+`;
+
+const Th = styled(BaseTh)`
+  width: ${props => props.$width || 'auto'};
+  text-align: ${props => props.$align || 'left'} !important;
+`;
+
+const Td = styled(BaseTd)`
+  text-align: ${props => props.$align || 'left'} !important;
+`;
+
+const ClickableRow = styled.tr`
+  cursor: ${props => props.$clickable ? 'pointer' : 'default'};
+`;
 
 /**
  * Column configuration object type:
@@ -78,20 +98,16 @@ export default function DataTable({
                 <ThClickable
                   key={column.key}
                   onClick={() => onToggleSort?.(column.key)}
-                  style={{
-                    width: column.width,
-                    textAlign: column.align || 'left'
-                  }}
+                  $width={column.width}
+                  $align={column.align}
                 >
                   {column.label}{sortIndicator}
                 </ThClickable>
               ) : (
                 <Th
                   key={column.key}
-                  style={{
-                    width: column.width,
-                    textAlign: column.align || 'left'
-                  }}
+                  $width={column.width}
+                  $align={column.align}
                 >
                   {column.label}
                 </Th>
@@ -106,10 +122,10 @@ export default function DataTable({
             const key = row[rowKey] || JSON.stringify(row);
 
             return (
-              <tr
+              <ClickableRow
                 key={key}
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
-                style={onRowClick ? { cursor: 'pointer' } : undefined}
+                $clickable={!!onRowClick}
               >
                 {columns.map(column => {
                   const value = column.render
@@ -119,7 +135,7 @@ export default function DataTable({
                   return (
                     <Td
                       key={column.key}
-                      style={{ textAlign: column.align || 'left' }}
+                      $align={column.align}
                     >
                       {value}
                     </Td>
@@ -133,13 +149,13 @@ export default function DataTable({
                     </FE.ActionsRow>
                   </Td>
                 )}
-              </tr>
+              </ClickableRow>
             );
           })}
 
           {rows.length === 0 && (
             <tr>
-              <Td colSpan={columns.length + (renderActions ? 1 : 0)} style={{ textAlign: 'center', padding: '2rem' }}>
+              <Td colSpan={columns.length + (renderActions ? 1 : 0)} $align="center" style={{ padding: '2rem' }}>
                 Nenhum registro encontrado
               </Td>
             </tr>

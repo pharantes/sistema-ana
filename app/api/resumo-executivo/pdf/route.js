@@ -38,11 +38,24 @@ export async function GET() {
         addNewPage();
       }
 
-      const textWidth = font.widthOfTextAtSize(text, fontSize);
+      // Remove emoji and special characters that WinAnsi can't encode
+      // Only keep ASCII printable characters and common Latin-1 characters
+      let cleanText = '';
+      for (let i = 0; i < text.length; i++) {
+        const code = text.charCodeAt(i);
+        if ((code >= 32 && code <= 126) || (code >= 160 && code <= 255)) {
+          cleanText += text[i];
+        }
+      }
+      cleanText = cleanText.trim();
+
+      if (!cleanText) return;
+
+      const textWidth = font.widthOfTextAtSize(cleanText, fontSize);
 
       // Handle text wrapping
       if (textWidth > pageWidth) {
-        const words = text.split(' ');
+        const words = cleanText.split(' ');
         let line = '';
 
         for (const word of words) {
@@ -76,7 +89,7 @@ export async function GET() {
           currentY -= lineHeight;
         }
       } else {
-        page.drawText(text, {
+        page.drawText(cleanText, {
           x: margin,
           y: currentY,
           size: fontSize,

@@ -103,20 +103,21 @@ Sistema Ana é uma solução completa de gestão empresarial que permite às emp
 
 ## 📈 Detalhamento do Desenvolvimento
 
-### Investimento de Tempo por Fase
+### Investimento de Tempo por Fase (16 dias - 29/09 a 14/10/2025)
 
-| Fase | Horas | Porcentagem |
-|------|-------|-------------|
-| Funcionalidades Principais (CRUD) | 200-250h | 32% |
-| Gestão Financeira | 80-100h | 13% |
-| Componentes UI/UX | 60-80h | 10% |
-| Desenvolvimento de API | 80-100h | 13% |
-| Dashboard & Gráficos | 40-50h | 6% |
-| Autenticação | 30-40h | 5% |
-| Refatoração | 40-50h | 6% |
-| Testes & Bugs | 50-60h | 8% |
-| Documentação | 30-40h | 5% |
-| Outras Tarefas | 20-30h | 4% |
+| Fase | Dias | Descrição |
+|------|------|-----------|
+| Arquitetura & Setup Inicial | 2 dias | Configuração do projeto, estrutura de pastas, MongoDB |
+| Funcionalidades Principais (CRUD) | 5 dias | Clientes, Colaboradores, Ações - operações completas |
+| Gestão Financeira | 3 dias | Contas a Pagar, Contas a Receber, Contas Fixas |
+| Dashboard & Visualização | 2 dias | KPIs, gráficos interativos, analytics |
+| Autenticação & Segurança | 1 dia | NextAuth.js, middleware, proteção de rotas |
+| Componentes & UI/UX | 1 dia | Biblioteca de componentes reutilizáveis |
+| Refatoração & Otimização | 1 dia | Limpeza de código, utilitários compartilhados |
+| Documentação | 1 dia | Guias técnicos, resumos executivos, README |
+
+**Período Total:** 16 dias de desenvolvimento intensivo  
+**Resultado:** Sistema completo e pronto para produção
 
 ---
 
@@ -262,12 +263,15 @@ Sistema Ana é uma solução completa de gestão empresarial que permite às emp
 ## 💰 Avaliação de Valor do Projeto
 
 ### Custo de Desenvolvimento Equivalente
-**690 horas @ taxas médias da indústria:**
-- Desenvolvedor Júnior ($30/hr): $20.700
-- Desenvolvedor Pleno ($60/hr): $41.400
-- Desenvolvedor Sênior ($90/hr): $62.100
+**16 dias de desenvolvimento intensivo (29/09 - 14/10/2025)**
 
-**Valor Médio de Mercado: $41.000 - $45.000**
+Baseado em taxas de mercado brasileiras e internacionais:
+- Desenvolvedor Júnior: R$ 8.000 - R$ 12.000
+- Desenvolvedor Pleno: R$ 15.000 - R$ 25.000  
+- Desenvolvedor Sênior: R$ 30.000 - R$ 50.000
+
+**Valor Estimado do Projeto: R$ 20.000 - R$ 35.000**  
+*(Considerando complexidade, escopo completo e qualidade entregue)*
 
 ### Produtos SaaS Comparáveis
 Funcionalidade similar a:

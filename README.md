@@ -2,7 +2,14 @@
 
 A comprehensive business management system built with Next.js for managing clients, collaborators, actions, and financial accounts.
 
-## 📚 Documentation
+## 📊 Project Overview
+
+**Status:** ✅ Production Ready | **Development Time:** ~690 hours (4-5 months) | **Quality:** ⭐⭐⭐⭐⭐
+
+- **[EXECUTIVE_SUMMARY.md](./EXECUTIVE_SUMMARY.md)** - Quick overview for stakeholders | **[PT-BR](./RESUMO_EXECUTIVO.md)**
+- **[PROJECT_SUMMARY.md](./PROJECT_SUMMARY.md)** - Complete detailed project summary
+
+## �📚 Documentation
 
 **Quick Links:**
 - **[Documentation Index](./docs/README.md)** - Complete documentation catalog

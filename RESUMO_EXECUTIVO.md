@@ -5,6 +5,7 @@
 **Nome do Projeto:** Sistema Ana  
 **Tipo:** Sistema de Gestão Empresarial  
 **Status:** ✅ Pronto para Produção  
+**Data de Início:** 29 de Setembro de 2025
 **Data de Conclusão:** 14 de Outubro de 2025
 
 ---
@@ -13,7 +14,7 @@
 
 | Métrica | Valor |
 |---------|-------|
-| **Tempo Total de Desenvolvimento** | 690 horas (~4-5 meses) |
+| **Tempo Total de Desenvolvimento** | 16 dias |
 | **Linhas de Código** | ~17.800 |
 | **Componentes Criados** | 26 componentes reutilizáveis |
 | **Endpoints de API** | 32+ endpoints REST |

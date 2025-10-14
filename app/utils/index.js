@@ -14,6 +14,12 @@ export * from './pagination';
 // Table state hook
 export { useTableState } from './useTableState';
 
+// API utilities
+export * from './useApi';
+
+// Error handling utilities
+export * from './errorHandling';
+
 // Currency utilities
 export { formatBRL, parseBRL } from './currency';
 

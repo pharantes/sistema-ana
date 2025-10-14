@@ -109,6 +109,9 @@ export default function NavBar() {
         </NavList>
 
         <RightArea>
+          <NavItem>
+            <NavLink href="/documentation">📚 Documentação</NavLink>
+          </NavItem>
           {session && (
             <SignOutButton onClick={handleSignOut}>
               Sair

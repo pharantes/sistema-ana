@@ -13,6 +13,8 @@ Welcome to the Sistema Ana documentation. This directory contains all technical 
 - **[AUTH_FLOW_FIX.md](./AUTH_FLOW_FIX.md)** - Authentication flow implementation and fixes
 - **[PASSWORD_TOGGLE_FEATURE.md](./PASSWORD_TOGGLE_FEATURE.md)** - Password visibility toggle feature
 - **[DASHBOARD_FIX_REPORT.md](./DASHBOARD_FIX_REPORT.md)** - Dashboard fixes and improvements
+- **[ERROR_HANDLING_ENHANCEMENT.md](./ERROR_HANDLING_ENHANCEMENT.md)** - Error handling, loading states, and empty states
+- **[DOCUMENTATION_PAGE_FEATURE.md](./DOCUMENTATION_PAGE_FEATURE.md)** - In-app documentation page with admin guide
 - **[TOKENS.md](./TOKENS.md)** - Token management and security
 
 ### Development Progress

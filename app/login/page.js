@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { signIn, getSession } from "next-auth/react";
+import { useState, useEffect } from "react";
+import { signIn, getSession, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
 import styled from 'styled-components';
@@ -89,6 +89,30 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const router = useRouter();
+  const { data: session, status } = useSession();
+
+  // Redirect to dashboard if already logged in
+  useEffect(() => {
+    if (status === "authenticated" && session) {
+      router.push("/");
+    }
+  }, [status, session, router]);
+
+  // Show loading while checking authentication status
+  if (status === "loading") {
+    return (
+      <CenterWrap>
+        <FormCard as="div">
+          <Title>Carregando...</Title>
+        </FormCard>
+      </CenterWrap>
+    );
+  }
+
+  // Don't show login form if already authenticated (will redirect)
+  if (status === "authenticated") {
+    return null;
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();

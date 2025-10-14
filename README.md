@@ -1,6 +1,13 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Sistema Ana
 
-## Getting Started
+A comprehensive business management system built with Next.js for managing clients, collaborators, actions, and financial accounts.
+
+## 📚 Documentation
+
+- [CODE_ORGANIZATION.md](./CODE_ORGANIZATION.md) - Architecture, components, and best practices
+- [REFACTORING_PROGRESS.md](./REFACTORING_PROGRESS.md) - Refactoring history and progress
+
+## 🚀 Getting Started
 
 First, run the development server:
 

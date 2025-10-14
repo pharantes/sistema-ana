@@ -4,7 +4,6 @@
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import HeaderBar from "../components/HeaderBar";
 import styled from 'styled-components';
 import { Note, RowTopGap } from '../components/ui/primitives';
 import * as FE from "../components/FormElements";
@@ -12,7 +11,11 @@ import ActionListTable from "./components/ActionListTable";
 import Filters from "../components/Filters";
 import dynamic from 'next/dynamic';
 const ActionModal = dynamic(() => import('../components/ActionModal'), { ssr: false });
-
+const Title = styled.h1`
+  font-size: var(--font-h3, 1.6rem);
+  margin-bottom: var(--space-xs, var(--space-xs, var(--space-xs, 8px)));
+`;
+// TopWrap imported from primitives
 const TopWrap = styled.div`
   padding: var(--page-padding);
 `;
@@ -168,8 +171,7 @@ export default function AcoesPage() {
 
   return (
     <TopWrap>
-      <HeaderBar username={session.user?.username || session.user?.name} role={session.user?.role} />
-
+      <Title>Ações</Title>
       <SectionWrap>
         <Filters
           q={q} setQ={setQ}
@@ -191,13 +193,15 @@ export default function AcoesPage() {
         </SectionWrap>
       </SectionWrap>
 
-      {modalOpen && (
-        <ActionModal
-          editing={editing}
-          onClose={() => { setModalOpen(false); setEditing(null); }}
-          onSubmit={handleModalSubmit}
-        />
-      )}
-    </TopWrap>
+      {
+        modalOpen && (
+          <ActionModal
+            editing={editing}
+            onClose={() => { setModalOpen(false); setEditing(null); }}
+            onSubmit={handleModalSubmit}
+          />
+        )
+      }
+    </TopWrap >
   );
 }

@@ -7,17 +7,15 @@ import Filters from "./Filters";
 import ContasReceberModal from "./ContasReceberModal";
 import AcoesTable from "./components/AcoesTable";
 import { gerarContasAReceberPDF } from "./utils/pdf";
-
 // Pager now centralized in components/ui/Pager
 
-const Title = styled.h1`
-  font-size: var(--font-h1, 2rem);
-  margin-bottom: var(--space-md, var(--space-md, var(--space-md, 16px)));
-`;
 const Wrapper = styled.div`
   padding: var(--page-padding);
 `;
-
+const Title = styled.h1`
+  font-size: var(--font-h3, 1.6rem);
+  margin-bottom: var(--space-xs, var(--space-xs, var(--space-xs, 8px)));
+`;
 // Table, Th, Td imported from components/ui/Table for consistency
 
 export default function ContasAReceberPage() {

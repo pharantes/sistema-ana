@@ -17,8 +17,6 @@ const Title = styled.h1`
   font-size: var(--font-h3, 1.6rem);
   margin-bottom: var(--space-xs, var(--space-xs, var(--space-xs, 8px)));
 `;
-const TopControls = RowWrap;
-// SmallNote imported from primitives
 
 export default function ClientesPage() {
   const router = useRouter();
@@ -165,10 +163,10 @@ export default function ClientesPage() {
   return (
     <Wrapper>
       <Title>Clientes</Title>
-      <TopControls>
+      <RowWrap>
         <FE.TopButton onClick={() => setModalOpen(true)}>Novo Cliente</FE.TopButton>
         <SearchBar value={q} onChange={e => { setPage(1); setQ(e.target.value); }} placeholder="Buscar por nome, contato, email ou cidade..." />
-      </TopControls>
+      </RowWrap>
       {loading ? <p>Carregando...</p> : (
         <ClientesTableWithFooter
           rows={pageData}

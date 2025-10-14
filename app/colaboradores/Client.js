@@ -13,15 +13,16 @@ import ColaboradorModal from "../components/ColaboradorModal";
 const Wrapper = styled.div`
   padding: var(--page-padding);
 `;
-const Title = styled.h1`
-  font-size: var(--font-h3, 1.6rem);
-  margin-bottom: var(--space-xs, var(--space-xs, var(--space-xs, 8px)));
-`;
+
 import { ThClickable, Th, Td, CompactTable } from "../components/ui/Table";
 import LinkButton from '../components/ui/LinkButton';
 
 
 // Local layout helpers
+const Title = styled.h1`
+  font-size: var(--font-h3, 1.6rem);
+  margin-bottom: var(--space-xs, var(--space-xs, var(--space-xs, 8px)));
+`;
 const GridWrap = styled.div`
   display: grid;
   gap: var(--gap-xs);

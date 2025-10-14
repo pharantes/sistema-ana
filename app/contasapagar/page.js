@@ -13,7 +13,7 @@ const Title = styled.h1`
   margin-bottom: var(--space-xs, var(--space-xs, var(--space-xs, 8px)));
 `;
 const Wrapper = styled.div`
-  padding: 0;
+  padding: var(--page-padding);
 `;
 const PageSection = styled.div`
   margin-top: var(--space-sm);

@@ -59,9 +59,21 @@ export default function FiltersClient({ clients = [], filterClient, setFilterCli
   }
 
   const controlStyles = {
-    control: (p) => ({ ...p, minHeight: controlHeightVal, height: 34, display: 'flex', alignItems: 'center', fontSize: '0.88rem', paddingLeft: paddingLeftVal }),
+    control: (p) => ({
+      ...p,
+      minHeight: controlHeightVal,
+      height: controlHeightVal,
+      display: 'flex',
+      alignItems: 'center',
+      fontSize: '0.88rem',
+      paddingLeft: paddingLeftVal,
+      paddingTop: 0,
+      paddingBottom: 0,
+      // small upward nudge to better align with adjacent date inputs
+      marginTop: '-6px',
+    }),
     valueContainer: (p) => ({ ...p, padding: `0 var(--space-xxs, var(--gap-xs, var(--gap-xs, 6px)))` }),
-    indicatorsContainer: (p) => ({ ...p, height: 34 }),
+    indicatorsContainer: (p) => ({ ...p, height: controlHeightVal }),
     input: (p) => ({ ...p, margin: 0, padding: 0 }),
     singleValue: (p) => ({ ...p, fontSize: '0.88rem' }),
     placeholder: (p) => ({ ...p, margin: 0 }),

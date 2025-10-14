@@ -16,6 +16,10 @@ const Wrapper = styled.div`
   display: grid;
   gap: var(--gap-xs);
 `;
+const Title = styled.h1`
+  font-size: var(--font-h3, 1.6rem);
+  margin-bottom: var(--space-xs, var(--space-xs, var(--space-xs, 8px)));
+`;
 const Grid = styled.div`
   display: grid;
   grid-template-columns: repeat(12, 1fr);
@@ -366,6 +370,7 @@ export default function DashboardClient() {
 
   return (
     <Wrapper>
+      <Title>Dashboard</Title>
       {error ? <ErrorBanner>{error}</ErrorBanner> : null}
       {/* Filters (client id based) */}
       <FiltersClient

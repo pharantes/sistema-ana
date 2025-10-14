@@ -111,7 +111,6 @@ function FiltersComponent({
 
   return (
     <FiltersWrapper>
-      <h3>Filtros</h3>
       <Grid>
         <Field>
           <Label>Buscar</Label>

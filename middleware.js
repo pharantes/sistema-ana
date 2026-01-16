@@ -37,9 +37,9 @@ export async function middleware(req) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Staff role restrictions: only allow access to /acoes, /colaboradores, /clientes, /documentation
+  // Staff role restrictions: only allow access to /acoes, /colaboradores, /clientes
   if (token.role === "staff") {
-    const staffAllowedPaths = ["/acoes", "/colaboradores", "/clientes", "/documentation"];
+    const staffAllowedPaths = ["/acoes", "/colaboradores", "/clientes"];
     const isAllowedPath = staffAllowedPaths.some(path => pathname.startsWith(path));
 
     // If trying to access restricted route, redirect to /acoes

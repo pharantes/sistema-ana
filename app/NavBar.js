@@ -113,16 +113,6 @@ export default function NavBar() {
         </NavList>
 
         <RightArea>
-          {isAdmin && (
-            <NavItem>
-              <NavLink href="/api/resumo-executivo/pdf" target="_blank">
-                📄 Resumo Executivo (PDF)
-              </NavLink>
-            </NavItem>
-          )}
-          <NavItem>
-            <NavLink href="/documentation">📚 Documentação</NavLink>
-          </NavItem>
           {session && (
             <SignOutButton onClick={handleSignOut}>
               Sair

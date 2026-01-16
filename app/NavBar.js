@@ -86,17 +86,21 @@ export default function NavBar() {
     <Navbar>
       <NavInner>
         <NavList>
-          <NavItem>
-            <NavLink href="/">Dashboard</NavLink>
-          </NavItem>
+          {isAdmin && (
+            <NavItem>
+              <NavLink href="/">Dashboard</NavLink>
+            </NavItem>
+          )}
           {isAdmin && (
             <NavItem>
               <NavLink href="/contasareceber">Contas a receber</NavLink>
             </NavItem>
           )}
-          <NavItem>
-            <NavLink href="/contasapagar">Contas a pagar</NavLink>
-          </NavItem>
+          {isAdmin && (
+            <NavItem>
+              <NavLink href="/contasapagar">Contas a pagar</NavLink>
+            </NavItem>
+          )}
           <NavItem>
             <NavLink href="/acoes">Ações</NavLink>
           </NavItem>
@@ -109,11 +113,13 @@ export default function NavBar() {
         </NavList>
 
         <RightArea>
-          <NavItem>
-            <NavLink href="/api/resumo-executivo/pdf" target="_blank">
-              📄 Resumo Executivo (PDF)
-            </NavLink>
-          </NavItem>
+          {isAdmin && (
+            <NavItem>
+              <NavLink href="/api/resumo-executivo/pdf" target="_blank">
+                📄 Resumo Executivo (PDF)
+              </NavLink>
+            </NavItem>
+          )}
           <NavItem>
             <NavLink href="/documentation">📚 Documentação</NavLink>
           </NavItem>

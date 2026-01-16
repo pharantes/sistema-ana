@@ -256,19 +256,17 @@ export default function ActionModal({ editing, form, onClose, onSubmit, loading 
 
             <div>
               <FL.Label>Início do Evento</FL.Label>
-              <DateInput
-                type="date"
+              <BRDateInput
                 value={local.startDate || ''}
-                onChange={e => setLocal(l => ({ ...l, startDate: e.target.value }))}
+                onChange={(iso) => setLocal(l => ({ ...l, startDate: iso }))}
               />
               <FL.Label>Fim do Evento</FL.Label>
-              <DateInput
-                type="date"
+              <BRDateInput
                 value={local.endDate || ''}
-                onChange={e => setLocal(l => ({ ...l, endDate: e.target.value }))}
+                onChange={(iso) => setLocal(l => ({ ...l, endDate: iso }))}
               />
               <FL.Label>Vencimento (automático)</FL.Label>
-              <DueDateInput type="date" value={local.dueDate || ''} readOnly />
+              <DueDateDisplay type="text" value={local.dueDate ? new Date(local.dueDate).toLocaleDateString('pt-BR') : ''} readOnly />
             </div>
 
             <div>
@@ -449,17 +447,7 @@ const Title = styled.h3`
   font-size: var(--font-size-lg, 1.125rem);
   color: var(--color-primary);
 `;
-const DateInput = styled.input`
-  flex: 1;
-  margin-bottom: var(--space-xs);
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-  border: 1px solid rgba(0,0,0,0.08);
-  background: var(--color-surface);
-  color: var(--color-text-primary);
-  font-size: var(--font-size-base);
-`;
-const DueDateInput = styled.input`
+const DueDateDisplay = styled.input`
   width: 100%;
   background: var(--color-muted-surface, #f5f5f5);
   margin-bottom: var(--space-xs);

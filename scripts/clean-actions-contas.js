@@ -16,6 +16,7 @@ import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import Action from '../lib/db/models/Action.js';
 import ContasAReceber from '../lib/db/models/ContasAReceber.js';
+import ContasAPagar from '../lib/db/models/ContasAPagar.js';
 
 dotenv.config({ path: '.env.local' });
 
@@ -27,10 +28,12 @@ async function cleanDatabase() {
 
     // Count documents before deletion
     const actionsCount = await Action.countDocuments();
+    const contasPagarCount = await ContasAPagar.countDocuments();
     const contasReceberCount = await ContasAReceber.countDocuments();
 
     console.log('📊 Current Database Status:');
     console.log(`   Actions: ${actionsCount} documents`);
+    console.log(`   Contas a Pagar: ${contasPagarCount} documents`);
     console.log(`   Contas a Receber: ${contasReceberCount} documents\n`);
 
     // Confirm deletion
@@ -42,6 +45,11 @@ async function cleanDatabase() {
     const actionsResult = await Action.deleteMany({});
     console.log(`✅ Deleted ${actionsResult.deletedCount} actions\n`);
 
+    // Delete all contas a pagar
+    console.log('🗑️  Deleting all contas a pagar...');
+    const contasPagarResult = await ContasAPagar.deleteMany({});
+    console.log(`✅ Deleted ${contasPagarResult.deletedCount} contas a pagar\n`);
+
     // Delete all contas a receber
     console.log('🗑️  Deleting all contas a receber...');
     const contasReceberResult = await ContasAReceber.deleteMany({});
@@ -49,10 +57,12 @@ async function cleanDatabase() {
 
     // Verify deletion
     const remainingActions = await Action.countDocuments();
+    const remainingContasPagar = await ContasAPagar.countDocuments();
     const remainingContasReceber = await ContasAReceber.countDocuments();
 
     console.log('📊 Final Database Status:');
     console.log(`   Actions: ${remainingActions} documents`);
+    console.log(`   Contas a Pagar: ${remainingContasPagar} documents`);
     console.log(`   Contas a Receber: ${remainingContasReceber} documents\n`);
 
     console.log('✅ Database cleanup completed successfully!');

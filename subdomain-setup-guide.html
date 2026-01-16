@@ -1,42 +1,177 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Subdomain Setup Guide - Sistema Ana on Vercel</title>
   <style>
-    @page { size: A4; margin: 20mm }
-    body{font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color:#1a1a1a; margin:0; line-height:1.6}
-    .page{max-width:800px;margin:0 auto;background:#fff;padding:32px}
-    h1{color:#0070f3;border-bottom:3px solid #0070f3;padding-bottom:12px;margin-bottom:24px;font-size:28px}
-    h2{color:#0070f3;margin-top:32px;margin-bottom:16px;font-size:20px;border-left:4px solid #0070f3;padding-left:12px}
-    h3{color:#333;margin-top:24px;margin-bottom:12px;font-size:16px}
-    .info-box{background:#e6f7ff;border-left:4px solid #1890ff;padding:16px;margin:16px 0;border-radius:4px}
-    .warning-box{background:#fff7e6;border-left:4px solid #faad14;padding:16px;margin:16px 0;border-radius:4px}
-    .success-box{background:#f6ffed;border-left:4px solid #52c41a;padding:16px;margin:16px 0;border-radius:4px}
-    .step{background:#fafafa;border:1px solid #d9d9d9;border-radius:6px;padding:16px;margin:16px 0}
-    .step-number{background:#0070f3;color:white;width:32px;height:32px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:bold;margin-right:12px}
-    .code{background:#f5f5f5;border:1px solid #d9d9d9;padding:12px;border-radius:4px;font-family:'Courier New', monospace;font-size:13px;margin:8px 0;overflow-x:auto}
-    .highlight{background:#fff566;padding:2px 4px;font-weight:500}
-    ul{margin:8px 0}
-    li{margin:6px 0}
-    strong{color:#0070f3}
-    .divider{border-top:2px dashed #d9d9d9;margin:24px 0}
-    .field-name{color:#cf1322;font-family:monospace;font-weight:600}
-    table{width:100%;border-collapse:collapse;margin:16px 0}
-    th,td{border:1px solid #d9d9d9;padding:10px;text-align:left}
-    th{background:#fafafa;font-weight:600}
-    .footer{margin-top:32px;padding-top:16px;border-top:2px solid #d9d9d9;font-size:13px;color:#666;text-align:center}
+    @page {
+      size: A4;
+      margin: 20mm
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #1a1a1a;
+      margin: 0;
+      line-height: 1.6
+    }
+
+    .page {
+      max-width: 800px;
+      margin: 0 auto;
+      background: #fff;
+      padding: 32px
+    }
+
+    h1 {
+      color: #0070f3;
+      border-bottom: 3px solid #0070f3;
+      padding-bottom: 12px;
+      margin-bottom: 24px;
+      font-size: 28px
+    }
+
+    h2 {
+      color: #0070f3;
+      margin-top: 32px;
+      margin-bottom: 16px;
+      font-size: 20px;
+      border-left: 4px solid #0070f3;
+      padding-left: 12px
+    }
+
+    h3 {
+      color: #333;
+      margin-top: 24px;
+      margin-bottom: 12px;
+      font-size: 16px
+    }
+
+    .info-box {
+      background: #e6f7ff;
+      border-left: 4px solid #1890ff;
+      padding: 16px;
+      margin: 16px 0;
+      border-radius: 4px
+    }
+
+    .warning-box {
+      background: #fff7e6;
+      border-left: 4px solid #faad14;
+      padding: 16px;
+      margin: 16px 0;
+      border-radius: 4px
+    }
+
+    .success-box {
+      background: #f6ffed;
+      border-left: 4px solid #52c41a;
+      padding: 16px;
+      margin: 16px 0;
+      border-radius: 4px
+    }
+
+    .step {
+      background: #fafafa;
+      border: 1px solid #d9d9d9;
+      border-radius: 6px;
+      padding: 16px;
+      margin: 16px 0
+    }
+
+    .step-number {
+      background: #0070f3;
+      color: white;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      margin-right: 12px
+    }
+
+    .code {
+      background: #f5f5f5;
+      border: 1px solid #d9d9d9;
+      padding: 12px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      margin: 8px 0;
+      overflow-x: auto
+    }
+
+    .highlight {
+      background: #fff566;
+      padding: 2px 4px;
+      font-weight: 500
+    }
+
+    ul {
+      margin: 8px 0
+    }
+
+    li {
+      margin: 6px 0
+    }
+
+    strong {
+      color: #0070f3
+    }
+
+    .divider {
+      border-top: 2px dashed #d9d9d9;
+      margin: 24px 0
+    }
+
+    .field-name {
+      color: #cf1322;
+      font-family: monospace;
+      font-weight: 600
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0
+    }
+
+    th,
+    td {
+      border: 1px solid #d9d9d9;
+      padding: 10px;
+      text-align: left
+    }
+
+    th {
+      background: #fafafa;
+      font-weight: 600
+    }
+
+    .footer {
+      margin-top: 32px;
+      padding-top: 16px;
+      border-top: 2px solid #d9d9d9;
+      font-size: 13px;
+      color: #666;
+      text-align: center
+    }
   </style>
 </head>
+
 <body>
   <div class="page">
     <h1>🚀 Subdomain Setup Guide</h1>
     <p><strong>Connecting Sistema Ana (Vercel) to Client's Domain via Subdomain</strong></p>
-    
+
     <div class="info-box">
       <strong>📋 What This Guide Covers:</strong><br>
-      How to create a subdomain in cPanel and point it to your Sistema Ana application hosted on Vercel using the recommended CNAME method.
+      How to create a subdomain in cPanel and point it to your Sistema Ana application hosted on Vercel using the
+      recommended CNAME method.
     </div>
 
     <div class="success-box">
@@ -54,7 +189,8 @@
       <ul>
         <li>Open your browser and navigate to your client's cPanel login page</li>
         <li>Common URLs:
-          <div class="code">https://clientdomain.com:2083<br>https://cpanel.clientdomain.com<br>https://hostingprovider.com/cpanel</div>
+          <div class="code">
+            https://clientdomain.com:2083<br>https://cpanel.clientdomain.com<br>https://hostingprovider.com/cpanel</div>
         </li>
         <li>Log in with cPanel credentials (ask client or hosting provider)</li>
       </ul>
@@ -72,9 +208,11 @@
     <div class="step">
       <div><span class="step-number">3</span><strong>Create the Subdomain</strong></div>
       <ul>
-        <li>In the <span class="field-name">Subdomain</span> field, enter: <span class="highlight">app</span> (or your preferred name: sistema, portal, etc.)</li>
+        <li>In the <span class="field-name">Subdomain</span> field, enter: <span class="highlight">app</span> (or your
+          preferred name: sistema, portal, etc.)</li>
         <li>In the <span class="field-name">Domain</span> dropdown, select: <strong>clientdomain.com</strong></li>
-        <li>The <span class="field-name">Document Root</span> will auto-fill (e.g., /public_html/app) — leave it as is</li>
+        <li>The <span class="field-name">Document Root</span> will auto-fill (e.g., /public_html/app) — leave it as is
+        </li>
         <li>Click the <strong>"Create"</strong> button</li>
       </ul>
       <div class="success-box" style="margin-top:12px">
@@ -127,7 +265,8 @@
         </tr>
       </table>
       <div class="warning-box" style="margin-top:12px">
-        <strong>⚠️ Important:</strong> The CNAME target must be <span class="highlight">cname.vercel-dns.com.</span> with a trailing dot. Some cPanel versions add it automatically, others require you to type it.
+        <strong>⚠️ Important:</strong> The CNAME target must be <span class="highlight">cname.vercel-dns.com.</span>
+        with a trailing dot. Some cPanel versions add it automatically, others require you to type it.
       </div>
       <ul>
         <li>Click <strong>"Add Record"</strong> or <strong>"Save"</strong></li>
@@ -171,7 +310,8 @@
         <li>Click <strong>"Refresh"</strong> button to manually check</li>
       </ul>
       <div class="success-box" style="margin-top:12px">
-        ✅ When successful, status will change to <strong>"Valid Configuration"</strong> and SSL certificate will be provisioned automatically.
+        ✅ When successful, status will change to <strong>"Valid Configuration"</strong> and SSL certificate will be
+        provisioned automatically.
       </div>
     </div>
 
@@ -219,7 +359,8 @@
         <li>Green checkmarks worldwide = DNS propagated successfully</li>
       </ul>
       <p><strong>Command Line (Optional):</strong></p>
-      <div class="code">nslookup app.clientdomain.com<br># Should show: app.clientdomain.com canonical name = cname.vercel-dns.com</div>
+      <div class="code">nslookup app.clientdomain.com<br># Should show: app.clientdomain.com canonical name =
+        cname.vercel-dns.com</div>
     </div>
 
     <div class="step">
@@ -232,7 +373,8 @@
         <li>Check that all pages load properly</li>
       </ul>
       <div class="success-box" style="margin-top:12px">
-        ✅ <strong>Success!</strong> Your Sistema Ana application is now live at the client's subdomain with automatic SSL.
+        ✅ <strong>Success!</strong> Your Sistema Ana application is now live at the client's subdomain with automatic
+        SSL.
       </div>
     </div>
 
@@ -244,7 +386,8 @@
       <h3 style="margin-top:0">❌ "Invalid DNS Configuration" in Vercel</h3>
       <ul>
         <li><strong>Wait:</strong> DNS propagation can take up to 48 hours (usually 15-30 minutes)</li>
-        <li><strong>Check CNAME:</strong> Verify it points to <span class="highlight">cname.vercel-dns.com.</span> (with dot)</li>
+        <li><strong>Check CNAME:</strong> Verify it points to <span class="highlight">cname.vercel-dns.com.</span> (with
+          dot)</li>
         <li><strong>Remove A records:</strong> Delete any conflicting A records for the subdomain</li>
         <li><strong>Refresh:</strong> Click "Refresh" button in Vercel after 10-15 minutes</li>
       </ul>
@@ -255,7 +398,8 @@
       <ul>
         <li><strong>Wait:</strong> SSL can take up to 24 hours to provision</li>
         <li><strong>Verify DNS:</strong> Ensure CNAME is correctly configured</li>
-        <li><strong>Check Status:</strong> Visit <a href="https://vercel-status.com">vercel-status.com</a> for service issues</li>
+        <li><strong>Check Status:</strong> Visit <a href="https://vercel-status.com">vercel-status.com</a> for service
+          issues</li>
         <li><strong>Remove & Re-add:</strong> As last resort, remove domain from Vercel and add again</li>
       </ul>
     </div>
@@ -263,7 +407,8 @@
     <div class="warning-box">
       <h3 style="margin-top:0">❌ Login/Redirect Errors After Setup</h3>
       <ul>
-        <li><strong>Check NEXTAUTH_URL:</strong> Must exactly match <span class="highlight">https://app.clientdomain.com</span></li>
+        <li><strong>Check NEXTAUTH_URL:</strong> Must exactly match <span
+            class="highlight">https://app.clientdomain.com</span></li>
         <li><strong>No trailing slash:</strong> Remove any trailing / from the URL</li>
         <li><strong>Redeploy:</strong> Environment variable changes require a redeploy</li>
         <li><strong>Clear cookies:</strong> Clear browser cookies for the domain and try again</li>
@@ -273,7 +418,8 @@
     <div class="warning-box">
       <h3 style="margin-top:0">❌ "This site can't be reached"</h3>
       <ul>
-        <li><strong>DNS not propagated:</strong> Wait longer and check <a href="https://dnschecker.org">dnschecker.org</a></li>
+        <li><strong>DNS not propagated:</strong> Wait longer and check <a
+            href="https://dnschecker.org">dnschecker.org</a></li>
         <li><strong>Wrong CNAME:</strong> Double-check it's <span class="highlight">cname.vercel-dns.com.</span></li>
         <li><strong>Subdomain not created:</strong> Verify subdomain exists in cPanel Subdomains section</li>
       </ul>
@@ -343,8 +489,10 @@
     <div class="footer">
       <strong>Sistema Ana - Subdomain Setup Guide</strong><br>
       Generated: December 15, 2025<br>
-      For questions or issues, refer to <a href="https://vercel.com/docs/concepts/projects/domains">Vercel Domains Documentation</a>
+      For questions or issues, refer to <a href="https://vercel.com/docs/concepts/projects/domains">Vercel Domains
+        Documentation</a>
     </div>
   </div>
 </body>
+
 </html>

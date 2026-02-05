@@ -164,7 +164,7 @@ export default function ContasAReceberPage() {
       pageSize: 10000
     };
     const { items: allItems } = await fetchContasReceber(filters);
-    await gerarContasAReceberPDF(allItems);
+    await gerarContasAReceberPDF(allItems, { query, mode, dateFrom, dateTo, statusFilter });
   }
 
   const toggleSort = (key) => {

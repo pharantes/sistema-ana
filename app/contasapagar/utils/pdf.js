@@ -112,8 +112,9 @@ function calculateFixedAccountTotals(fixedAccounts, getDisplayStatus) {
 /**
  * Generates a PDF report for action costs (Custos ações).
  * @param {Array} rows - Array of report row objects
+ * @param {Object} filters - Applied filters (searchQuery, statusFilter, dueFrom, dueTo)
  */
-export async function gerarPDFAcoes(rows) {
+export async function gerarPDFAcoes(rows, filters = {}) {
   const validRows = Array.isArray(rows) ? rows : [];
   if (!validRows.length) {
     alert("Nenhum resultado para gerar o relatório");
@@ -127,6 +128,10 @@ export async function gerarPDFAcoes(rows) {
 
   const { totalToPay, totalPaid, totalLines } = calculateActionTotals(validRows);
 
+  // Calculate extra height for filter information
+  const filterLineCount = [filters.searchQuery, filters.statusFilter, (filters.dueFrom || filters.dueTo)].filter(Boolean).length;
+  const extraHeight = filterLineCount > 0 ? filterLineCount * 14 + 8 : 0;
+
   // PDF configuration
   const pdfDocument = await PDFDocument.create();
   const font = await pdfDocument.embedFont(StandardFonts.Helvetica);
@@ -135,7 +140,7 @@ export async function gerarPDFAcoes(rows) {
   const headerHeight = 28;
   const margin = 30;
   const columnWidths = [70, 150, 150, 140, 90, 80, 50, 180, 80];
-  const pageHeight = margin + headerHeight + (totalLines + 6) * rowHeight + 120;
+  const pageHeight = margin + headerHeight + (totalLines + 6) * rowHeight + 120 + extraHeight;
   const page = pdfDocument.addPage([pageWidth, pageHeight]);
 
   let currentY = margin;
@@ -165,6 +170,26 @@ export async function gerarPDFAcoes(rows) {
   const dateRange = `${formatDateBR(firstDate)} - ${formatDateBR(lastDate)}`;
   drawText(`Período: ${dateRange}`, margin, 10);
   currentY += 16;
+
+  // Draw active filters
+  if (filters.searchQuery) {
+    drawText(`Busca: ${filters.searchQuery}`, margin, 9);
+    currentY += 14;
+  }
+  if (filters.dueFrom || filters.dueTo) {
+    const fromDate = filters.dueFrom ? formatDateBR(new Date(filters.dueFrom)) : '-';
+    const toDate = filters.dueTo ? formatDateBR(new Date(filters.dueTo)) : '-';
+    drawText(`Filtro Vencimento: ${fromDate} até ${toDate}`, margin, 9);
+    currentY += 14;
+  }
+  if (filters.statusFilter && filters.statusFilter !== 'ALL') {
+    drawText(`Status: ${filters.statusFilter}`, margin, 9);
+    currentY += 14;
+  }
+
+  if (filterLineCount > 0) {
+    currentY += 4; // Extra spacing after filters
+  }
 
   // Draw totals
   drawText(`Total a pagar (Valor total): R$ ${formatBRL(totalToPay)}`, margin, 11);
@@ -236,9 +261,10 @@ export async function gerarPDFAcoes(rows) {
     drawText(clipText(paymentType, columnWidths[6], 8.5), cellX, 8.5);
     cellX += columnWidths[6];
 
+    // Try to get PIX/Banco from colaboradorData first (attached by helper), then fall back to staffMember
     const bankOrPix = (paymentType === 'PIX')
-      ? (staffMember?.pix || '')
-      : (paymentType === 'TED' ? (staffMember?.bank || '') : '');
+      ? (reportRow?.colaboradorData?.pix || staffMember?.pix || '')
+      : (paymentType === 'TED' ? (reportRow?.colaboradorData?.banco || staffMember?.bank || '') : '');
     drawText(clipText(bankOrPix, columnWidths[7], 8.5), cellX, 8.5);
     cellX += columnWidths[7];
 
@@ -268,8 +294,10 @@ export async function gerarPDFAcoes(rows) {
  * @param {string} params.dueTo - End date filter (ISO format)
  * @param {boolean} params.includeFixas - Whether to include fixed accounts section
  * @param {Function} params.getDisplayStatus - Function to get display status
+ * @param {string} params.searchQuery - Search query filter
+ * @param {string} params.statusFilter - Status filter (ALL, ABERTO, PAGO)
  */
-export async function gerarContasAPagarPDF({ rows, fixasRows, dueFrom, dueTo, includeFixas, getDisplayStatus }) {
+export async function gerarContasAPagarPDF({ rows, fixasRows, dueFrom, dueTo, includeFixas, getDisplayStatus, searchQuery, statusFilter }) {
   const validActionRows = Array.isArray(rows) ? rows : [];
   const validFixedRows = Array.isArray(fixasRows) ? fixasRows : [];
 
@@ -316,8 +344,12 @@ export async function gerarContasAPagarPDF({ rows, fixasRows, dueFrom, dueTo, in
   const columnWidths = [70, 150, 150, 140, 90, 80, 50, 180, 80];
 
   // Calculate estimated page height
+  const filterLineCount = [searchQuery, statusFilter, (dueFrom || dueTo)].filter(Boolean).length;
+  const extraFilterHeight = filterLineCount > 0 ? filterLineCount * 14 + 8 : 0;
   let estimatedHeight = margin;
   estimatedHeight += 22; // title
+  estimatedHeight += 16; // period line
+  estimatedHeight += extraFilterHeight; // filter lines
   estimatedHeight += 18; // overall total line
   estimatedHeight += 12; // gap
   estimatedHeight += 18; // 'Custos ações' label
@@ -358,7 +390,27 @@ export async function gerarContasAPagarPDF({ rows, fixasRows, dueFrom, dueTo, in
   // Draw period
   const dateRange = `${formatDateBR(firstDate)} - ${formatDateBR(lastDate)}`;
   drawText(`Período: ${dateRange}`, margin, 10);
-  currentY += 12;
+  currentY += 16;
+
+  // Draw active filters
+  if (searchQuery) {
+    drawText(`Busca: ${searchQuery}`, margin, 9);
+    currentY += 14;
+  }
+  if (dueFrom || dueTo) {
+    const fromDate = dueFrom ? formatDateBR(new Date(dueFrom)) : '-';
+    const toDate = dueTo ? formatDateBR(new Date(dueTo)) : '-';
+    drawText(`Filtro Vencimento: ${fromDate} até ${toDate}`, margin, 9);
+    currentY += 14;
+  }
+  if (statusFilter && statusFilter !== 'ALL') {
+    drawText(`Status: ${statusFilter}`, margin, 9);
+    currentY += 14;
+  }
+
+  if (filterLineCount > 0) {
+    currentY += 4; // Extra spacing after filters
+  }
 
   // Draw grand total
   drawText(`Total geral a pagar (Valor total): R$ ${formatBRL(grandTotalToPay)}`, margin, 11);
@@ -440,9 +492,10 @@ export async function gerarContasAPagarPDF({ rows, fixasRows, dueFrom, dueTo, in
     drawText(clipText(paymentType, columnWidths[6], 8.5), cellX, 8.5);
     cellX += columnWidths[6];
 
+    // Try to get PIX/Banco from colaboradorData first (attached by helper), then fall back to staffMember
     const bankOrPix = (paymentType === 'PIX')
-      ? (staffMember?.pix || '')
-      : (paymentType === 'TED' ? (staffMember?.bank || '') : '');
+      ? (reportRow?.colaboradorData?.pix || staffMember?.pix || '')
+      : (paymentType === 'TED' ? (reportRow?.colaboradorData?.banco || staffMember?.bank || '') : '');
     drawText(clipText(bankOrPix, columnWidths[7], 8.5), cellX, 8.5);
     cellX += columnWidths[7];
 

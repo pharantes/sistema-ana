@@ -621,7 +621,7 @@ export default function ContasAPagarPage() {
       alert("Nenhum resultado para gerar o relatório");
       return;
     }
-    await gerarPDFAcoesUtil(filteredReports);
+    await gerarPDFAcoesUtil(filteredReports, { searchQuery, statusFilter, dueFrom, dueTo });
   }
 
   /**
@@ -635,6 +635,8 @@ export default function ContasAPagarPage() {
       dueTo,
       includeFixas: true,
       getDisplayStatus,
+      searchQuery,
+      statusFilter,
     });
   }
 

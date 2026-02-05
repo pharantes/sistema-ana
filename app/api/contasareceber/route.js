@@ -4,6 +4,7 @@ import baseOptions from '@/lib/auth/authOptionsBase';
 import connect from '@/lib/db/connect';
 import Action from '@/lib/db/models/Action';
 import Cliente from '@/lib/db/models/Cliente';
+import Colaborador from '@/lib/db/models/Colaborador';
 import ContasAReceber from '@/lib/db/models/ContasAReceber';
 import { ok, badRequest, forbidden, serverError } from '@/lib/api/responses';
 import { toPlainDocs, toPlainDoc } from '@/lib/utils/mongo';
@@ -189,6 +190,71 @@ function formatClientName(cliente, clientId) {
 }
 
 /**
+ * Enriches staff entries with colaborador data (PIX, banco, conta) by matching names
+ */
+async function enrichStaffWithColaboradorData(actions) {
+  try {
+    // Collect all unique staff names from all actions
+    const staffNames = new Set();
+    for (const action of actions) {
+      if (Array.isArray(action.staff)) {
+        for (const staffMember of action.staff) {
+          if (staffMember.name) {
+            staffNames.add(String(staffMember.name).trim());
+          }
+        }
+      }
+    }
+
+    if (staffNames.size === 0) {
+      return;
+    }
+
+    // Fetch colaboradores by name
+    const colaboradores = await Colaborador.find({
+      nome: { $in: Array.from(staffNames) }
+    })
+      .select('_id nome pix banco conta')
+      .lean();
+
+    // Create a map of name -> colaborador data
+    const colaboradorMap = new Map(
+      colaboradores.map(c => [String(c.nome).trim(), c])
+    );
+
+    // Enrich each staff member with colaboradorData
+    for (const action of actions) {
+      if (Array.isArray(action.staff)) {
+        for (const staffMember of action.staff) {
+          const staffName = String(staffMember.name || '').trim();
+          const colaborador = colaboradorMap.get(staffName);
+          if (colaborador) {
+            // Fallback: use colaborador data if staff data is missing
+            if (!staffMember.pix && colaborador.pix) {
+              staffMember.pix = colaborador.pix;
+            }
+            if (!staffMember.bank && colaborador.banco) {
+              staffMember.bank = colaborador.banco;
+            }
+            // Attach full colaborador data for reference
+            staffMember.colaboradorData = {
+              _id: colaborador._id,
+              nome: colaborador.nome,
+              pix: colaborador.pix,
+              banco: colaborador.banco,
+              conta: colaborador.conta
+            };
+          }
+        }
+      }
+    }
+  } catch (error) {
+    logError('Error enriching staff with colaborador data', error);
+    // Continue without enrichment on error
+  }
+}
+
+/**
  * Builds row data for actions with receivables and client info
  */
 function buildRowsData(actions, receivablesMap, clientesMap) {
@@ -210,6 +276,7 @@ function buildRowsData(actions, receivablesMap, clientesMap) {
         conta: cliente.conta,
         formaPgt: cliente.formaPgt
       } : null,
+      staff: Array.isArray(action.staff) ? action.staff : [],
     };
   });
 }
@@ -366,7 +433,10 @@ export async function GET(request) {
       return ok({ items: [], total: 0 }); // No matches
     }
 
-    const actions = await Action.find(actionsQuery).sort({ createdAt: -1 }).lean();
+    const actions = await Action.find(actionsQuery).select('_id name event client date startDate endDate createdAt staff').sort({ createdAt: -1 }).lean();
+
+    // Enrich staff with colaborador data (PIX, banco, conta)
+    await enrichStaffWithColaboradorData(actions);
 
     // Fetch receivables for these actions
     const actionIds = actions.map(action => action._id);

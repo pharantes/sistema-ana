@@ -60,24 +60,30 @@ function drawDonutChart(page, font, centerX, centerY, radius, innerRadius, data,
 
     const angleSize = (segment.value / total) * 2 * Math.PI;
 
-    // Draw segment as radial lines from inner to outer radius for smooth fill
-    const radialSteps = Math.max(50, Math.ceil(angleSize * 100));
-    for (let i = 0; i < radialSteps; i++) {
-      const angle = currentAngle + (angleSize * i / radialSteps);
+    // Draw segment as concentric arc layers for smooth fill
+    const radiusSteps = 20; // Number of concentric circles
+    const angleSteps = Math.max(60, Math.ceil(angleSize * 150)); // Points per arc
 
-      const xInner = centerX + innerRadius * Math.cos(angle);
-      const yInner = centerY + innerRadius * Math.sin(angle);
-      const xOuter = centerX + radius * Math.cos(angle);
-      const yOuter = centerY + radius * Math.sin(angle);
+    for (let r = 0; r < radiusSteps; r++) {
+      const currentRadius = innerRadius + (radius - innerRadius) * (r / radiusSteps);
 
-      // Draw radial line from inner to outer edge
-      page.drawLine({
-        start: { x: xInner, y: yInner },
-        end: { x: xOuter, y: yOuter },
-        thickness: 1.5,
-        color: segment.color,
-        opacity: 1
-      });
+      for (let i = 0; i < angleSteps; i++) {
+        const angle1 = currentAngle + (angleSize * i / angleSteps);
+        const angle2 = currentAngle + (angleSize * (i + 1) / angleSteps);
+
+        const x1 = centerX + currentRadius * Math.cos(angle1);
+        const y1 = centerY + currentRadius * Math.sin(angle1);
+        const x2 = centerX + currentRadius * Math.cos(angle2);
+        const y2 = centerY + currentRadius * Math.sin(angle2);
+
+        page.drawLine({
+          start: { x: x1, y: y1 },
+          end: { x: x2, y: y2 },
+          thickness: (radius - innerRadius) / radiusSteps + 0.5,
+          color: segment.color,
+          opacity: 1
+        });
+      }
     }
 
     currentAngle += angleSize;

@@ -625,7 +625,7 @@ export default function ContasAPagarPage() {
 
       // Always generate PDF, even if fixasToUse is empty (will show R$ 0,00)
       await gerarContasAPagarPDF({
-        rows: [],
+        rows: filteredReports,
         fixasRows: fixasToUse,
         dueFrom,
         dueTo,

@@ -257,24 +257,32 @@ function getDefaultSortDirection(sortKey) {
  * Creates a new colaborador via API
  */
 async function createColaborador(colaboradorData) {
-  const response = await globalThis.fetch("/api/colaborador", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(colaboradorData),
-  });
-  return await response.json();
+  try {
+    const response = await globalThis.fetch("/api/colaborador", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(colaboradorData),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
 }
 
 /**
  * Updates an existing colaborador via API
  */
-async function updateColaborador(colaboradorData) {
-  const response = await globalThis.fetch("/api/colaborador", {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(colaboradorData),
-  });
-  return await response.json();
+async function updateColaborador(colaboradorId, colaboradorData) {
+  try {
+    const response = await globalThis.fetch("/api/colaborador", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...colaboradorData, _id: colaboradorId }),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
 }
 
 /**

@@ -196,25 +196,6 @@ export default function AcoesPage() {
     }
   };
 
-  const generatePdf = async () => {
-    try {
-      const params = buildFilterParams(searchQuery, rangeMode, rangeFrom, rangeTo);
-      const url = '/api/action/report' + (params.toString() ? `?${params.toString()}` : '');
-      const response = await globalThis.fetch(url);
-
-      if (!response.ok) {
-        setErrorModal({ open: true, message: 'Falha ao gerar PDF' });
-        return;
-      }
-
-      const blob = await response.blob();
-      const blobUrl = globalThis.URL.createObjectURL(blob);
-      globalThis.window.open(blobUrl, '_blank');
-    } catch {
-      setErrorModal({ open: true, message: 'Falha ao gerar PDF. Verifique sua conexão e tente novamente.' });
-    }
-  };
-
   if (status === 'loading' || initialLoading) {
     return (
       <TopWrap>
@@ -238,9 +219,6 @@ export default function AcoesPage() {
 
         <ButtonsRow>
           <FE.TopButton onClick={handleNew}>Nova Ação</FE.TopButton>
-          {session?.user?.role === 'admin' && (
-            <FE.TopSecondaryButton onClick={generatePdf}>Gerar PDF</FE.TopSecondaryButton>
-          )}
         </ButtonsRow>
 
         <SectionWrap>

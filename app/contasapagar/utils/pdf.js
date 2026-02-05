@@ -67,22 +67,21 @@ function drawDonutChart(page, font, centerX, centerY, radius, innerRadius, data,
     const angleSize = (segment.value / total) * 2 * Math.PI;
     const endAngle = currentAngle + angleSize;
 
-    // Draw outer arc
-    const steps = Math.max(20, Math.ceil(angleSize * 20));
-    for (let i = 0; i <= steps; i++) {
-      const angle1 = currentAngle + (angleSize * i / steps);
-      const angle2 = currentAngle + (angleSize * (i + 1) / steps);
+    // Draw segment as radial lines from inner to outer radius for smooth fill
+    const radialSteps = Math.max(50, Math.ceil(angleSize * 100));
+    for (let i = 0; i < radialSteps; i++) {
+      const angle = currentAngle + (angleSize * i / radialSteps);
 
-      const x1Outer = centerX + radius * Math.cos(angle1);
-      const y1Outer = centerY + radius * Math.sin(angle1);
-      const x2Outer = centerX + radius * Math.cos(angle2);
-      const y2Outer = centerY + radius * Math.sin(angle2);
+      const xInner = centerX + innerRadius * Math.cos(angle);
+      const yInner = centerY + innerRadius * Math.sin(angle);
+      const xOuter = centerX + radius * Math.cos(angle);
+      const yOuter = centerY + radius * Math.sin(angle);
 
-      // Draw segment slice
+      // Draw radial line from inner to outer edge
       page.drawLine({
-        start: { x: x1Outer, y: y1Outer },
-        end: { x: x2Outer, y: y2Outer },
-        thickness: radius - innerRadius,
+        start: { x: xInner, y: yInner },
+        end: { x: xOuter, y: yOuter },
+        thickness: 1.5,
         color: segment.color,
         opacity: 1
       });

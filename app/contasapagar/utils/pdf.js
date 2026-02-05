@@ -67,26 +67,28 @@ function drawDonutChart(page, font, centerX, centerY, radius, innerRadius, data,
     const angleSize = (segment.value / total) * 2 * Math.PI;
     const endAngle = currentAngle + angleSize;
 
-    // Draw segment as concentric arc layers for smooth fill
-    const radiusSteps = 20; // Number of concentric circles
-    const angleSteps = Math.max(60, Math.ceil(angleSize * 150)); // Points per arc
+    // Draw segment using densely packed small circles
+    const ringWidth = radius - innerRadius;
+    const circleSize = 1.2; // Size of each dot
+    const spacing = 0.8; // Spacing between dots
 
-    for (let r = 0; r < radiusSteps; r++) {
-      const currentRadius = innerRadius + (radius - innerRadius) * (r / radiusSteps);
+    // Calculate how many radial layers and angular steps we need
+    const radialLayers = Math.ceil(ringWidth / spacing);
+    const circumference = 2 * Math.PI * ((radius + innerRadius) / 2);
+    const angularDots = Math.ceil((angleSize / (2 * Math.PI)) * circumference / spacing);
 
-      for (let i = 0; i < angleSteps; i++) {
-        const angle1 = currentAngle + (angleSize * i / angleSteps);
-        const angle2 = currentAngle + (angleSize * (i + 1) / angleSteps);
+    for (let r = 0; r < radialLayers; r++) {
+      const currentRadius = innerRadius + (ringWidth * r / radialLayers);
 
-        const x1 = centerX + currentRadius * Math.cos(angle1);
-        const y1 = centerY + currentRadius * Math.sin(angle1);
-        const x2 = centerX + currentRadius * Math.cos(angle2);
-        const y2 = centerY + currentRadius * Math.sin(angle2);
+      for (let a = 0; a < angularDots; a++) {
+        const angle = currentAngle + (angleSize * a / angularDots);
+        const x = centerX + currentRadius * Math.cos(angle);
+        const y = centerY + currentRadius * Math.sin(angle);
 
-        page.drawLine({
-          start: { x: x1, y: y1 },
-          end: { x: x2, y: y2 },
-          thickness: (radius - innerRadius) / radiusSteps + 0.5,
+        page.drawCircle({
+          x,
+          y,
+          size: circleSize,
           color: segment.color,
           opacity: 1
         });

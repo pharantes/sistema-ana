@@ -11,6 +11,7 @@ import { formatBRL, parseCurrency } from "../utils/currency";
 import { formatDateBR } from "@/lib/utils/dates";
 import BRDateInput from "../components/BRDateInput";
 import BRCurrencyInput from "../components/BRCurrencyInput";
+import ErrorModal from "../components/ErrorModal";
 import AcoesTable from "./components/AcoesTable";
 import { gerarPDFAcoes as gerarPDFAcoesUtil, gerarContasAPagarPDF } from "./utils/pdf";
 
@@ -377,6 +378,7 @@ export default function ContasAPagarPage() {
     vencimento: ''
   });
   const [fixaEditing, setFixaEditing] = useState(null);
+  const [errorModal, setErrorModal] = useState({ open: false, message: "" });
   const inputRef = useRef(null);
   const inputSx = { height: 36 };
 
@@ -396,7 +398,7 @@ export default function ContasAPagarPage() {
       const data = await response.json();
       setReports(Array.isArray(data) ? data : []);
     } catch (error) {
-      alert(error.message || "Falha ao carregar contas a pagar");
+      setErrorModal({ open: true, message: error.message || "Falha ao carregar contas a pagar" });
       setReports([]);
     }
   }
@@ -469,7 +471,7 @@ export default function ContasAPagarPage() {
         (report._id === reportId ? { ...report, status: updatedReport.status } : report)
       ));
     } catch (error) {
-      alert(error.message || "Erro ao atualizar status");
+      setErrorModal({ open: true, message: error.message || "Erro ao atualizar status" });
       // Revert on error
       setReports(previousReports => previousReports.map(report =>
         (report._id === reportId ? { ...report, status: previousStatus } : report)
@@ -509,7 +511,7 @@ export default function ContasAPagarPage() {
         fixa._id === fixedAccount._id ? updatedAccount : fixa
       ));
     } catch (error) {
-      alert(error.message || 'Erro ao atualizar status');
+      setErrorModal({ open: true, message: error.message || 'Erro ao atualizar status' });
       fetchFixas();
     }
   }
@@ -618,10 +620,14 @@ export default function ContasAPagarPage() {
    */
   async function handleGeneratePDFAcoes() {
     if (!filteredReports.length) {
-      alert("Nenhum resultado para gerar o relatório");
+      setErrorModal({ open: true, message: "Nenhum resultado para gerar o relatório" });
       return;
     }
-    await gerarPDFAcoesUtil(filteredReports, { searchQuery, statusFilter, dueFrom, dueTo });
+    try {
+      await gerarPDFAcoesUtil(filteredReports, { searchQuery, statusFilter, dueFrom, dueTo });
+    } catch (error) {
+      setErrorModal({ open: true, message: error.message || "Erro ao gerar PDF" });
+    }
   }
 
   /**
@@ -727,7 +733,7 @@ export default function ContasAPagarPage() {
       setFixaEditing(null);
       fetchFixas();
     } catch (error) {
-      alert(error.message || 'Erro ao salvar conta fixa');
+      setErrorModal({ open: true, message: error.message || 'Erro ao salvar conta fixa' });
     }
   }
 
@@ -746,7 +752,7 @@ export default function ContasAPagarPage() {
       if (!response.ok) throw new Error('Falha ao excluir');
       fetchFixas();
     } catch (error) {
-      alert(error.message || 'Erro ao excluir conta fixa');
+      setErrorModal({ open: true, message: error.message || 'Erro ao excluir conta fixa' });
     }
   }
 
@@ -896,6 +902,11 @@ export default function ContasAPagarPage() {
           </ModalCard>
         </ModalOverlay>
       )}
+      <ErrorModal
+        open={errorModal.open}
+        onClose={() => setErrorModal({ open: false, message: "" })}
+        message={errorModal.message}
+      />
     </Wrapper>
   );
 }

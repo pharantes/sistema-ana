@@ -20,6 +20,7 @@ export { default as BRCurrencyInput } from './BRCurrencyInput';
 // Modals
 export { default as Modal } from './Modal';
 export { default as DeleteModal } from './DeleteModal';
+export { default as ErrorModal } from './ErrorModal';
 
 // Table Components
 export * from './ui/Table';

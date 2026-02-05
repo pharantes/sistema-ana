@@ -9,6 +9,8 @@ import { Note, RowTopGap } from '../components/ui/primitives';
 import * as FE from "../components/FormElements";
 import ActionListTable from "./components/ActionListTable";
 import Filters from "../components/Filters";
+import ErrorModal from '../components/ErrorModal';
+import DeleteModal from '../components/DeleteModal';
 import dynamic from 'next/dynamic';
 
 const ActionModal = dynamic(() => import('../components/ActionModal'), { ssr: false });
@@ -92,6 +94,9 @@ export default function AcoesPage() {
   // State - Modal
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [errorModal, setErrorModal] = useState({ open: false, message: "" });
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   const fetchAcoesWithFilters = async (isInitial = false) => {
     try {
@@ -145,14 +150,27 @@ export default function AcoesPage() {
     setModalOpen(true);
   };
 
-  const handleDelete = async (acao) => {
-    if (!globalThis.confirm('Tem certeza que deseja excluir esta ação?')) return;
+  const handleDelete = (acao) => {
+    setDeleteTarget(acao);
+    setDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
     try {
-      const res = await globalThis.fetch(`/api/action/${acao._id}`, { method: 'DELETE' });
-      if (res.ok) fetchAcoesWithFilters();
-      else globalThis.alert('Falha ao excluir ação');
+      const res = await globalThis.fetch(`/api/action/${deleteTarget._id}`, { method: 'DELETE' });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setErrorModal({ open: true, message: data.error || 'Falha ao excluir ação' });
+        return;
+      }
+
+      setDeleteModalOpen(false);
+      setDeleteTarget(null);
+      fetchAcoesWithFilters();
     } catch {
-      globalThis.alert('Erro ao excluir ação');
+      setErrorModal({ open: true, message: 'Erro ao excluir ação. Verifique sua conexão e tente novamente.' });
     }
   };
 
@@ -160,16 +178,24 @@ export default function AcoesPage() {
     try {
       if (editing) {
         const res = await globalThis.fetch('/api/action/edit', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: editing._id, ...payload }) });
-        if (!res.ok) throw new Error('Failed to update');
+        const data = await res.json();
+        if (!res.ok) {
+          setErrorModal({ open: true, message: data.error || 'Erro ao atualizar ação' });
+          return;
+        }
       } else {
         const res = await globalThis.fetch('/api/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        if (!res.ok) throw new Error('Failed to create');
+        const data = await res.json();
+        if (!res.ok) {
+          setErrorModal({ open: true, message: data.error || 'Erro ao criar ação' });
+          return;
+        }
       }
       setModalOpen(false);
       setEditing(null);
       fetchAcoesWithFilters();
     } catch {
-      globalThis.alert('Erro ao salvar ação');
+      setErrorModal({ open: true, message: 'Erro ao salvar ação. Verifique sua conexão e tente novamente.' });
     }
   };
 
@@ -180,15 +206,16 @@ export default function AcoesPage() {
       const response = await globalThis.fetch(url);
 
       if (!response.ok) {
-        const errorText = await response.text().catch(() => '');
-        throw new Error(`Failed to generate PDF: ${response.status} ${errorText}`);
+        const data = await response.json().catch(() => ({}));
+        setErrorModal({ open: true, message: data.error || 'Falha ao gerar PDF' });
+        return;
       }
 
       const blob = await response.blob();
       const blobUrl = globalThis.URL.createObjectURL(blob);
       globalThis.window.open(blobUrl, '_blank');
     } catch {
-      globalThis.alert('Falha ao gerar PDF');
+      setErrorModal({ open: true, message: 'Falha ao gerar PDF. Verifique sua conexão e tente novamente.' });
     }
   };
 
@@ -235,6 +262,25 @@ export default function AcoesPage() {
           />
         )
       }
+
+      {deleteModalOpen && deleteTarget && (
+        <DeleteModal
+          action={{ ...deleteTarget, entityType: "Ação" }}
+          confirmName=""
+          setConfirmName={() => { }}
+          onCancel={() => { setDeleteModalOpen(false); setDeleteTarget(null); }}
+          onConfirm={handleConfirmDelete}
+          loading={false}
+          label="Tem certeza que deseja excluir esta ação?"
+          hideInput
+        />
+      )}
+
+      <ErrorModal
+        open={errorModal.open}
+        onClose={() => setErrorModal({ open: false, message: "" })}
+        message={errorModal.message}
+      />
     </TopWrap >
   );
 }

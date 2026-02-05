@@ -8,6 +8,7 @@ import { useEffect, useState, useMemo } from "react";
 import ClienteModal from "../components/ClienteModal";
 import * as FE from "../components/FormElements";
 import DeleteModal from "../components/DeleteModal";
+import ErrorModal from "../components/ErrorModal";
 import { ClientesTableWithFooter } from "./components/ClientesTable";
 
 const Wrapper = styled.div` padding: var(--page-padding); `;
@@ -117,40 +118,7 @@ function sortClientes(clientes, sortKey, sortDirection) {
  * Gets the default sort direction for a column
  */
 function getDefaultSortDirection(sortKey) {
-  return (sortKey === 'nome' || sortKey === 'cidade') ? 'asc' : 'desc';
-}
-
-/**
- * Creates a new cliente via API
- */
-async function createCliente(clienteData) {
-  await globalThis.fetch("/api/cliente", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(clienteData),
-  });
-}
-
-/**
- * Updates an existing cliente via API
- */
-async function updateCliente(clienteData) {
-  await globalThis.fetch("/api/cliente", {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(clienteData),
-  });
-}
-
-/**
- * Deletes a cliente via API
- */
-async function deleteCliente(clienteId) {
-  await globalThis.fetch("/api/cliente", {
-    method: "DELETE",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id: clienteId }),
-  });
+  return sortKey === 'nome' || sortKey === 'cidade' ? 'asc' : 'desc';
 }
 
 /**
@@ -179,6 +147,7 @@ export default function ClientesPage() {
   const [isDeleteLoading, setIsDeleteLoading] = useState(false);
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [errorModal, setErrorModal] = useState({ open: false, message: "" });
 
   // Debounce search query
   useEffect(() => {
@@ -227,11 +196,35 @@ export default function ClientesPage() {
   }, [sortedAndFilteredClientes, currentPage, pageSize]);
 
   async function handleCreateCliente(clienteData) {
-    setIsLoading(true);
-    await createCliente(clienteData);
-    await loadClientes();
-    setIsModalOpen(false);
-    setIsLoading(false);
+    try {
+      setIsLoading(true);
+      const response = await globalThis.fetch("/api/cliente", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(clienteData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setErrorModal({
+          open: true,
+          message: data.error || "Erro ao criar cliente. Verifique os dados e tente novamente."
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      await loadClientes();
+      setIsModalOpen(false);
+      setIsLoading(false);
+    } catch {
+      setErrorModal({
+        open: true,
+        message: "Erro ao criar cliente. Verifique sua conexão e tente novamente."
+      });
+      setIsLoading(false);
+    }
   }
 
   function handleEditCliente(cliente) {
@@ -240,12 +233,36 @@ export default function ClientesPage() {
   }
 
   async function handleUpdateCliente(clienteData) {
-    setIsLoading(true);
-    await updateCliente({ ...clienteData, _id: editingCliente._id });
-    await loadClientes();
-    setEditingCliente(null);
-    setIsModalOpen(false);
-    setIsLoading(false);
+    try {
+      setIsLoading(true);
+      const response = await globalThis.fetch("/api/cliente", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...clienteData, _id: editingCliente._id }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setErrorModal({
+          open: true,
+          message: data.error || "Erro ao atualizar cliente. Verifique os dados e tente novamente."
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      await loadClientes();
+      setEditingCliente(null);
+      setIsModalOpen(false);
+      setIsLoading(false);
+    } catch {
+      setErrorModal({
+        open: true,
+        message: "Erro ao atualizar cliente. Verifique sua conexão e tente novamente."
+      });
+      setIsLoading(false);
+    }
   }
 
   function openDeleteModal(cliente) {
@@ -258,16 +275,44 @@ export default function ClientesPage() {
     event.preventDefault();
 
     if (!validateCodigoMatch(confirmCodigo, deleteTarget.codigo)) {
+      setErrorModal({
+        open: true,
+        message: "O código digitado não corresponde ao código do cliente."
+      });
       return;
     }
 
-    setIsDeleteLoading(true);
-    await deleteCliente(deleteTarget._id);
-    setIsDeleteModalOpen(false);
-    setDeleteTarget(null);
-    setConfirmCodigo("");
-    await loadClientes();
-    setIsDeleteLoading(false);
+    try {
+      setIsDeleteLoading(true);
+      const response = await globalThis.fetch("/api/cliente", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: deleteTarget._id }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setErrorModal({
+          open: true,
+          message: data.error || "Erro ao excluir cliente."
+        });
+        setIsDeleteLoading(false);
+        return;
+      }
+
+      setIsDeleteModalOpen(false);
+      setDeleteTarget(null);
+      setConfirmCodigo("");
+      await loadClientes();
+      setIsDeleteLoading(false);
+    } catch {
+      setErrorModal({
+        open: true,
+        message: "Erro ao excluir cliente. Verifique sua conexão e tente novamente."
+      });
+      setIsDeleteLoading(false);
+    }
   }
 
   function handleCloseModal() {
@@ -334,6 +379,11 @@ export default function ClientesPage() {
           label="Digite o código do cliente para confirmar a exclusão:"
         />
       )}
+      <ErrorModal
+        open={errorModal.open}
+        onClose={() => setErrorModal({ open: false, message: "" })}
+        message={errorModal.message}
+      />
     </Wrapper>
   );
 }

@@ -8,6 +8,7 @@ import Modal from './Modal';
 import * as FE from './FormElements';
 import * as FL from './FormLayout';
 import ColaboradorModal from './ColaboradorModal';
+import ErrorModal from './ErrorModal';
 import { parseCurrency } from '../utils/currency';
 import BRCurrencyInput from './BRCurrencyInput';
 
@@ -81,6 +82,7 @@ export default function CostModal({ open, onClose, onSubmit, initial }) {
   const [colaboradores, setColaboradores] = useState([]);
   const [isColabModalOpen, setIsColabModalOpen] = useState(false);
   const [editingColaborador, setEditingColaborador] = useState(null);
+  const [errorModal, setErrorModal] = useState({ open: false, message: "" });
 
   useEffect(() => {
     if (initial) {
@@ -103,9 +105,7 @@ export default function CostModal({ open, onClose, onSubmit, initial }) {
     if (form.colaboradorId) return true;
     if (form.vendorName.trim()) return true;
 
-    try {
-      globalThis.alert('Informe o Nome do fornecedor ou vincule um Colaborador.');
-    } catch { /* noop */ }
+    setErrorModal({ open: true, message: 'Informe o Nome do fornecedor ou vincule um Colaborador.' });
     return false;
   }
 
@@ -115,9 +115,7 @@ export default function CostModal({ open, onClose, onSubmit, initial }) {
   function validateAmount(amount) {
     if (Number.isFinite(amount) && amount > 0) return true;
 
-    try {
-      globalThis.alert('Informe um Valor válido maior que zero.');
-    } catch { /* noop */ }
+    setErrorModal({ open: true, message: 'Informe um Valor válido maior que zero.' });
     return false;
   }
 
@@ -282,18 +280,19 @@ export default function CostModal({ open, onClose, onSubmit, initial }) {
                   pgt: determinePaymentMethod(data, previousForm.pgt),
                 }));
               } else {
-                try {
-                  alert(data.error || 'Falha ao salvar colaborador');
-                } catch { /* ignore */ }
+                setErrorModal({ open: true, message: data.error || 'Falha ao salvar colaborador' });
               }
             } catch {
-              try {
-                alert('Falha ao salvar colaborador');
-              } catch { /* ignore */ }
+              setErrorModal({ open: true, message: 'Falha ao salvar colaborador. Verifique sua conexão e tente novamente.' });
             }
           }}
         />
       )}
+      <ErrorModal
+        open={errorModal.open}
+        onClose={() => setErrorModal({ open: false, message: "" })}
+        message={errorModal.message}
+      />
     </Modal>
   );
 }

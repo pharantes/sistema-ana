@@ -51,8 +51,7 @@ function downloadPDF(pdfBytes, filename) {
 export async function gerarContasAReceberPDF(rows, filters = {}) {
   const validRows = Array.isArray(rows) ? rows : [];
   if (!validRows.length) {
-    alert("Nenhum resultado para gerar o relatório");
-    return;
+    throw new Error("Nenhum resultado para gerar o relatório");
   }
 
   const firstDate = validRows[0]?.date ? new Date(validRows[0].date) : null;

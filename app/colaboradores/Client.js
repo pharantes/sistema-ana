@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Pager from "../components/ui/Pager";
 import { SearchBar } from "../components/ui";
 import DeleteModal from "../components/DeleteModal";
+import ErrorModal from "../components/ErrorModal";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import * as FE from "../components/FormElements";
 import { Note } from "../components/FormLayout";
@@ -299,6 +300,7 @@ export default function ColaboradoresClient({ initialColaboradores = [], isAdmin
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [confirmCodigo, setConfirmCodigo] = useState("");
   const [isDeleteLoading, setIsDeleteLoading] = useState(false);
+  const [errorModal, setErrorModal] = useState({ open: false, message: "" });
   const [sortKey, setSortKey] = useState('createdAt');
   const [sortDirection, setSortDirection] = useState('desc');
   const [searchInput, setSearchInput] = useState('');
@@ -333,7 +335,7 @@ export default function ColaboradoresClient({ initialColaboradores = [], isAdmin
   async function handleCreate(colaborador) {
     const isSuccess = await createColaborador(colaborador);
     if (!isSuccess) {
-      globalThis.alert('Erro ao criar colaborador');
+      setErrorModal({ open: true, message: 'Erro ao criar colaborador. Verifique os dados e tente novamente.' });
       return;
     }
     await fetchColaboradores();
@@ -350,7 +352,7 @@ export default function ColaboradoresClient({ initialColaboradores = [], isAdmin
 
     const isSuccess = await updateColaborador(editingColaborador._id, colaborador);
     if (!isSuccess) {
-      globalThis.alert('Erro ao atualizar colaborador');
+      setErrorModal({ open: true, message: 'Erro ao atualizar colaborador. Verifique os dados e tente novamente.' });
       return;
     }
     await fetchColaboradores();
@@ -371,7 +373,10 @@ export default function ColaboradoresClient({ initialColaboradores = [], isAdmin
   async function handleDeleteConfirm(e) {
     e.preventDefault();
     if (!isAdmin) return;
-    if (confirmCodigo !== deleteTarget.codigo) return;
+    if (confirmCodigo !== deleteTarget.codigo) {
+      setErrorModal({ open: true, message: 'O código digitado não corresponde ao código do colaborador.' });
+      return;
+    }
 
     setIsDeleteLoading(true);
     const isSuccess = await deleteColaborador(deleteTarget._id);
@@ -381,7 +386,7 @@ export default function ColaboradoresClient({ initialColaboradores = [], isAdmin
       setConfirmCodigo("");
       await fetchColaboradores();
     } else {
-      globalThis.alert('Erro ao deletar colaborador');
+      setErrorModal({ open: true, message: 'Erro ao deletar colaborador.' });
     }
 
     setIsDeleteLoading(false);
@@ -534,6 +539,11 @@ export default function ColaboradoresClient({ initialColaboradores = [], isAdmin
         onConfirm={handleDeleteConfirm}
         loading={isDeleteLoading}
         label="Digite o código do colaborador para confirmar a exclusão:"
+      />
+      <ErrorModal
+        open={errorModal.open}
+        onClose={() => setErrorModal({ open: false, message: "" })}
+        message={errorModal.message}
       />
     </Wrapper>
   );

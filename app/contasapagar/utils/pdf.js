@@ -117,8 +117,7 @@ function calculateFixedAccountTotals(fixedAccounts, getDisplayStatus) {
 export async function gerarPDFAcoes(rows, filters = {}) {
   const validRows = Array.isArray(rows) ? rows : [];
   if (!validRows.length) {
-    alert("Nenhum resultado para gerar o relatório");
-    return;
+    throw new Error("Nenhum resultado para gerar o relatório");
   }
 
   const firstDate = validRows[0]?.reportDate ? new Date(validRows[0].reportDate) : null;
@@ -302,8 +301,7 @@ export async function gerarContasAPagarPDF({ rows, fixasRows, dueFrom, dueTo, in
   const validFixedRows = Array.isArray(fixasRows) ? fixasRows : [];
 
   if (!validActionRows.length && !(includeFixas && validFixedRows.length)) {
-    globalThis.alert("Nenhum resultado para gerar o relatório");
-    return;
+    throw new Error("Nenhum resultado para gerar o relatório");
   }
 
   // Determine date range for the report

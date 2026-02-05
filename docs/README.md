@@ -1,103 +1,156 @@
-# Sistema Ana - Documentation Index
+# Sistema ANA - Documentation
 
-Welcome to the Sistema Ana documentation. This directory contains all technical documentation, guides, and reference materials.
+## Overview
+Sistema ANA is a financial management system built with Next.js 14, MongoDB, and Next-Auth.
 
-## 📚 Documentation Structure
+## Key Features
+- **Authentication**: Role-based access control (Admin/Staff)
+- **Client Management**: Track clients and their information
+- **Collaborator Management**: Manage staff with PIX/bank details
+- **Action Tracking**: Project actions with costs and staff assignments
+- **Financial Tracking**: 
+  - Contas a Pagar (Accounts Payable)
+  - Contas a Receber (Accounts Receivable)
+  - Contas Fixas (Fixed Costs)
+- **Dashboard**: Financial overview with charts and KPIs
+- **PDF Reports**: Generate filtered reports with PIX/bank information
 
-### Architecture & Organization
-- **[CODE_ORGANIZATION.md](../CODE_ORGANIZATION.md)** - Code architecture, component patterns, and best practices
-- **[REFACTORING_SUMMARY.md](../REFACTORING_SUMMARY.md)** - Summary of refactoring work and improvements
-- **[MIGRATION_EXAMPLE.js](./MIGRATION_EXAMPLE.js)** - Before/after code examples
+## Tech Stack
+- **Frontend**: React 19, Next.js 14 (App Router), Styled Components
+- **Backend**: Next.js API Routes
+- **Database**: MongoDB Atlas with Mongoose ODM
+- **Authentication**: NextAuth.js with credentials provider
+- **Charts**: Nivo charts (@nivo/bar, @nivo/line, @nivo/pie)
+- **PDF Generation**: pdf-lib (client-side)
+- **Validation**: Zod schemas
+- **Styling**: Styled Components
 
-### Feature Documentation
-- **[AUTH_FLOW_FIX.md](./AUTH_FLOW_FIX.md)** - Authentication flow implementation and fixes
-- **[PASSWORD_TOGGLE_FEATURE.md](./PASSWORD_TOGGLE_FEATURE.md)** - Password visibility toggle feature
-- **[DASHBOARD_FIX_REPORT.md](./DASHBOARD_FIX_REPORT.md)** - Dashboard fixes and improvements
-- **[ERROR_HANDLING_ENHANCEMENT.md](./ERROR_HANDLING_ENHANCEMENT.md)** - Error handling, loading states, and empty states
-- **[DOCUMENTATION_PAGE_FEATURE.md](./DOCUMENTATION_PAGE_FEATURE.md)** - In-app documentation page with admin guide
-- **[TOKENS.md](./TOKENS.md)** - Token management and security
-
-### Development Progress
-- **[REFACTORING_PROGRESS.md](./REFACTORING_PROGRESS.md)** - Historical refactoring progress
-- **[CLEANUP_SUMMARY.md](./CLEANUP_SUMMARY.md)** - Repository cleanup actions and results
-
-## 🚀 Quick Start
-
-### For New Developers
-
-1. **Start Here**: Read [CODE_ORGANIZATION.md](../CODE_ORGANIZATION.md)
-2. **Understand Patterns**: Check [MIGRATION_EXAMPLE.js](./MIGRATION_EXAMPLE.js)
-3. **Review Features**: Browse feature documentation above
-
-### For Contributing
-
-1. Follow patterns in `CODE_ORGANIZATION.md`
-2. Use shared utilities from `/app/utils`
-3. Use shared components from `/app/components`
-4. Write tests for new features
-5. Update documentation when adding features
-
-## 📖 Key Concepts
-
-### Component Architecture
+## Project Structure
 ```
 app/
-├── components/        # Shared UI components
-│   ├── ui/           # Low-level primitives
-│   └── index.js      # Central exports
-├── utils/            # Shared utilities
-│   ├── sorting.js    # Sort utilities
-│   ├── filtering.js  # Filter utilities
-│   ├── pagination.js # Pagination utilities
-│   └── index.js      # Central exports
-└── [features]/       # Feature-specific code
+  ├── api/              # API routes
+  │   ├── action/       # Action endpoints
+  │   ├── auth/         # NextAuth endpoints
+  │   ├── cliente/      # Client endpoints
+  │   ├── colaborador/  # Collaborator endpoints
+  │   ├── contafixa/    # Fixed costs endpoints
+  │   ├── contasapagar/ # Payables endpoints
+  │   └── contasareceber/ # Receivables endpoints
+  ├── components/       # Reusable components
+  │   ├── ui/           # UI primitives
+  │   └── *.js          # Feature components
+  ├── (features)/       # Feature pages
+  │   ├── acoes/        # Actions
+  │   ├── clientes/     # Clients
+  │   ├── colaboradores/ # Collaborators
+  │   ├── contasapagar/ # Payables
+  │   ├── contasareceber/ # Receivables
+  │   ├── dashboard/    # Dashboard
+  │   └── documentation/ # In-app docs
+  └── utils/            # Utility functions
+lib/
+  ├── api/              # API utilities (responses, rate limiting)
+  ├── auth/             # Authentication config
+  ├── db/               # Database models and connection
+  ├── utils/            # Shared utilities (dates, currency, mongo)
+  └── validators/       # Zod validation schemas
+scripts/
+  ├── seed-db.js        # Database seeding
+  └── test-db-connection.js  # Connection testing
 ```
 
-### Import Pattern
+## Environment Variables
+Required in `.env.local`:
+```
+MONGODB_URI=mongodb+srv://...
+NEXTAUTH_SECRET=...
+NEXTAUTH_URL=http://localhost:3000
+```
+
+## Scripts
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run start` - Start production server
+- `npm run lint` - Run ESLint
+- `npm run db:seed` - Seed database with sample data
+- `npm run db:reset` - Clean and reseed database
+
+## Database Models
+- **User**: Authentication and role management (admin/staff)
+- **Cliente**: Client information (name, email, phone, bank details)
+- **Colaborador**: Staff/collaborator details with PIX/bank info
+- **Action**: Project actions with staff assignments and costs
+- **ContasAPagar**: Accounts payable linked to actions/collaborators
+- **ContasAReceber**: Accounts receivable linked to actions
+- **ContaFixa**: Fixed recurring costs
+
+## Authentication
+- Admin users have full access to all features
+- Staff users have limited access (read-only for financial data)
+- Session-based authentication via NextAuth.js
+- Protected API routes with session validation
+
+## PDF Generation
+PDF reports are generated client-side using pdf-lib with:
+- Filter information displayed in header
+- PIX/bank details from collaborator data
+- Proper totals and summaries
+- Currency formatting in BRL (R$)
+
+## Code Patterns
+
+### Component Structure
 ```javascript
-// ✅ Good - Use index files
-import { DataTable, KPICard } from '@/app/components';
-import { useTableState, sortItems } from '@/app/utils';
-
-// ❌ Avoid - Direct imports
-import DataTable from '@/app/components/ui/DataTable';
+// Use shared components
+import { DataTable, Modal, DeleteModal } from '@/app/components';
+import * as FE from '@/app/components/FormElements';
+import * as FL from '@/app/components/FormLayout';
 ```
 
-### Custom Hooks
-- `useTableState` - Complete table state management
-- `useApiCall` - API calls with loading/error states
-- `useFetch` - Data fetching hook
-- `useFormSubmit` - Form submission with states
+### API Response Format
+```javascript
+import { ok, badRequest, unauthorized, serverError } from '@/lib/api/responses';
 
-## 🔍 Finding Information
+// Success
+return ok({ data: result });
 
-### Looking for...
-- **Component examples?** → CODE_ORGANIZATION.md
-- **Utility functions?** → CODE_ORGANIZATION.md
-- **Authentication?** → AUTH_FLOW_FIX.md
-- **Refactoring history?** → [REFACTORING_SUMMARY.md](../REFACTORING_SUMMARY.md)
-- **Migration guide?** → [MIGRATION_EXAMPLE.js](./MIGRATION_EXAMPLE.js)
+// Error
+return badRequest('Invalid input');
+```
 
-## 📝 Documentation Standards
+### Date Formatting
+```javascript
+import { formatDateBR, formatDateTimeBR, parseDateMaybe } from '@/lib/utils/dates';
 
-When adding documentation:
-1. Place feature docs in `/docs`
-2. Place architecture docs in root
-3. Update this index
-4. Include code examples
-5. Add diagrams if helpful
+const formatted = formatDateBR(date); // DD/MM/YYYY
+```
 
-## 🎯 Next Steps
+### Currency Formatting
+```javascript
+import { formatBRL, parseCurrency } from '@/utils/currency';
 
-### Recommended Reading Order
-1. README.md (project overview)
-2. CODE_ORGANIZATION.md (architecture)
-3. MIGRATION_EXAMPLE.js (patterns)
-4. Feature-specific docs as needed
+const formatted = formatBRL(1234.56); // R$ 1.234,56
+```
 
-### Contributing to Docs
-- Keep docs up to date with code
-- Add examples for complex features
+## Development
+
+### Adding a New Feature
+1. Create API route in `app/api/[feature]/route.js`
+2. Add validation schema in `lib/validators/`
+3. Create page in `app/[feature]/page.js`
+4. Add components if needed in `app/components/`
+5. Update navigation in `app/NavBar.js`
+
+### Database Connection
+- Uses Mongoose ODM with connection pooling
+- Models auto-pluralize: `Colaborador` → `colaboradors`
+- Connection string from `MONGODB_URI` env variable
+
+### Error Handling
+- API routes return standardized error responses
+- Client-side error boundaries catch React errors
+- Loading states for async operations
+- Empty states for zero-data scenarios
 - Link related documentation
 - Use clear, concise language
 

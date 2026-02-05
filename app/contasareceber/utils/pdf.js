@@ -15,137 +15,6 @@ function calculateTotalReceivable(rows) {
 }
 
 /**
- * Draws a donut chart on the PDF page
- * @param {object} page - PDF page object
- * @param {object} font - PDF font object
- * @param {number} centerX - X coordinate of chart center
- * @param {number} centerY - Y coordinate of chart center
- * @param {number} radius - Outer radius of the donut
- * @param {number} innerRadius - Inner radius of the donut
- * @param {object} data - Chart data with aberto and recebido counts
- * @param {string} title - Chart title
- */
-function drawDonutChart(page, font, centerX, centerY, radius, innerRadius, data, title) {
-  const { aberto = 0, recebido = 0 } = data;
-  const total = aberto + recebido;
-
-  if (total === 0) return centerY;
-
-  const abertoColor = rgb(1, 0.6, 0); // Orange
-  const recebidoColor = rgb(0.3, 0.69, 0.31); // Green
-
-  const abertoPercent = total > 0 ? ((aberto / total) * 100).toFixed(1) : 0;
-  const recebidoPercent = total > 0 ? ((recebido / total) * 100).toFixed(1) : 0;
-
-  // Draw title
-  const titleWidth = font.widthOfTextAtSize(title, 11);
-  page.drawText(title, {
-    x: centerX - titleWidth / 2,
-    y: centerY + radius + 15,
-    size: 11,
-    font,
-    color: rgb(0, 0, 0)
-  });
-
-  // Draw donut segments
-  const segments = [
-    { value: aberto, color: abertoColor, label: 'ABERTO' },
-    { value: recebido, color: recebidoColor, label: 'RECEBIDO' }
-  ];
-
-  let currentAngle = -Math.PI / 2;
-
-  segments.forEach(segment => {
-    if (segment.value === 0) return;
-
-    const angleSize = (segment.value / total) * 2 * Math.PI;
-
-    // Draw segment using densely packed small circles
-    const ringWidth = radius - innerRadius;
-    const circleSize = 1.2; // Size of each dot
-    const spacing = 0.8; // Spacing between dots
-
-    // Calculate how many radial layers and angular steps we need
-    const radialLayers = Math.ceil(ringWidth / spacing);
-    const circumference = 2 * Math.PI * ((radius + innerRadius) / 2);
-    const angularDots = Math.ceil((angleSize / (2 * Math.PI)) * circumference / spacing);
-
-    for (let r = 0; r < radialLayers; r++) {
-      const currentRadius = innerRadius + (ringWidth * r / radialLayers);
-
-      for (let a = 0; a < angularDots; a++) {
-        const angle = currentAngle + (angleSize * a / angularDots);
-        const x = centerX + currentRadius * Math.cos(angle);
-        const y = centerY + currentRadius * Math.sin(angle);
-
-        page.drawCircle({
-          x,
-          y,
-          size: circleSize,
-          color: segment.color,
-          opacity: 1
-        });
-      }
-    }
-
-    currentAngle += angleSize;
-  });
-
-  // Draw center circle
-  const centerSteps = 40;
-  for (let i = 0; i < centerSteps; i++) {
-    const angle1 = (2 * Math.PI * i) / centerSteps;
-    const angle2 = (2 * Math.PI * (i + 1)) / centerSteps;
-    const x1 = centerX + innerRadius * Math.cos(angle1);
-    const y1 = centerY + innerRadius * Math.sin(angle1);
-    const x2 = centerX + innerRadius * Math.cos(angle2);
-    const y2 = centerY + innerRadius * Math.sin(angle2);
-
-    page.drawLine({
-      start: { x: x1, y: y1 },
-      end: { x: x2, y: y2 },
-      thickness: innerRadius,
-      color: rgb(1, 1, 1),
-      opacity: 1
-    });
-  }
-
-  // Draw legend
-  const legendY = centerY - radius - 25;
-  const legendX = centerX - 70;
-
-  page.drawCircle({
-    x: legendX,
-    y: legendY,
-    size: 5,
-    color: abertoColor
-  });
-  page.drawText(`ABERTO: ${aberto} (${abertoPercent}%)`, {
-    x: legendX + 10,
-    y: legendY - 3,
-    size: 9,
-    font,
-    color: rgb(0, 0, 0)
-  });
-
-  page.drawCircle({
-    x: legendX + 140,
-    y: legendY,
-    size: 5,
-    color: recebidoColor
-  });
-  page.drawText(`RECEBIDO: ${recebido} (${recebidoPercent}%)`, {
-    x: legendX + 150,
-    y: legendY - 3,
-    size: 9,
-    font,
-    color: rgb(0, 0, 0)
-  });
-
-  return legendY - 15;
-}
-
-/**
  * Generates a PDF report for Contas a Receber (Accounts Receivable).
  * Creates a formatted table with action details showing total receivable amount per action.
  * @param {Array} rows - Array of receivable action objects
@@ -165,17 +34,6 @@ export async function gerarContasAReceberPDF(rows, filters = {}) {
   const totalReceivable = calculateTotalReceivable(validRows);
   const totalLines = validRows.length;
 
-  // Calculate status counts for chart
-  const statusCounts = validRows.reduce((acc, row) => {
-    const status = (row?.receivable?.status || 'ABERTO').toUpperCase();
-    if (status === 'RECEBIDO') {
-      acc.recebido += 1;
-    } else {
-      acc.aberto += 1;
-    }
-    return acc;
-  }, { aberto: 0, recebido: 0 });
-
   // PDF configuration constants
   const pdfDocument = await PDFDocument.create();
   const font = await pdfDocument.embedFont(StandardFonts.Helvetica);
@@ -185,11 +43,10 @@ export async function gerarContasAReceberPDF(rows, filters = {}) {
   const margin = 30;
   const columnWidths = [180, 200, 100, 100, 100, 160];
 
-  // Calculate page height including filter info and chart
+  // Calculate page height including filter info
   const filterLineCount = [filters.query, filters.dateFrom, filters.statusFilter].filter(Boolean).length;
   const extraHeight = filterLineCount > 0 ? filterLineCount * 16 + 12 : 0;
-  const chartHeight = 180;
-  const pageHeight = margin + headerHeight + (totalLines + 5) * rowHeight + 80 + extraHeight + chartHeight;
+  const pageHeight = margin + headerHeight + (totalLines + 5) * rowHeight + 80 + extraHeight;
   const page = pdfDocument.addPage([pageWidth, pageHeight]);
 
   let currentY = margin;
@@ -213,11 +70,6 @@ export async function gerarContasAReceberPDF(rows, filters = {}) {
   drawText("Relatório - Contas a Receber", margin, 16);
   currentY += 22;
 
-  // Draw donut chart
-  const chartCenterX = pageWidth / 2;
-  const chartCenterY = page.getHeight() - currentY - 70;
-  drawDonutChart(page, font, chartCenterX, chartCenterY, 50, 30, statusCounts, "Contas a Receber (status)");
-  currentY += chartHeight;
 
   // Draw period
   const dateRange = `${formatDateBR(firstDate)} - ${formatDateBR(lastDate)}`;

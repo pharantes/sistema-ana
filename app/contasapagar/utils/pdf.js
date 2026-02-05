@@ -19,142 +19,6 @@ function downloadPDFDocument(pdfBytes, filename) {
 }
 
 /**
- * Draws a donut chart on the PDF page
- * @param {object} page - PDF page object
- * @param {object} font - PDF font object
- * @param {number} centerX - X coordinate of chart center
- * @param {number} centerY - Y coordinate of chart center
- * @param {number} radius - Outer radius of the donut
- * @param {number} innerRadius - Inner radius of the donut
- * @param {object} data - Chart data with aberto and pago counts
- * @param {string} title - Chart title
- */
-function drawDonutChart(page, font, centerX, centerY, radius, innerRadius, data, title) {
-  const { aberto = 0, pago = 0 } = data;
-  const total = aberto + pago;
-
-  if (total === 0) return centerY; // Skip if no data
-
-  // Colors
-  const abertoColor = rgb(1, 0.6, 0); // Orange
-  const pagoColor = rgb(0.3, 0.69, 0.31); // Green
-
-  // Calculate percentages
-  const abertoPercent = total > 0 ? ((aberto / total) * 100).toFixed(1) : 0;
-  const pagoPercent = total > 0 ? ((pago / total) * 100).toFixed(1) : 0;
-
-  // Draw title
-  const titleWidth = font.widthOfTextAtSize(title, 11);
-  page.drawText(title, {
-    x: centerX - titleWidth / 2,
-    y: centerY + radius + 15,
-    size: 11,
-    font,
-    color: rgb(0, 0, 0)
-  });
-
-  // Draw donut segments
-  const segments = [
-    { value: aberto, color: abertoColor, label: 'ABERTO', startAngle: 0 },
-    { value: pago, color: pagoColor, label: 'PAGO', startAngle: 0 }
-  ];
-
-  let currentAngle = -Math.PI / 2; // Start from top
-
-  segments.forEach(segment => {
-    if (segment.value === 0) return;
-
-    const angleSize = (segment.value / total) * 2 * Math.PI;
-    const endAngle = currentAngle + angleSize;
-
-    // Draw segment using densely packed small circles
-    const ringWidth = radius - innerRadius;
-    const circleSize = 1.2; // Size of each dot
-    const spacing = 0.8; // Spacing between dots
-
-    // Calculate how many radial layers and angular steps we need
-    const radialLayers = Math.ceil(ringWidth / spacing);
-    const circumference = 2 * Math.PI * ((radius + innerRadius) / 2);
-    const angularDots = Math.ceil((angleSize / (2 * Math.PI)) * circumference / spacing);
-
-    for (let r = 0; r < radialLayers; r++) {
-      const currentRadius = innerRadius + (ringWidth * r / radialLayers);
-
-      for (let a = 0; a < angularDots; a++) {
-        const angle = currentAngle + (angleSize * a / angularDots);
-        const x = centerX + currentRadius * Math.cos(angle);
-        const y = centerY + currentRadius * Math.sin(angle);
-
-        page.drawCircle({
-          x,
-          y,
-          size: circleSize,
-          color: segment.color,
-          opacity: 1
-        });
-      }
-    }
-
-    currentAngle = endAngle;
-  });
-
-  // Draw center circle (white)
-  const centerSteps = 40;
-  for (let i = 0; i < centerSteps; i++) {
-    const angle1 = (2 * Math.PI * i) / centerSteps;
-    const angle2 = (2 * Math.PI * (i + 1)) / centerSteps;
-    const x1 = centerX + innerRadius * Math.cos(angle1);
-    const y1 = centerY + innerRadius * Math.sin(angle1);
-    const x2 = centerX + innerRadius * Math.cos(angle2);
-    const y2 = centerY + innerRadius * Math.sin(angle2);
-
-    page.drawLine({
-      start: { x: x1, y: y1 },
-      end: { x: x2, y: y2 },
-      thickness: innerRadius,
-      color: rgb(1, 1, 1),
-      opacity: 1
-    });
-  }
-
-  // Draw labels and legend
-  const legendY = centerY - radius - 25;
-  const legendX = centerX - 60;
-
-  // Aberto legend
-  page.drawCircle({
-    x: legendX,
-    y: legendY,
-    size: 5,
-    color: abertoColor
-  });
-  page.drawText(`ABERTO: ${aberto} (${abertoPercent}%)`, {
-    x: legendX + 10,
-    y: legendY - 3,
-    size: 9,
-    font,
-    color: rgb(0, 0, 0)
-  });
-
-  // Pago legend
-  page.drawCircle({
-    x: legendX + 120,
-    y: legendY,
-    size: 5,
-    color: pagoColor
-  });
-  page.drawText(`PAGO: ${pago} (${pagoPercent}%)`, {
-    x: legendX + 130,
-    y: legendY - 3,
-    size: 9,
-    font,
-    color: rgb(0, 0, 0)
-  });
-
-  return legendY - 15; // Return new Y position after chart
-}
-
-/**
  * Creates a text clipping function that truncates text to fit within a maximum width.
  * @param {object} font - The PDF font object
  * @returns {Function} Function that clips text to fit width
@@ -263,21 +127,9 @@ export async function gerarPDFAcoes(rows, filters = {}) {
 
   const { totalToPay, totalPaid, totalLines } = calculateActionTotals(validRows);
 
-  // Calculate status counts for chart
-  const statusCounts = validRows.reduce((acc, row) => {
-    const status = (row?.status || 'ABERTO').toUpperCase();
-    if (status === 'PAGO') {
-      acc.pago += 1;
-    } else {
-      acc.aberto += 1;
-    }
-    return acc;
-  }, { aberto: 0, pago: 0 });
-
-  // Calculate extra height for filter information and chart
+  // Calculate extra height for filter information
   const filterLineCount = [filters.searchQuery, filters.statusFilter, (filters.dueFrom || filters.dueTo)].filter(Boolean).length;
   const extraHeight = filterLineCount > 0 ? filterLineCount * 14 + 8 : 0;
-  const chartHeight = 180; // Height for the donut chart
 
   // PDF configuration
   const pdfDocument = await PDFDocument.create();
@@ -287,7 +139,7 @@ export async function gerarPDFAcoes(rows, filters = {}) {
   const headerHeight = 28;
   const margin = 30;
   const columnWidths = [70, 150, 150, 140, 90, 80, 50, 180, 80];
-  const pageHeight = margin + headerHeight + (totalLines + 6) * rowHeight + 120 + extraHeight + chartHeight;
+  const pageHeight = margin + headerHeight + (totalLines + 6) * rowHeight + 120 + extraHeight;
   const page = pdfDocument.addPage([pageWidth, pageHeight]);
 
   let currentY = margin;
@@ -312,12 +164,6 @@ export async function gerarPDFAcoes(rows, filters = {}) {
   // Draw title
   drawText("Custos ações", margin, 16);
   currentY += 22;
-
-  // Draw donut chart
-  const chartCenterX = pageWidth / 2;
-  const chartCenterY = page.getHeight() - currentY - 70;
-  drawDonutChart(page, font, chartCenterX, chartCenterY, 50, 30, statusCounts, "Custos ações (status)");
-  currentY += chartHeight;
 
   // Draw period
   const dateRange = `${formatDateBR(firstDate)} - ${formatDateBR(lastDate)}`;
@@ -488,27 +334,6 @@ export async function gerarContasAPagarPDF({ rows, fixasRows, dueFrom, dueTo, in
     calculateFixedAccountTotals(validFixedRows, getDisplayStatus);
   const grandTotalToPay = actionsToPay + (includeFixas ? fixedToPay : 0);
 
-  // Calculate status counts for charts
-  const actionStatusCounts = validActionRows.reduce((acc, row) => {
-    const status = (row?.status || 'ABERTO').toUpperCase();
-    if (status === 'PAGO') {
-      acc.pago += 1;
-    } else {
-      acc.aberto += 1;
-    }
-    return acc;
-  }, { aberto: 0, pago: 0 });
-
-  const fixedStatusCounts = validFixedRows.reduce((acc, account) => {
-    const status = getDisplayStatus?.(account) || 'ABERTO';
-    if (status === 'PAGO') {
-      acc.pago += 1;
-    } else {
-      acc.aberto += 1;
-    }
-    return acc;
-  }, { aberto: 0, pago: 0 });
-
   const pdfDocument = await PDFDocument.create();
   const font = await pdfDocument.embedFont(StandardFonts.Helvetica);
   const pageWidth = 900;
@@ -563,24 +388,6 @@ export async function gerarContasAPagarPDF({ rows, fixasRows, dueFrom, dueTo, in
   // Draw title
   drawText("Contas a Pagar", margin, 16);
   currentY += 22;
-
-  // Draw donut charts
-  if (includeFixas) {
-    // Two charts side by side
-    const chart1X = pageWidth / 3;
-    const chart2X = (2 * pageWidth) / 3;
-    const chartsY = page.getHeight() - currentY - 70;
-
-    drawDonutChart(page, font, chart1X, chartsY, 50, 30, actionStatusCounts, "Custos ações (status)");
-    drawDonutChart(page, font, chart2X, chartsY, 50, 30, fixedStatusCounts, "Contas Fixas (status)");
-    currentY += 180;
-  } else {
-    // Single chart centered
-    const chartX = pageWidth / 2;
-    const chartY = page.getHeight() - currentY - 70;
-    drawDonutChart(page, font, chartX, chartY, 50, 30, actionStatusCounts, "Custos ações (status)");
-    currentY += 180;
-  }
 
   // Draw period
   const dateRange = `${formatDateBR(firstDate)} - ${formatDateBR(lastDate)}`;

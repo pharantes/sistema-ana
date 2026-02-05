@@ -204,12 +204,10 @@ export default function ClientesPage() {
         body: JSON.stringify(clienteData),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
         setErrorModal({
           open: true,
-          message: data.error || "Erro ao criar cliente. Verifique os dados e tente novamente."
+          message: "Erro ao criar cliente. Verifique os dados e tente novamente."
         });
         setIsLoading(false);
         return;
@@ -241,12 +239,10 @@ export default function ClientesPage() {
         body: JSON.stringify({ ...clienteData, _id: editingCliente._id }),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
         setErrorModal({
           open: true,
-          message: data.error || "Erro ao atualizar cliente. Verifique os dados e tente novamente."
+          message: "Erro ao atualizar cliente. Verifique os dados e tente novamente."
         });
         setIsLoading(false);
         return;
@@ -290,12 +286,10 @@ export default function ClientesPage() {
         body: JSON.stringify({ id: deleteTarget._id }),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
         setErrorModal({
           open: true,
-          message: data.error || "Erro ao excluir cliente."
+          message: "Erro ao excluir cliente."
         });
         setIsDeleteLoading(false);
         return;

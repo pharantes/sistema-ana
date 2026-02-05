@@ -159,10 +159,9 @@ export default function AcoesPage() {
     if (!deleteTarget) return;
     try {
       const res = await globalThis.fetch(`/api/action/${deleteTarget._id}`, { method: 'DELETE' });
-      const data = await res.json();
 
       if (!res.ok) {
-        setErrorModal({ open: true, message: data.error || 'Falha ao excluir ação' });
+        setErrorModal({ open: true, message: 'Falha ao excluir ação' });
         return;
       }
 
@@ -178,16 +177,14 @@ export default function AcoesPage() {
     try {
       if (editing) {
         const res = await globalThis.fetch('/api/action/edit', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: editing._id, ...payload }) });
-        const data = await res.json();
         if (!res.ok) {
-          setErrorModal({ open: true, message: data.error || 'Erro ao atualizar ação' });
+          setErrorModal({ open: true, message: 'Erro ao atualizar ação' });
           return;
         }
       } else {
         const res = await globalThis.fetch('/api/action', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        const data = await res.json();
         if (!res.ok) {
-          setErrorModal({ open: true, message: data.error || 'Erro ao criar ação' });
+          setErrorModal({ open: true, message: 'Erro ao criar ação' });
           return;
         }
       }
@@ -206,8 +203,7 @@ export default function AcoesPage() {
       const response = await globalThis.fetch(url);
 
       if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        setErrorModal({ open: true, message: data.error || 'Falha ao gerar PDF' });
+        setErrorModal({ open: true, message: 'Falha ao gerar PDF' });
         return;
       }
 

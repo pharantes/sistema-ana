@@ -41,8 +41,7 @@ const ActionsWrap = styled(ActionsInline)` margin-top: var(--space-xs); `;
 async function fetchActionById(actionId) {
   const response = await fetch(`/api/action/${actionId}`);
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Falha ao carregar ação');
+    throw new Error('Falha ao carregar ação');
   }
   return await response.json();
 }

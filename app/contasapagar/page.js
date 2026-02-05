@@ -82,19 +82,6 @@ function buildContasAPagarUrl(fromDate, toDate) {
 }
 
 /**
- * Safely parses JSON from a fetch response.
- * @param {Response} response - The fetch response object
- * @returns {Promise<object>} Parsed JSON object or empty object on error
- */
-async function tryParseJson(response) {
-  try {
-    return await response.json();
-  } catch {
-    return {};
-  }
-}
-
-/**
  * Converts a date value to milliseconds timestamp for comparison.
  * Handles ISO, YYYY-MM-DD, and DD/MM/YYYY formats.
  * @param {Date|string|null} dateValue - The date to convert
@@ -392,8 +379,7 @@ export default function ContasAPagarPage() {
       const url = buildContasAPagarUrl(dueFrom, dueTo);
       const response = await fetch(url);
       if (!response.ok) {
-        const errorData = await tryParseJson(response);
-        throw new Error(errorData.error || "Erro ao carregar contas a pagar");
+        throw new Error("Erro ao carregar contas a pagar");
       }
       const data = await response.json();
       setReports(Array.isArray(data) ? data : []);
@@ -463,8 +449,7 @@ export default function ContasAPagarPage() {
         body: JSON.stringify({ id: reportId, status: newStatus })
       });
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Erro ao atualizar status");
+        throw new Error("Erro ao atualizar status");
       }
       const updatedReport = await response.json();
       setReports(previousReports => previousReports.map(report =>
@@ -726,8 +711,7 @@ export default function ContasAPagarPage() {
         });
       }
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Falha ao salvar conta fixa');
+        throw new Error('Falha ao salvar conta fixa');
       }
       setShowFixaModal(false);
       setFixaEditing(null);

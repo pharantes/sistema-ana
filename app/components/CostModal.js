@@ -280,7 +280,7 @@ export default function CostModal({ open, onClose, onSubmit, initial }) {
                   pgt: determinePaymentMethod(data, previousForm.pgt),
                 }));
               } else {
-                setErrorModal({ open: true, message: data.error || 'Falha ao salvar colaborador' });
+                setErrorModal({ open: true, message: 'Falha ao salvar colaborador' });
               }
             } catch {
               setErrorModal({ open: true, message: 'Falha ao salvar colaborador. Verifique sua conexão e tente novamente.' });

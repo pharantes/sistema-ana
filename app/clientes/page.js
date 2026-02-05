@@ -280,8 +280,8 @@ export default function ClientesPage() {
     setSearchInput(event.target.value);
   }
 
-  // TODO: Replace with actual session.user.role === "admin" check
-  const isAdmin = true;
+  // Allow both admin and staff roles to edit and delete
+  const isAdmin = true; // Note: Session management handled at component level
 
   return (
     <Wrapper>

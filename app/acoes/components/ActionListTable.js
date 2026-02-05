@@ -74,7 +74,8 @@ function getDefaultSortDirection(columnKey) {
  * Checks if user can edit the action
  */
 function canUserEditAction(action, userSession) {
-  if (userSession.user.role === "admin") {
+  const userRole = userSession.user.role;
+  if (userRole === "admin" || userRole === "staff") {
     return true;
   }
 
@@ -171,7 +172,7 @@ export default function ActionListTable({ actions = [], session, onEdit, onDelet
                       <SmallSecondaryButton onClick={() => onEdit(action)}>
                         Editar
                       </SmallSecondaryButton>
-                      {session.user.role === "admin" && (
+                      {(session.user.role === "admin" || session.user.role === "staff") && (
                         <SmallInlineButton onClick={() => onDelete(action)}>
                           Excluir
                         </SmallInlineButton>

@@ -23,7 +23,8 @@ function extractStaffNames(action) {
 }
 
 function checkStaffEditPermission(session, action) {
-  if (session.user.role === "admin") {
+  const userRole = session.user.role;
+  if (userRole === "admin" || userRole === "staff") {
     return {};
   }
 

@@ -80,23 +80,33 @@ function getPaymentType(report) {
 }
 
 /**
- * Gets the bank/PIX information based on payment method.
+ * Gets the PIX information from staff, cost, or colaborador.
  * @param {object} report - The report object
- * @returns {string} The bank or PIX details
+ * @returns {string} The PIX details
  */
-function getBankOrPix(report) {
+function getPIX(report) {
   const staffMember = findStaffMember(report);
   const costItem = findCostItem(report);
   const colaboradorData = report?.colaboradorData;
-  const paymentMethod = (staffMember?.pgt || costItem?.pgt || '').toUpperCase();
+  return staffMember?.pix || costItem?.pix || colaboradorData?.pix || '';
+}
 
-  if (paymentMethod === 'PIX') {
-    return staffMember?.pix || costItem?.pix || colaboradorData?.pix || '';
+/**
+ * Gets the bank information from staff, cost, or colaborador.
+ * @param {object} report - The report object
+ * @returns {string} The bank details
+ */
+function getBanco(report) {
+  const staffMember = findStaffMember(report);
+  const costItem = findCostItem(report);
+  const colaboradorData = report?.colaboradorData;
+  const banco = staffMember?.bank || costItem?.bank || colaboradorData?.banco || '';
+  const conta = colaboradorData?.conta || '';
+
+  if (banco && conta) {
+    return `${banco} - ${conta}`;
   }
-  if (paymentMethod === 'TED') {
-    return staffMember?.bank || costItem?.bank || colaboradorData?.banco || '';
-  }
-  return '';
+  return banco;
 }
 
 /**
@@ -149,8 +159,11 @@ export default function AcoesTable({
             <ThClickable onClick={() => onToggleSort('pgt')}>
               Pgt {sortKey === 'pgt' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
             </ThClickable>
+            <ThClickable onClick={() => onToggleSort('pix')}>
+              PIX {sortKey === 'pix' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+            </ThClickable>
             <ThClickable onClick={() => onToggleSort('banco')}>
-              Banco/PIX {sortKey === 'banco' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+              Banco {sortKey === 'banco' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
             </ThClickable>
             <ThClickable onClick={() => onToggleSort('status')}>
               Status {sortKey === 'status' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
@@ -180,7 +193,8 @@ export default function AcoesTable({
                 <Td>{getDueDate(report)}</Td>
                 <Td>{getValue(report)}</Td>
                 <Td>{getPaymentType(report)}</Td>
-                <Td>{getBankOrPix(report)}</Td>
+                <Td>{getPIX(report)}</Td>
+                <Td>{getBanco(report)}</Td>
                 <Td>
                   {session.user.role === "admin" ? (
                     <StatusSelect

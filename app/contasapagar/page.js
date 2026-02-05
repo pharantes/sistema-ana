@@ -268,10 +268,27 @@ function valueForSortKey(reportRow, sortKey) {
         : null;
       return String(staffItem?.pgt || costItem?.pgt || '').toLowerCase();
     }
-    case 'banco': {
-      // Get bank/PIX from colaborador
+    case 'pix': {
+      // Get PIX from staff, cost, or colaborador
+      const staffList = Array.isArray(reportRow.actionId?.staff) ? reportRow.actionId.staff : [];
+      const costsList = Array.isArray(reportRow.actionId?.costs) ? reportRow.actionId.costs : [];
+      const staffItem = reportRow.staffName ? staffList.find(s => s.name === reportRow.staffName) : null;
+      const costItem = (!reportRow.staffName && reportRow.costId)
+        ? costsList.find(c => String(c._id) === String(reportRow.costId))
+        : null;
       const colaboradorInfo = reportRow?.colaboradorData;
-      return String(colaboradorInfo?.banco || colaboradorInfo?.pix || '').toLowerCase();
+      return String(staffItem?.pix || costItem?.pix || colaboradorInfo?.pix || '').toLowerCase();
+    }
+    case 'banco': {
+      // Get bank from staff, cost, or colaborador
+      const staffList = Array.isArray(reportRow.actionId?.staff) ? reportRow.actionId.staff : [];
+      const costsList = Array.isArray(reportRow.actionId?.costs) ? reportRow.actionId.costs : [];
+      const staffItem = reportRow.staffName ? staffList.find(s => s.name === reportRow.staffName) : null;
+      const costItem = (!reportRow.staffName && reportRow.costId)
+        ? costsList.find(c => String(c._id) === String(reportRow.costId))
+        : null;
+      const colaboradorInfo = reportRow?.colaboradorData;
+      return String(staffItem?.bank || costItem?.bank || colaboradorInfo?.banco || '').toLowerCase();
     }
     case 'status':
       return String(reportRow?.status || 'ABERTO').toLowerCase();

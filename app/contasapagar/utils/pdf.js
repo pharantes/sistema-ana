@@ -300,7 +300,8 @@ export async function gerarContasAPagarPDF({ rows, fixasRows, dueFrom, dueTo, in
   const validActionRows = Array.isArray(rows) ? rows : [];
   const validFixedRows = Array.isArray(fixasRows) ? fixasRows : [];
 
-  if (!validActionRows.length && !(includeFixas && validFixedRows.length)) {
+  // When includeFixas is true, allow PDF generation even with no data (will show R$ 0,00)
+  if (!includeFixas && !validActionRows.length && !validFixedRows.length) {
     throw new Error("Nenhum resultado para gerar o relatório");
   }
 

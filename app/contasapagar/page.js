@@ -623,11 +623,7 @@ export default function ContasAPagarPage() {
       // Use fixas array directly if no filters are applied, otherwise use filteredFixas
       const fixasToUse = (dueFrom || dueTo || statusFilter !== 'ALL') ? filteredFixas : fixas;
 
-      if (!fixasToUse.length) {
-        setErrorModal({ open: true, message: "Nenhum resultado para gerar o relatório" });
-        return;
-      }
-
+      // Always generate PDF, even if fixasToUse is empty (will show R$ 0,00)
       await gerarContasAPagarPDF({
         rows: [],
         fixasRows: fixasToUse,

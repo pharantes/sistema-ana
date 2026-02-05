@@ -15,36 +15,8 @@ function calculateTotalReceivable(rows) {
 }
 
 /**
- * Calculates the total number of lines needed for the PDF table.
- * Each row needs at least one line, plus additional lines for multiple staff members.
- * @param {Array} rows - Array of receivable rows
- * @returns {number} Total number of lines needed
- */
-function calculateTotalLines(rows) {
-  return rows.reduce((totalLines, row) => {
-    const staffCount = Array.isArray(row?.staff) ? row.staff.length : 0;
-    return totalLines + Math.max(1, staffCount);
-  }, 0);
-}
-
-/**
- * Downloads a PDF blob as a file.
- * @param {Uint8Array} pdfBytes - The PDF document bytes
- * @param {string} filename - The filename for the download
- */
-function downloadPDF(pdfBytes, filename) {
-  const blob = new Blob([pdfBytes], { type: "application/pdf" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
-
-/**
  * Generates a PDF report for Contas a Receber (Accounts Receivable).
- * Creates a formatted table with action details, client info, and staff assignments.
+ * Creates a formatted table with action details showing total receivable amount per action.
  * @param {Array} rows - Array of receivable action objects
  * @param {Object} filters - Applied filters (query, mode, dateFrom, dateTo, statusFilter)
  */
@@ -60,16 +32,16 @@ export async function gerarContasAReceberPDF(rows, filters = {}) {
     : null;
 
   const totalReceivable = calculateTotalReceivable(validRows);
-  const totalLines = calculateTotalLines(validRows);
+  const totalLines = validRows.length;
 
   // PDF configuration constants
   const pdfDocument = await PDFDocument.create();
   const font = await pdfDocument.embedFont(StandardFonts.Helvetica);
-  const pageWidth = 900;
+  const pageWidth = 850;
   const rowHeight = 18;
   const headerHeight = 28;
   const margin = 30;
-  const columnWidths = [160, 200, 100, 180, 150, 100];
+  const columnWidths = [180, 200, 100, 100, 100, 160];
 
   // Calculate page height including filter info
   const filterLineCount = [filters.query, filters.dateFrom, filters.statusFilter].filter(Boolean).length;
@@ -129,7 +101,7 @@ export async function gerarContasAReceberPDF(rows, filters = {}) {
   currentY += 24;
 
   // Draw table header
-  const headers = ["Evento", "Cliente", "Data", "Colaboradores", "PIX", "Valor total (R$)"];
+  const headers = ["Ação", "Cliente", "Data", "Status", "Vencimento", "Valor a Receber (R$)"];
   let currentX = margin;
   headers.forEach((headerText, index) => {
     drawText(headerText, currentX, 10);
@@ -145,65 +117,61 @@ export async function gerarContasAReceberPDF(rows, filters = {}) {
   });
   currentY += rowHeight;
 
-  // Draw data rows
+  // Draw data rows - one row per action
   validRows.forEach((actionRow) => {
-    const eventName = actionRow?.name || '';
+    const actionName = actionRow?.name || '';
     const clientName = actionRow?.client || '';
     const actionDate = formatDateBR(actionRow?.date);
-    const totalValue = (actionRow?.receivable?.valor != null)
-      ? `R$ ${formatBRL(Number(actionRow.receivable.valor))}`
-      : '-';
-    const staffList = Array.isArray(actionRow?.staff) ? actionRow.staff : [];
-    const linesNeeded = Math.max(1, staffList.length);
+    const receivable = actionRow?.receivable || {};
+    const status = receivable?.status || 'ABERTO';
+    const vencimento = receivable?.vencimento ? formatDateBR(new Date(receivable.vencimento)) : '-';
+    const valor = (receivable?.valor != null)
+      ? formatBRL(Number(receivable.valor))
+      : '0,00';
 
-    for (let lineIndex = 0; lineIndex < linesNeeded; lineIndex++) {
-      let cellX = margin;
+    let cellX = margin;
 
-      // Draw event name (first line only)
-      if (lineIndex === 0) {
-        drawText(eventName, cellX, 8.5);
-      }
-      cellX += columnWidths[0];
+    // Draw action name
+    drawText(actionName, cellX, 8.5);
+    cellX += columnWidths[0];
 
-      // Draw client name (first line only)
-      if (lineIndex === 0) {
-        drawText(clientName, cellX, 8.5);
-      }
-      cellX += columnWidths[1];
+    // Draw client name
+    drawText(clientName, cellX, 8.5);
+    cellX += columnWidths[1];
 
-      // Draw date (first line only)
-      if (lineIndex === 0) {
-        drawText(actionDate, cellX, 8.5);
-      }
-      cellX += columnWidths[2];
+    // Draw date
+    drawText(actionDate, cellX, 8.5);
+    cellX += columnWidths[2];
 
-      // Draw staff name
-      const staffName = staffList[lineIndex]?.name || '';
-      drawText(staffName, cellX, 8.5);
-      cellX += columnWidths[3];
+    // Draw status
+    drawText(status, cellX, 8.5);
+    cellX += columnWidths[3];
 
-      // Draw PIX info - prioritize colaboradorData, then staff entry
-      const staffMember = staffList[lineIndex];
-      const pixInfo = staffMember?.colaboradorData?.pix || staffMember?.pix || '';
-      drawText(pixInfo, cellX, 8.5);
-      cellX += columnWidths[4];
+    // Draw vencimento
+    drawText(vencimento, cellX, 8.5);
+    cellX += columnWidths[4];
 
-      // Draw total value (first line only)
-      if (lineIndex === 0) {
-        drawText(totalValue, cellX, 8.5);
-      }
+    // Draw valor
+    drawText(`R$ ${valor}`, cellX, 8.5);
 
-      // Draw row separator line
-      page.drawLine({
-        start: { x: margin, y: page.getHeight() - currentY - 2 },
-        end: { x: pageWidth - margin, y: page.getHeight() - currentY - 2 },
-        thickness: 0.5,
-        color: rgb(0.85, 0.85, 0.85)
-      });
-      currentY += rowHeight;
-    }
+    // Draw row separator line
+    page.drawLine({
+      start: { x: margin, y: page.getHeight() - currentY - 2 },
+      end: { x: pageWidth - margin, y: page.getHeight() - currentY - 2 },
+      thickness: 0.5,
+      color: rgb(0.85, 0.85, 0.85)
+    });
+
+    currentY += rowHeight;
   });
 
+  // Download the PDF
   const pdfBytes = await pdfDocument.save();
-  downloadPDF(pdfBytes, 'contas-a-receber.pdf');
+  const blob = new Blob([pdfBytes], { type: "application/pdf" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = 'contas-a-receber.pdf';
+  anchor.click();
+  URL.revokeObjectURL(url);
 }

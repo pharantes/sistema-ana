@@ -151,20 +151,28 @@ export default function ContasAReceberPage() {
   }, [query, sortKey, sortDir, mode, dateFrom, dateTo, statusFilter, page, pageSize, version]);
 
   async function gerarPDF() {
-    // Fetch all items with current filters to generate complete report
-    const filters = {
-      query,
-      mode,
-      dateFrom,
-      dateTo,
-      statusFilter,
-      sortKey,
-      sortDir,
-      page: 1,
-      pageSize: 10000
-    };
-    const { items: allItems } = await fetchContasReceber(filters);
-    await gerarContasAReceberPDF(allItems, { query, mode, dateFrom, dateTo, statusFilter });
+    try {
+      // Fetch all items with current filters to generate complete report
+      const filters = {
+        query,
+        mode,
+        dateFrom,
+        dateTo,
+        statusFilter,
+        sortKey,
+        sortDir,
+        page: 1,
+        pageSize: 10000
+      };
+      const { items: allItems } = await fetchContasReceber(filters);
+      if (!allItems.length) {
+        alert("Nenhum resultado para gerar o relatório");
+        return;
+      }
+      await gerarContasAReceberPDF(allItems, { query, mode, dateFrom, dateTo, statusFilter });
+    } catch (error) {
+      alert(error.message || "Erro ao gerar PDF");
+    }
   }
 
   const toggleSort = (key) => {

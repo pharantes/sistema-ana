@@ -619,14 +619,18 @@ export default function ContasAPagarPage() {
    * Generates a PDF report for the filtered fixed accounts (Contas Fixas).
    */
   async function handleGeneratePDFFixas() {
-    if (!filteredFixas.length) {
-      setErrorModal({ open: true, message: "Nenhum resultado para gerar o relatório" });
-      return;
-    }
     try {
+      // Use fixas array directly if no filters are applied, otherwise use filteredFixas
+      const fixasToUse = (dueFrom || dueTo || statusFilter !== 'ALL') ? filteredFixas : fixas;
+
+      if (!fixasToUse.length) {
+        setErrorModal({ open: true, message: "Nenhum resultado para gerar o relatório" });
+        return;
+      }
+
       await gerarContasAPagarPDF({
         rows: [],
-        fixasRows: filteredFixas,
+        fixasRows: fixasToUse,
         dueFrom,
         dueTo,
         includeFixas: true,

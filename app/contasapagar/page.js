@@ -619,16 +619,24 @@ export default function ContasAPagarPage() {
    * Generates a PDF report for the filtered fixed accounts (Contas Fixas).
    */
   async function handleGeneratePDFFixas() {
-    await gerarContasAPagarPDF({
-      rows: [],
-      fixasRows: filteredFixas,
-      dueFrom,
-      dueTo,
-      includeFixas: true,
-      getDisplayStatus,
-      searchQuery,
-      statusFilter,
-    });
+    if (!filteredFixas.length) {
+      setErrorModal({ open: true, message: "Nenhum resultado para gerar o relatório" });
+      return;
+    }
+    try {
+      await gerarContasAPagarPDF({
+        rows: [],
+        fixasRows: filteredFixas,
+        dueFrom,
+        dueTo,
+        includeFixas: true,
+        getDisplayStatus,
+        searchQuery,
+        statusFilter,
+      });
+    } catch (error) {
+      setErrorModal({ open: true, message: error.message || "Erro ao gerar PDF" });
+    }
   }
 
   // --- Fixed Accounts (Contas Fixas) CRUD Operations ---

@@ -108,14 +108,15 @@ async function cascadeDeletePaymentEntries(actionId) {
 }
 
 function checkAdminPermission(session) {
-  if (session.user.role !== "admin") {
+  const userRole = session.user.role;
+  if (userRole !== "admin" && userRole !== "staff") {
     return { error: forbidden() };
   }
   return {};
 }
 
 /**
- * DELETE handler - Deletes an action and its associated payment entries (admin only).
+ * DELETE handler - Deletes an action and its associated payment entries (admin and staff only).
  */
 export async function DELETE(request, context) {
   try {

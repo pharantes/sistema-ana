@@ -87,9 +87,15 @@ function getPaymentType(report) {
 function getBankOrPix(report) {
   const staffMember = findStaffMember(report);
   const costItem = findCostItem(report);
+  const colaboradorData = report?.colaboradorData;
   const paymentMethod = (staffMember?.pgt || costItem?.pgt || '').toUpperCase();
-  if (paymentMethod === 'PIX') return staffMember?.pix || costItem?.pix || '';
-  if (paymentMethod === 'TED') return staffMember?.bank || costItem?.bank || '';
+
+  if (paymentMethod === 'PIX') {
+    return staffMember?.pix || costItem?.pix || colaboradorData?.pix || '';
+  }
+  if (paymentMethod === 'TED') {
+    return staffMember?.bank || costItem?.bank || colaboradorData?.banco || '';
+  }
   return '';
 }
 

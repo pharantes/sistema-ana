@@ -43,15 +43,15 @@ function getVendorEmpresa(cost, linkedColaborador) {
 /**
  * Gets the payment info (PIX or bank) based on payment method
  */
-function getCostPaymentInfo(cost) {
+function getCostPaymentInfo(cost, linkedColaborador) {
   const paymentMethod = String(cost?.pgt || '').toUpperCase();
 
   if (paymentMethod === 'PIX') {
-    return cost?.pix || '';
+    return cost?.pix || linkedColaborador?.pix || '';
   }
 
   if (paymentMethod === 'TED') {
-    return cost?.bank || '';
+    return cost?.bank || linkedColaborador?.banco || '';
   }
 
   return '';
@@ -90,7 +90,7 @@ export default function CostsTable({ acao, costs = [], colaboradores = [], onEdi
               <Td>{cost?.description || ''}</Td>
               <Td>{formatCostValue(cost?.value)}</Td>
               <Td>{cost?.pgt || ''}</Td>
-              <Td>{getCostPaymentInfo(cost)}</Td>
+              <Td>{getCostPaymentInfo(cost, linkedColaborador)}</Td>
               <Td>{formatDateBR(cost?.vencimento)}</Td>
               <Td>
                 <FE.ActionsRow>

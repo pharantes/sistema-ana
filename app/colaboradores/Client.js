@@ -280,9 +280,10 @@ async function updateColaborador(colaboradorData) {
  * Deletes a colaborador via API
  */
 async function deleteColaborador(colaboradorId) {
-  await globalThis.fetch(`/api/colaborador?id=${colaboradorId}`, {
+  const response = await globalThis.fetch(`/api/colaborador?id=${colaboradorId}`, {
     method: "DELETE"
   });
+  return response.ok;
 }
 
 /**

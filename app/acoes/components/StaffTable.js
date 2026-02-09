@@ -27,25 +27,14 @@ function normalizeName(name) {
 }
 
 /**
- * Finds a colaborador by matching name (case-insensitive, space-normalized)
+ * Finds a colaborador by matching name (exact match only, case-insensitive, space-normalized)
  */
 function findColaboradorByName(colaboradores, staffName) {
   const normalizedStaffName = normalizeName(staffName);
 
-  // Try exact match first
-  let colaborador = colaboradores.find(colab =>
+  return colaboradores.find(colab =>
     normalizeName(colab?.nome) === normalizedStaffName
   );
-
-  // If not found, try partial match (contains)
-  if (!colaborador && normalizedStaffName) {
-    colaborador = colaboradores.find(colab => {
-      const colabName = normalizeName(colab?.nome);
-      return colabName.includes(normalizedStaffName) || normalizedStaffName.includes(colabName);
-    });
-  }
-
-  return colaborador;
 }
 
 /**

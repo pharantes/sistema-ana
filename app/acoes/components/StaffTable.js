@@ -1,5 +1,7 @@
 "use client";
+import { useRouter } from "next/navigation";
 import { Table, Th, Td } from "../../components/ui/Table";
+import LinkButton from "../../components/ui/LinkButton";
 import { formatDateBR } from "@/lib/utils/dates";
 import { formatBRL } from "@/app/utils/currency";
 
@@ -25,13 +27,6 @@ function findColaboradorByName(colaboradores, staffName) {
 }
 
 /**
- * Gets payment method from staff entry or action default
- */
-function getPaymentMethod(staffEntry, action) {
-  return (staffEntry?.pgt || action?.paymentMethod || '').toUpperCase();
-}
-
-/**
  * Builds bank info string from colaborador data
  */
 function buildBankInfo(colaborador) {
@@ -44,21 +39,23 @@ function buildBankInfo(colaborador) {
 }
 
 /**
- * Gets the appropriate payment info (PIX or bank) based on payment method
+ * Gets PIX info from staff entry or fallback to colaborador
  */
-function getPaymentInfo(staffEntry, action, colaboradores) {
-  const paymentMethod = getPaymentMethod(staffEntry, action);
+function getPix(staffEntry, colaboradores) {
+  if (staffEntry?.pix) return staffEntry.pix;
+
   const colaborador = findColaboradorByName(colaboradores, staffEntry?.name);
+  return colaborador?.pix || '';
+}
 
-  if (paymentMethod === 'PIX') {
-    return staffEntry?.pix || colaborador?.pix || '';
-  }
+/**
+ * Gets bank info from staff entry or fallback to colaborador
+ */
+function getBank(staffEntry, colaboradores) {
+  if (staffEntry?.bank) return staffEntry.bank;
 
-  if (paymentMethod === 'TED') {
-    return staffEntry?.bank || buildBankInfo(colaborador);
-  }
-
-  return '';
+  const colaborador = findColaboradorByName(colaboradores, staffEntry?.name);
+  return buildBankInfo(colaborador);
 }
 
 /**
@@ -74,7 +71,15 @@ function getStaffDueDate(staffEntry, action) {
  * StaffTable - Displays staff members associated with an action
  */
 export default function StaffTable({ acao, staff = [], colaboradores = [] }) {
+  const router = useRouter();
   const staffList = Array.isArray(staff) ? staff : [];
+
+  const handleColaboradorClick = (staffName) => {
+    const colaborador = findColaboradorByName(colaboradores, staffName);
+    if (colaborador?._id) {
+      router.push(`/colaboradores/${colaborador._id}`);
+    }
+  };
 
   return (
     <Table>
@@ -83,20 +88,35 @@ export default function StaffTable({ acao, staff = [], colaboradores = [] }) {
           <Th>Profissional</Th>
           <Th>Valor</Th>
           <Th>Pgt</Th>
-          <Th>Banco/PIX</Th>
+          <Th>Banco</Th>
+          <Th>PIX</Th>
           <Th>Vencimento</Th>
         </tr>
       </thead>
       <tbody>
-        {staffList.map((staffEntry, index) => (
-          <tr key={`${acao?._id || 'acao'}-staff-${index}`}>
-            <Td>{staffEntry?.name || ''}</Td>
-            <Td>{formatStaffValue(staffEntry?.value)}</Td>
-            <Td>{staffEntry?.pgt || acao?.paymentMethod || ''}</Td>
-            <Td>{getPaymentInfo(staffEntry, acao, colaboradores)}</Td>
-            <Td>{getStaffDueDate(staffEntry, acao)}</Td>
-          </tr>
-        ))}
+        {staffList.map((staffEntry, index) => {
+          const colaborador = findColaboradorByName(colaboradores, staffEntry?.name);
+          const hasColaborador = !!colaborador?._id;
+
+          return (
+            <tr key={`${acao?._id || 'acao'}-staff-${index}`}>
+              <Td>
+                {hasColaborador ? (
+                  <LinkButton onClick={() => handleColaboradorClick(staffEntry?.name)}>
+                    {staffEntry?.name || ''}
+                  </LinkButton>
+                ) : (
+                  staffEntry?.name || ''
+                )}
+              </Td>
+              <Td>{formatStaffValue(staffEntry?.value)}</Td>
+              <Td>{staffEntry?.pgt || acao?.paymentMethod || ''}</Td>
+              <Td>{getBank(staffEntry, colaboradores)}</Td>
+              <Td>{getPix(staffEntry, colaboradores)}</Td>
+              <Td>{getStaffDueDate(staffEntry, acao)}</Td>
+            </tr>
+          );
+        })}
       </tbody>
     </Table>
   );

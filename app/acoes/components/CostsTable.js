@@ -1,5 +1,7 @@
 "use client";
+import { useRouter } from "next/navigation";
 import { Table, Th, Td } from "../../components/ui/Table";
+import LinkButton from "../../components/ui/LinkButton";
 import * as FE from "../../components/FormElements";
 import { formatDateBR } from "@/lib/utils/dates";
 import { formatBRL } from "@/app/utils/currency";
@@ -41,27 +43,31 @@ function getVendorEmpresa(cost, linkedColaborador) {
 }
 
 /**
- * Gets the payment info (PIX or bank) based on payment method
+ * Gets PIX info from cost entry or fallback to colaborador
  */
-function getCostPaymentInfo(cost, linkedColaborador) {
-  const paymentMethod = String(cost?.pgt || '').toUpperCase();
+function getCostPix(cost, linkedColaborador) {
+  return cost?.pix || linkedColaborador?.pix || '';
+}
 
-  if (paymentMethod === 'PIX') {
-    return cost?.pix || linkedColaborador?.pix || '';
-  }
-
-  if (paymentMethod === 'TED') {
-    return cost?.bank || linkedColaborador?.banco || '';
-  }
-
-  return '';
+/**
+ * Gets bank info from cost entry or fallback to colaborador
+ */
+function getCostBank(cost, linkedColaborador) {
+  return cost?.bank || linkedColaborador?.banco || '';
 }
 
 /**
  * CostsTable - Displays extra costs associated with an action
  */
 export default function CostsTable({ acao, costs = [], colaboradores = [], onEdit, onDelete }) {
+  const router = useRouter();
   const costsList = Array.isArray(costs) ? costs : [];
+
+  const handleColaboradorClick = (colaboradorId) => {
+    if (colaboradorId) {
+      router.push(`/colaboradores/${colaboradorId}`);
+    }
+  };
 
   return (
     <Table>
@@ -72,7 +78,8 @@ export default function CostsTable({ acao, costs = [], colaboradores = [], onEdi
           <Th>Descrição</Th>
           <Th>Valor</Th>
           <Th>Pgt</Th>
-          <Th>Banco/PIX</Th>
+          <Th>Banco</Th>
+          <Th>PIX</Th>
           <Th>Vencimento</Th>
           <Th>Opções</Th>
         </tr>
@@ -82,15 +89,25 @@ export default function CostsTable({ acao, costs = [], colaboradores = [], onEdi
           const linkedColaborador = findColaboradorById(colaboradores, cost?.colaboradorId);
           const vendorName = getVendorName(cost, linkedColaborador);
           const vendorEmpresa = getVendorEmpresa(cost, linkedColaborador);
+          const hasColaboradorId = !!cost?.colaboradorId;
 
           return (
             <tr key={`${acao?._id || 'acao'}-cost-${index}`}>
-              <Td>{vendorName}</Td>
+              <Td>
+                {hasColaboradorId ? (
+                  <LinkButton onClick={() => handleColaboradorClick(cost.colaboradorId)}>
+                    {vendorName}
+                  </LinkButton>
+                ) : (
+                  vendorName
+                )}
+              </Td>
               <Td>{vendorEmpresa}</Td>
               <Td>{cost?.description || ''}</Td>
               <Td>{formatCostValue(cost?.value)}</Td>
               <Td>{cost?.pgt || ''}</Td>
-              <Td>{getCostPaymentInfo(cost, linkedColaborador)}</Td>
+              <Td>{getCostBank(cost, linkedColaborador)}</Td>
+              <Td>{getCostPix(cost, linkedColaborador)}</Td>
               <Td>{formatDateBR(cost?.vencimento)}</Td>
               <Td>
                 <FE.ActionsRow>

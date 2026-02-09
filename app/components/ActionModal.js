@@ -180,7 +180,22 @@ export default function ActionModal({ editing, form, onClose, onSubmit, loading 
     const s = colaboradores.find(x => String(x._id) === String(id));
     if (!s) return;
     if (selectedColaboradores.some(x => String(x._id) === String(s._id))) return; // already added
-    setSelectedColaboradores(prev => [...prev, { _id: s._id, nome: s.nome || s.name || "", codigo: s.codigo || "", value: "", pgt: "", vencimento: local.dueDate || '' }]);
+
+    // Extract bank info from colaborador
+    const bankInfo = s.banco ? `${s.banco}${s.conta ? ` ${s.conta}` : ''}`.trim() : '';
+    // Determine default payment method based on available info
+    const defaultPgt = (s.pix && s.pix.trim()) ? 'PIX' : (bankInfo ? 'TED' : '');
+
+    setSelectedColaboradores(prev => [...prev, {
+      _id: s._id,
+      nome: s.nome || s.name || "",
+      codigo: s.codigo || "",
+      value: "",
+      pgt: defaultPgt,
+      vencimento: local.dueDate || '',
+      pix: s.pix || '',
+      bank: bankInfo
+    }]);
   }
 
   // Index-based updates avoid collisions when some entries have empty/duplicate ids

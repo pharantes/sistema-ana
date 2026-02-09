@@ -83,7 +83,7 @@ export default function ActionModal({ editing, form, onClose, onSubmit, loading 
 
   // custom dropdowns will manage their own search/filter state
 
-  // selected colaboradores: { _id, nome, codigo, value, pgt, vencimento, pix, bank }
+  // selected colaboradores: { colaboradorId, nome, codigo, value, pgt, vencimento, pix, bank }
   const [selectedColaboradores, setSelectedColaboradores] = useState([]);
   // extra costs managed like colaboradores inside the modal
   const [selectedCosts, setSelectedCosts] = useState([]);
@@ -104,7 +104,7 @@ export default function ActionModal({ editing, form, onClose, onSubmit, loading 
       // if editing has staff array, map into selected colaboradores
       if (Array.isArray(editing.staff)) {
         setSelectedColaboradores(editing.staff.map(s => ({
-          _id: s._id || s.id || "",
+          colaboradorId: s.colaboradorId || s._id || s.id || "",
           nome: s.name || s.nome || "",
           codigo: s.codigo || s.code || "",
           value: (s.value != null ? Number(s.value) : (s.valor != null ? Number(s.valor) : undefined)),
@@ -179,7 +179,7 @@ export default function ActionModal({ editing, form, onClose, onSubmit, loading 
     if (!id) return;
     const s = colaboradores.find(x => String(x._id) === String(id));
     if (!s) return;
-    if (selectedColaboradores.some(x => String(x._id) === String(s._id))) return; // already added
+    if (selectedColaboradores.some(x => String(x.colaboradorId) === String(s._id))) return; // already added
 
     // Extract bank info from colaborador
     const bankInfo = s.banco ? `${s.banco}${s.conta ? ` ${s.conta}` : ''}`.trim() : '';
@@ -187,7 +187,7 @@ export default function ActionModal({ editing, form, onClose, onSubmit, loading 
     const defaultPgt = (s.pix && s.pix.trim()) ? 'PIX' : (bankInfo ? 'TED' : '');
 
     setSelectedColaboradores(prev => [...prev, {
-      _id: s._id,
+      colaboradorId: s._id,
       nome: s.nome || s.name || "",
       codigo: s.codigo || "",
       value: "",
@@ -241,7 +241,16 @@ export default function ActionModal({ editing, form, onClose, onSubmit, loading 
       startDate: local.startDate,
       endDate: local.endDate,
       dueDate: local.dueDate,
-      staff: selectedColaboradores.map(s => ({ _id: s._id, name: s.nome, codigo: s.codigo, value: parseCurrency(s.value), pgt: s.pgt || '', pix: s.pix || '', bank: s.bank || '', vencimento: s.vencimento || '' })),
+      staff: selectedColaboradores.map(s => ({
+        colaboradorId: s.colaboradorId,
+        name: s.nome,
+        codigo: s.codigo,
+        value: parseCurrency(s.value),
+        pgt: s.pgt || '',
+        pix: s.pix || '',
+        bank: s.bank || '',
+        vencimento: s.vencimento || ''
+      })),
       costs: selectedCosts
         .filter(c => (c.description || '').trim())
         .map(c => ({ _id: c._id, description: (c.description || '').trim(), value: parseCurrency(c.value), pgt: c.pgt || '', pix: c.pix || '', bank: c.bank || '', vencimento: c.vencimento || '', colaboradorId: c.colaboradorId || '', vendorName: (c.vendorName || ''), vendorEmpresa: (c.vendorEmpresa || '') })),
@@ -304,7 +313,7 @@ export default function ActionModal({ editing, form, onClose, onSubmit, loading 
                   </thead>
                   <tbody>
                     {selectedColaboradores.map((s, idx) => (
-                      <tr key={`${s._id || s.codigo || s.nome || ''}-${idx}`}>
+                      <tr key={`${s.colaboradorId || s.codigo || s.nome || ''}-${idx}`}>
                         <TdServ>{`${s.codigo ? s.codigo + ' - ' : ''}${s.nome}`}</TdServ>
                         <TdServ>
                           <BRCurrencyInput value={s.value} onChange={(val) => updateColaboradorAt(idx, { value: val })} />

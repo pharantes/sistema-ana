@@ -162,7 +162,10 @@ function createStaffPaymentOperations(action, reportDate) {
           actionId: action._id,
           staffName: staffMember.name.trim()
         },
-        $set: { reportDate }
+        $set: {
+          reportDate,
+          colaboradorId: staffMember.colaboradorId || undefined
+        }
       },
       upsert: true,
     }

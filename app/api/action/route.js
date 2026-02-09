@@ -127,19 +127,40 @@ function normalizeActionArrays(payload) {
 }
 
 /**
+ * Validates if a staff member has a valid name for ContasAPagar creation
+ */
+function isValidStaffForPayment(staffMember) {
+  return staffMember &&
+    typeof staffMember.name === 'string' &&
+    staffMember.name.trim().length > 0;
+}
+
+/**
  * Creates ContasAPagar entries for staff members.
  */
 function createStaffPaymentOperations(action, reportDate) {
   const staff = Array.isArray(action.staff) ? action.staff : [];
 
-  return staff.map((staffMember) => ({
+  // Filter staff with valid names only
+  const validStaff = staff.filter(isValidStaffForPayment);
+
+  if (staff.length > 0 && validStaff.length === 0) {
+    throw new Error(`Action ${action._id}: All staff entries have invalid names`);
+  }
+
+  if (validStaff.length < staff.length) {
+    const invalidCount = staff.length - validStaff.length;
+    logError(`Action ${action._id}: ${invalidCount} staff entries skipped due to invalid names`, new Error('Invalid staff names'));
+  }
+
+  return validStaff.map((staffMember) => ({
     updateOne: {
-      filter: { actionId: action._id, staffName: staffMember.name },
+      filter: { actionId: action._id, staffName: staffMember.name.trim() },
       update: {
         $setOnInsert: {
           status: 'ABERTO',
           actionId: action._id,
-          staffName: staffMember.name
+          staffName: staffMember.name.trim()
         },
         $set: { reportDate }
       },
@@ -175,19 +196,27 @@ function createCostPaymentOperations(action, reportDate) {
 
 /**
  * Auto-creates ContasAPagar entries for action staff and costs.
+ * Throws error if creation fails to prevent orphaned actions.
  */
 async function createPaymentEntries(action) {
+  const reportDate = action.dueDate || action.createdAt || new Date();
+
   try {
-    const reportDate = action.dueDate || action.createdAt || new Date();
     const staffOperations = createStaffPaymentOperations(action, reportDate);
     const costOperations = createCostPaymentOperations(action, reportDate);
     const allOperations = [...staffOperations, ...costOperations];
 
     if (allOperations.length > 0) {
-      await ContasAPagar.bulkWrite(allOperations);
+      const result = await ContasAPagar.bulkWrite(allOperations);
+      logError(`Created ${result.upsertedCount || 0} ContasAPagar entries for action ${action._id}`, new Error('INFO'));
+    } else if (Array.isArray(action.staff) && action.staff.length > 0) {
+      // Action has staff but no operations created - this is an error
+      throw new Error(`Failed to create payment operations for action ${action._id} with ${action.staff.length} staff members`);
     }
   } catch (error) {
-    logError(`Failed to create ContasAPagar entries for action ${action._id}`, error);
+    logError(`CRITICAL: Failed to create ContasAPagar entries for action ${action._id}`, error);
+    // Re-throw error to prevent action creation without payment entries
+    throw new Error(`Failed to create payment entries: ${error.message}`);
   }
 }
 

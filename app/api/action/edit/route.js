@@ -63,17 +63,33 @@ function normalizeActionFields(update) {
   return normalized;
 }
 
+/**
+ * Validates if a staff member has a valid name for ContasAPagar creation
+ */
+function isValidStaffForPayment(staffMember) {
+  return staffMember &&
+    typeof staffMember.name === 'string' &&
+    staffMember.name.trim().length > 0;
+}
+
 function createStaffUpsertOperations(action, reportDate) {
   const staff = Array.isArray(action.staff) ? action.staff : [];
 
-  return staff.map((staffMember) => ({
+  // Filter staff with valid names only
+  const validStaff = staff.filter(isValidStaffForPayment);
+
+  if (staff.length > 0 && validStaff.length === 0) {
+    throw new Error(`Action ${action._id}: All staff entries have invalid names`);
+  }
+
+  return validStaff.map((staffMember) => ({
     updateOne: {
-      filter: { actionId: action._id, staffName: staffMember.name },
+      filter: { actionId: action._id, staffName: staffMember.name.trim() },
       update: {
         $setOnInsert: {
           status: 'ABERTO',
           actionId: action._id,
-          staffName: staffMember.name
+          staffName: staffMember.name.trim()
         },
         $set: { reportDate }
       },
@@ -105,39 +121,55 @@ function createCostUpsertOperations(action, reportDate) {
 }
 
 async function syncPaymentEntries(action) {
-  try {
-    const reportDate = action.dueDate || action.createdAt || new Date();
-    const staff = Array.isArray(action.staff) ? action.staff : [];
-    const staffNames = staff.map(staffMember => staffMember.name);
+  const reportDate = action.dueDate || action.createdAt || new Date();
+  const staff = Array.isArray(action.staff) ? action.staff : [];
 
+  try {
     // Upsert staff payment entries
     const staffOperations = createStaffUpsertOperations(action, reportDate);
     if (staffOperations.length > 0) {
-      await ContasAPagar.bulkWrite(staffOperations);
+      const result = await ContasAPagar.bulkWrite(staffOperations);
+      console.log(`Synced ${result.upsertedCount || 0} staff payment entries for action ${action._id}`);
     }
 
+    // Get valid staff names for cleanup (only staff with valid names)
+    const validStaffNames = staff
+      .filter(isValidStaffForPayment)
+      .map(staffMember => staffMember.name.trim());
+
     // Remove entries for staff removed from action
-    await ContasAPagar.deleteMany({
+    const deleteResult = await ContasAPagar.deleteMany({
       actionId: action._id,
-      staffName: { $nin: staffNames }
+      staffName: { $exists: true, $nin: validStaffNames }
     });
+
+    if (deleteResult.deletedCount > 0) {
+      console.log(`Removed ${deleteResult.deletedCount} obsolete staff payment entries for action ${action._id}`);
+    }
 
     // Upsert cost payment entries
     const costs = Array.isArray(action.costs) ? action.costs : [];
-    const costIds = costs.map(cost => cost._id);
+    const costIds = costs.map(cost => cost._id).filter(Boolean);
     const costOperations = createCostUpsertOperations(action, reportDate);
 
     if (costOperations.length > 0) {
-      await ContasAPagar.bulkWrite(costOperations);
+      const costResult = await ContasAPagar.bulkWrite(costOperations);
+      console.log(`Synced ${costResult.upsertedCount || 0} cost payment entries for action ${action._id}`);
     }
 
     // Remove entries for costs removed from action
-    await ContasAPagar.deleteMany({
+    const deleteCostResult = await ContasAPagar.deleteMany({
       actionId: action._id,
-      costId: { $nin: costIds }
+      costId: { $exists: true, $nin: costIds }
     });
-  } catch {
-    // Ignore sync errors
+
+    if (deleteCostResult.deletedCount > 0) {
+      console.log(`Removed ${deleteCostResult.deletedCount} obsolete cost payment entries for action ${action._id}`);
+    }
+  } catch (error) {
+    console.error(`CRITICAL: Failed to sync ContasAPagar entries for action ${action._id}:`, error);
+    // Re-throw error to prevent action update without payment sync
+    throw new Error(`Failed to sync payment entries: ${error.message}`);
   }
 }
 

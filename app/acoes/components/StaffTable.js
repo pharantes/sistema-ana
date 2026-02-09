@@ -17,13 +17,35 @@ function formatStaffValue(value) {
 }
 
 /**
- * Finds a colaborador by matching name (case-insensitive)
+ * Normalizes a name for comparison (lowercase, trim, normalize spaces)
+ */
+function normalizeName(name) {
+  return String(name || '')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' '); // normalize multiple spaces to single space
+}
+
+/**
+ * Finds a colaborador by matching name (case-insensitive, space-normalized)
  */
 function findColaboradorByName(colaboradores, staffName) {
-  const normalizedName = String(staffName || '').toLowerCase();
-  return colaboradores.find(colab =>
-    String(colab?.nome || '').toLowerCase() === normalizedName
+  const normalizedStaffName = normalizeName(staffName);
+
+  // Try exact match first
+  let colaborador = colaboradores.find(colab =>
+    normalizeName(colab?.nome) === normalizedStaffName
   );
+
+  // If not found, try partial match (contains)
+  if (!colaborador && normalizedStaffName) {
+    colaborador = colaboradores.find(colab => {
+      const colabName = normalizeName(colab?.nome);
+      return colabName.includes(normalizedStaffName) || normalizedStaffName.includes(colabName);
+    });
+  }
+
+  return colaborador;
 }
 
 /**
@@ -106,7 +128,9 @@ export default function StaffTable({ acao, staff = [], colaboradores = [] }) {
                     {staffEntry?.name || ''}
                   </LinkButton>
                 ) : (
-                  staffEntry?.name || ''
+                  <span title="Colaborador não encontrado no cadastro">
+                    {staffEntry?.name || ''}
+                  </span>
                 )}
               </Td>
               <Td>{formatStaffValue(staffEntry?.value)}</Td>

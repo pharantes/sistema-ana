@@ -281,12 +281,12 @@ export default function ContasReceberModal({
         <Note>{selectedActionIds.length} ação(ões) selecionada(s)</Note>
       )}
 
-      <label>Status {Number(form.qtdeParcela) > 1 && '(calculado automaticamente)'}</label>
-      {Number(form.qtdeParcela) > 1 ? (
+      <label>Status {Number(form.qtdeParcela) > 1 && installments.length > 0 && '(calculado automaticamente)'}</label>
+      {Number(form.qtdeParcela) > 1 && installments.length > 0 ? (
         <ReadOnlyInput
           readOnly
           value={form.status || 'ABERTO'}
-          title="Status calculado automaticamente baseado nas parcelas individuais"
+          title="Status calculado automaticamente baseado nas parcelas individuais. Edite as parcelas abaixo."
         />
       ) : (
         <Select value={form.status || 'ABERTO'} onChange={e => update({ status: e.target.value })}>

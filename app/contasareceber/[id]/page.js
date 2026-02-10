@@ -53,8 +53,16 @@ const ActionsList = styled.ul`
 async function fetchReceivableById(id) {
   const url = new URL('/api/contasareceber', globalThis.location.origin);
   url.searchParams.set('id', id);
+  // Add cache-busting parameter to ensure fresh data
+  url.searchParams.set('_t', Date.now().toString());
 
-  const response = await fetch(url.toString());
+  const response = await fetch(url.toString(), {
+    cache: 'no-store',
+    headers: {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache'
+    }
+  });
   if (!response.ok) throw new Error('Falha ao carregar recebível');
 
   const data = await response.json();

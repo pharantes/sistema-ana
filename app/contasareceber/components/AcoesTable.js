@@ -37,6 +37,7 @@ export default function AcoesTable({
   onToggleSort,
   onChangeStatus,
   onDelete,
+  isDeleting = false,
 }) {
   // Expand receivables into installment rows
   const installmentRows = [];
@@ -157,6 +158,18 @@ export default function AcoesTable({
 
             const handleDeleteClick = (event) => {
               event.stopPropagation();
+
+              if (isDeleting) {
+                console.log('DEBUG: Delete button clicked but deletion in progress, ignoring');
+                return;
+              }
+
+              console.log('DEBUG: Delete button clicked for row:', {
+                rowId: row._id,
+                receivableId: row.receivable._id,
+                clientName: row.receivable.clientName,
+                isInstallment: row.isInstallment
+              });
               onDelete(row.receivable);
             };
 
@@ -203,8 +216,12 @@ export default function AcoesTable({
                     <SmallSecondaryButton onClick={handleEditClick}>
                       Editar
                     </SmallSecondaryButton>
-                    <SmallInlineButton onClick={handleDeleteClick}>
-                      Excluir
+                    <SmallInlineButton
+                      onClick={handleDeleteClick}
+                      disabled={isDeleting}
+                      title={isDeleting ? 'Exclusão em progresso...' : 'Excluir registro'}
+                    >
+                      {isDeleting ? 'Excluindo...' : 'Excluir'}
                     </SmallInlineButton>
                   </ActionsRow>
                 </Td>

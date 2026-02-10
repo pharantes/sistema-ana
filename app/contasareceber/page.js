@@ -193,6 +193,7 @@ export default function ContasAReceberPage() {
   const [receivableToDelete, setReceivableToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [confirmName, setConfirmName] = useState('');
+  const [lastDeleteTime, setLastDeleteTime] = useState(0);
 
   // Server-driven fetch on dependency changes
   useEffect(() => {
@@ -249,6 +250,29 @@ export default function ContasAReceberPage() {
   const clearFilters = () => { setQuery(''); setMode('venc'); setDateFrom(''); setDateTo(''); setStatusFilter('ALL'); };
 
   const handleDeleteClick = (receivable) => {
+    const now = Date.now();
+    const timeSinceLastDelete = now - lastDeleteTime;
+
+    // Prevent rapid consecutive deletes (within 2 seconds)
+    if (timeSinceLastDelete < 2000) {
+      console.log('DEBUG: Preventing rapid delete, time since last:', timeSinceLastDelete);
+      return;
+    }
+
+    // Prevent delete while another delete is in progress
+    if (isDeleting) {
+      console.log('DEBUG: Delete already in progress, ignoring');
+      return;
+    }
+
+    console.log('DEBUG: handleDeleteClick called with receivable:', {
+      id: receivable._id,
+      clientName: receivable.clientName,
+      descricao: receivable.descricao,
+      valor: receivable.valor
+    });
+
+    setLastDeleteTime(now);
     setReceivableToDelete(receivable);
     setConfirmName('');
     setDeleteModalOpen(true);
@@ -284,6 +308,7 @@ export default function ContasAReceberPage() {
     setDeleteModalOpen(false);
     setReceivableToDelete(null);
     setConfirmName('');
+    setLastDeleteTime(0);
   };
 
   if (status === "loading") return <div>Loading...</div>;
@@ -344,6 +369,7 @@ export default function ContasAReceberPage() {
           }
         }}
         onDelete={handleDeleteClick}
+        isDeleting={isDeleting}
       />
       <ContasReceberModal
         open={modalOpen}

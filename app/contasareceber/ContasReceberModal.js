@@ -42,46 +42,105 @@ export default function ContasReceberModal({
 }) {
   const [form, setForm] = useState({});
   const [installments, setInstallments] = useState([]);
+  const [availableActions, setAvailableActions] = useState([]);
+  const [selectedActionIds, setSelectedActionIds] = useState([]);
+  const [isCreateMode, setIsCreateMode] = useState(false);
 
   // Currency formatting is handled via shared BRCurrencyInput
 
+  // Fetch available actions when in create mode
   useEffect(() => {
     if (!open) return;
-    const initial = {
-      id: receivable?._id || undefined,
-      actionId: action?._id,
-      clientId: action?.clientId,
-      reportDate: (receivable?.reportDate || action?.date || action?.createdAt) ? new Date(receivable?.reportDate || action?.date || action?.createdAt).toISOString().slice(0, 10) : '',
-      status: receivable?.status || 'ABERTO',
-      // Admin receiving bank (do not default from client)
-      banco: receivable?.banco || '',
-      // Prefill these from client if missing so admin can adjust if needed
-      conta: receivable?.conta || clienteDetails?.conta || '',
-      formaPgt: receivable?.formaPgt || clienteDetails?.formaPgt || '',
-      descricao: receivable?.descricao || '',
-      recorrente: !!receivable?.recorrente,
-      parcelas: !!receivable?.parcelas,
-      qtdeParcela: receivable?.qtdeParcela || '',
-      valorParcela: receivable?.valorParcela || '',
-      valor: receivable?.valor != null ? Number(receivable.valor) : (action?.value != null ? Number(action.value) : undefined),
-      dataVencimento: receivable?.dataVencimento ? new Date(receivable.dataVencimento).toISOString().slice(0, 10) : '',
-      dataRecebimento: receivable?.dataRecebimento ? new Date(receivable.dataRecebimento).toISOString().slice(0, 10) : '',
-    };
-    setForm(initial);
 
-    // Load existing installments or generate default ones
-    if (receivable?.installments && receivable.installments.length > 0) {
-      setInstallments(receivable.installments.map(inst => ({
-        number: inst.number,
-        value: inst.value,
-        dueDate: inst.dueDate ? new Date(inst.dueDate).toISOString().slice(0, 10) : '',
-        status: inst.status || 'ABERTO',
-        paidDate: inst.paidDate ? new Date(inst.paidDate).toISOString().slice(0, 10) : ''
-      })));
-    } else {
-      setInstallments([]);
+    // Determine if we're in create mode (no action and no receivable)
+    const createMode = !action && !receivable;
+    setIsCreateMode(createMode);
+
+    if (createMode) {
+      // Fetch all actions for selection
+      fetch('/api/action')
+        .then(r => r.json())
+        .then(actions => setAvailableActions(actions || []))
+        .catch(() => setAvailableActions([]));
     }
-  }, [open, action, receivable, clienteDetails]);
+  }, [open, action, receivable]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    if (isCreateMode) {
+      // Initialize empty form for creation
+      const initial = {
+        id: undefined,
+        actionIds: [],
+        clientId: '',
+        reportDate: new Date().toISOString().slice(0, 10),
+        status: 'ABERTO',
+        banco: '',
+        conta: '',
+        formaPgt: '',
+        descricao: '',
+        recorrente: false,
+        parcelas: false,
+        qtdeParcela: '',
+        valorParcela: '',
+        valor: undefined,
+        dataVencimento: '',
+        dataRecebimento: '',
+      };
+      setForm(initial);
+      setSelectedActionIds([]);
+      setInstallments([]);
+    } else {
+      // Edit mode - existing behavior
+      const initial = {
+        id: receivable?._id || undefined,
+        actionIds: receivable?.actionIds || (action?._id ? [action._id] : []),
+        clientId: receivable?.clientId || action?.clientId,
+        reportDate: (receivable?.reportDate || action?.date || action?.createdAt) ? new Date(receivable?.reportDate || action?.date || action?.createdAt).toISOString().slice(0, 10) : '',
+        status: receivable?.status || 'ABERTO',
+        // Admin receiving bank (do not default from client)
+        banco: receivable?.banco || '',
+        // Prefill these from client if missing so admin can adjust if needed
+        conta: receivable?.conta || clienteDetails?.conta || '',
+        formaPgt: receivable?.formaPgt || clienteDetails?.formaPgt || '',
+        descricao: receivable?.descricao || '',
+        recorrente: !!receivable?.recorrente,
+        parcelas: !!receivable?.parcelas,
+        qtdeParcela: receivable?.qtdeParcela || '',
+        valorParcela: receivable?.valorParcela || '',
+        valor: receivable?.valor != null ? Number(receivable.valor) : (action?.value != null ? Number(action.value) : undefined),
+        dataVencimento: receivable?.dataVencimento ? new Date(receivable.dataVencimento).toISOString().slice(0, 10) : '',
+        dataRecebimento: receivable?.dataRecebimento ? new Date(receivable.dataRecebimento).toISOString().slice(0, 10) : '',
+      };
+      setForm(initial);
+      setSelectedActionIds(initial.actionIds);
+
+      // Load existing installments or generate default ones
+      if (receivable?.installments && receivable.installments.length > 0) {
+        setInstallments(receivable.installments.map(inst => ({
+          number: inst.number,
+          value: inst.value,
+          dueDate: inst.dueDate ? new Date(inst.dueDate).toISOString().slice(0, 10) : '',
+          status: inst.status || 'ABERTO',
+          paidDate: inst.paidDate ? new Date(inst.paidDate).toISOString().slice(0, 10) : ''
+        })));
+      } else {
+        setInstallments([]);
+      }
+    }
+  }, [open, action, receivable, clienteDetails, isCreateMode]);
+
+  // Auto-update clientId when actions are selected in create mode
+  useEffect(() => {
+    if (!isCreateMode || selectedActionIds.length === 0 || !availableActions.length) return;
+
+    // Find the first selected action and use its client
+    const firstAction = availableActions.find(a => a._id === selectedActionIds[0]);
+    if (firstAction && firstAction.client) {
+      setForm(prev => ({ ...prev, clientId: firstAction.client }));
+    }
+  }, [selectedActionIds, availableActions, isCreateMode]);
 
   // Auto-generate installments when qtdeParcela changes
   useEffect(() => {
@@ -127,6 +186,15 @@ export default function ContasReceberModal({
   const submit = async () => {
     // Build a cleaned payload: coerce numeric fields and strip empty strings
     const payload = { ...form };
+
+    // Ensure actionIds is set
+    payload.actionIds = selectedActionIds;
+
+    if (!payload.actionIds || payload.actionIds.length === 0) {
+      alert('Por favor, selecione pelo menos uma ação');
+      return;
+    }
+
     // qtdeParcela should be a number >= 1 or undefined
     if (payload.qtdeParcela === '' || payload.qtdeParcela == null) delete payload.qtdeParcela;
     else payload.qtdeParcela = Number(payload.qtdeParcela);
@@ -147,8 +215,9 @@ export default function ContasReceberModal({
       }));
     }
 
+    const method = isCreateMode ? 'POST' : 'PATCH';
     const res = await fetch('/api/contasareceber', {
-      method: 'PATCH',
+      method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
@@ -164,7 +233,44 @@ export default function ContasReceberModal({
 
   return (
     <Modal onClose={onClose} ariaLabel="Editar Conta a Receber">
-      <Title>Conta a Receber</Title>
+      <Title>{isCreateMode ? 'Nova Conta a Receber' : 'Editar Conta a Receber'}</Title>
+
+      {isCreateMode && (
+        <>
+          <label>Ações (selecione uma ou mais) *</label>
+          <ActionsSelector>
+            {availableActions.map(act => (
+              <ActionCheckboxItem key={act._id}>
+                <input
+                  type="checkbox"
+                  checked={selectedActionIds.includes(act._id)}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setSelectedActionIds(prev => [...prev, act._id]);
+                    } else {
+                      setSelectedActionIds(prev => prev.filter(id => id !== act._id));
+                    }
+                  }}
+                />
+                <span>{act.name || act.event || 'Sem nome'} - {act.clientName || act.client || ''}</span>
+              </ActionCheckboxItem>
+            ))}
+          </ActionsSelector>
+          {selectedActionIds.length > 0 && (
+            <Note>{selectedActionIds.length} ação(ões) selecionada(s)</Note>
+          )}
+        </>
+      )}
+
+      {!isCreateMode && (
+        <>
+          <label>Ação</label>
+          <input readOnly value={action?.name || ''} />
+
+          <label>Cliente</label>
+          <input readOnly value={action?.clientName || ''} />
+        </>
+      )}
 
       <label>Status {Number(form.qtdeParcela) > 1 && '(calculado automaticamente)'}</label>
       {Number(form.qtdeParcela) > 1 ? (
@@ -190,20 +296,18 @@ export default function ContasReceberModal({
         <div />
       </TwoCol>
 
-      <label>Ação</label>
-      <input readOnly value={action?.name || ''} />
+      {!isCreateMode && (
+        <>
+          <label>Banco (Cliente)</label>
+          <input readOnly value={clienteDetails?.banco || ''} />
 
-      <label>Cliente</label>
-      <input readOnly value={action?.clientName || ''} />
+          <label>Conta (Cliente)</label>
+          <input readOnly value={clienteDetails?.conta || ''} />
 
-      <label>Banco (Cliente)</label>
-      <input readOnly value={clienteDetails?.banco || ''} />
-
-      <label>Conta (Cliente)</label>
-      <input readOnly value={clienteDetails?.conta || ''} />
-
-      <label>Forma Pgt (Cliente)</label>
-      <input readOnly value={clienteDetails?.formaPgt || ''} />
+          <label>Forma Pgt (Cliente)</label>
+          <input readOnly value={clienteDetails?.formaPgt || ''} />
+        </>
+      )}
 
       <label>Descrição</label>
       <input value={form.descricao || ''} onChange={e => update({ descricao: e.target.value })} />
@@ -368,4 +472,35 @@ const Note = styled.p`
   margin: 0;
 `;
 
+const ActionsSelector = styled.div`
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-sm, 4px);
+  padding: var(--space-sm, 12px);
+  background-color: #fff;
+`;
+
+const ActionCheckboxItem = styled.label`
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs, 8px);
+  padding: var(--space-xs, 8px);
+  cursor: pointer;
+  border-radius: var(--radius-sm, 4px);
+  transition: background-color 0.2s;
+
+  &:hover {
+    background-color: rgba(108, 43, 176, 0.05);
+  }
+
+  input[type="checkbox"] {
+    cursor: pointer;
+  }
+
+  span {
+    flex: 1;
+    font-size: var(--font-size-sm, 0.875rem);
+  }
+`;
 

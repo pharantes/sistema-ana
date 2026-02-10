@@ -347,7 +347,7 @@ function paginateRows(rows, pageNumber, pageSize) {
  */
 function buildReceivablePayload(requestBody) {
   const payload = {
-    actionId: requestBody.actionId,
+    actionIds: requestBody.actionIds,
     clientId: requestBody.clientId,
     banco: requestBody.banco,
     conta: requestBody.conta,
@@ -393,23 +393,23 @@ function buildReceivablePayload(requestBody) {
 }
 
 /**
- * Upserts a receivable entry by ID or actionId
+ * Creates a new receivable entry
  */
-async function upsertReceivable(receivableId, actionId, payload) {
-  if (receivableId) {
-    return await ContasAReceber.findByIdAndUpdate(receivableId, payload, { new: true });
-  }
-
+async function createReceivable(payload) {
   // Ensure default reportDate for new entries
   if (!payload.reportDate) {
     payload.reportDate = new Date();
   }
 
-  return await ContasAReceber.findOneAndUpdate(
-    { actionId },
-    { $set: payload, $setOnInsert: { actionId } },
-    { new: true, upsert: true }
-  );
+  const receivable = new ContasAReceber(payload);
+  return await receivable.save();
+}
+
+/**
+ * Updates an existing receivable entry by ID
+ */
+async function updateReceivable(receivableId, payload) {
+  return await ContasAReceber.findByIdAndUpdate(receivableId, payload, { new: true });
 }
 
 /**
@@ -440,12 +440,18 @@ export async function GET(request) {
 
     // Fetch receivables for these actions
     const actionIds = actions.map(action => action._id);
-    const receivablesQuery = { actionId: { $in: actionIds } };
+    const receivablesQuery = { actionIds: { $in: actionIds } };
     if (searchParameters.statusFilter === 'ABERTO' || searchParameters.statusFilter === 'RECEBIDO') {
       receivablesQuery.status = searchParameters.statusFilter;
     }
     const receivables = await ContasAReceber.find(receivablesQuery).lean();
-    const receivablesMap = new Map(receivables.map(r => [String(r.actionId), r]));
+    // Map receivables by actionId - a receivable can have multiple actionIds, so we need to map each
+    const receivablesMap = new Map();
+    for (const receivable of receivables) {
+      for (const actionId of receivable.actionIds) {
+        receivablesMap.set(String(actionId), receivable);
+      }
+    }
 
     const clientesMap = await fetchClientesMap(actions);
     let rows = buildRowsData(actions, receivablesMap, clientesMap);
@@ -463,7 +469,40 @@ export async function GET(request) {
 }
 
 /**
- * PATCH /api/contasareceber - Upsert a receivable entry for an action
+ * POST /api/contasareceber - Create a new receivable entry
+ */
+export async function POST(request) {
+  try {
+    const { error: sessionError } = await getValidatedAdminSession();
+    if (sessionError) return sessionError;
+
+    patchLimiter.check(request);
+    await connect();
+
+    const requestBody = await request.json();
+
+    try {
+      validateContasAReceberUpsert(requestBody);
+    } catch (validationError) {
+      return badRequest(validationError.message || 'Invalid payload');
+    }
+
+    const payload = buildReceivablePayload(requestBody);
+    const savedReceivable = await createReceivable(payload);
+
+    const plainDocument = savedReceivable.toObject
+      ? savedReceivable.toObject()
+      : savedReceivable;
+
+    return ok(toPlainDoc(plainDocument));
+  } catch (error) {
+    logError('POST /api/contasareceber error', error);
+    return serverError('Failed to create conta a receber');
+  }
+}
+
+/**
+ * PATCH /api/contasareceber - Update an existing receivable entry
  */
 export async function PATCH(request) {
   try {
@@ -481,10 +520,18 @@ export async function PATCH(request) {
       return badRequest(validationError.message || 'Invalid payload');
     }
 
-    const { id, actionId } = requestBody;
-    const payload = buildReceivablePayload(requestBody);
+    const { id } = requestBody;
 
-    const savedReceivable = await upsertReceivable(id, actionId, payload);
+    if (!id) {
+      return badRequest('ID is required for updating');
+    }
+
+    const payload = buildReceivablePayload(requestBody);
+    const savedReceivable = await updateReceivable(id, payload);
+
+    if (!savedReceivable) {
+      return badRequest('Receivable not found');
+    }
 
     const plainDocument = savedReceivable.toObject
       ? savedReceivable.toObject()
@@ -493,6 +540,6 @@ export async function PATCH(request) {
     return ok(toPlainDoc(plainDocument));
   } catch (error) {
     logError('PATCH /api/contasareceber error', error);
-    return serverError('Failed to save conta a receber');
+    return serverError('Failed to update conta a receber');
   }
 }

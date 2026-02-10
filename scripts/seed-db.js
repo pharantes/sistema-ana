@@ -636,7 +636,7 @@ async function seedContasAReceber(actions) {
     const isReceived = daysSinceAction > 45 && Math.random() < 0.7;
 
     contasAReceber.push({
-      actionId: action._id,
+      actionIds: [action._id],
       clientId: action.client,
       status: isReceived ? 'RECEBIDO' : 'ABERTO',
       reportDate: action.date,

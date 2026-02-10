@@ -7,6 +7,7 @@ import Filters from "./Filters";
 import ContasReceberModal from "./ContasReceberModal";
 import AcoesTable from "./components/AcoesTable";
 import { gerarContasAReceberPDF } from "./utils/pdf";
+import * as FE from '../components/FormElements';
 // Pager now centralized in components/ui/Pager
 
 const Wrapper = styled.div`
@@ -15,6 +16,12 @@ const Wrapper = styled.div`
 const Title = styled.h1`
   font-size: var(--font-h3, 1.6rem);
   margin-bottom: var(--space-xs, var(--space-xs, var(--space-xs, 8px)));
+`;
+
+const ButtonRow = styled.div`
+  display: flex;
+  gap: var(--space-sm, 12px);
+  margin-bottom: var(--space-md, 16px);
 `;
 // Table, Th, Td imported from components/ui/Table for consistency
 
@@ -188,6 +195,11 @@ export default function ContasAReceberPage() {
   return (
     <Wrapper>
       <Title>Contas a Receber</Title>
+      <ButtonRow>
+        <FE.TopButton onClick={() => { setSelectedAction(null); setModalOpen(true); }}>
+          Nova Conta a Receber
+        </FE.TopButton>
+      </ButtonRow>
       <Filters
         query={query}
         onChangeQuery={setQuery}

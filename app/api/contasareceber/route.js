@@ -88,7 +88,6 @@ function buildReceivablePayload(requestBody) {
     formaPgt: requestBody.formaPgt,
     descricao: requestBody.descricao,
     recorrente: requestBody.recorrente,
-    parcelas: requestBody.parcelas,
     qtdeParcela: requestBody.qtdeParcela,
     valorParcela: requestBody.valorParcela,
     valor: requestBody.valor,
@@ -104,11 +103,15 @@ function buildReceivablePayload(requestBody) {
       paidDate: inst.paidDate ? new Date(inst.paidDate) : undefined,
     }));
 
+    // Auto-set parcelas to true when installments exist
+    payload.parcelas = true;
+
     // Auto-calculate status: RECEBIDO only if ALL installments are RECEBIDO
     const allPaid = payload.installments.every(inst => inst.status === 'RECEBIDO');
     payload.status = allPaid ? 'RECEBIDO' : 'ABERTO';
   } else {
-    // For single payments, use the provided status
+    // For single payments, use the provided values
+    payload.parcelas = requestBody.parcelas || false;
     payload.status = requestBody.status;
     payload.installments = [];
   }

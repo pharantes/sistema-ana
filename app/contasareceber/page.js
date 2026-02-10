@@ -122,6 +122,8 @@ async function updateReceivableStatus(receivable, newStatus, installmentInfo = n
       return inst;
     });
     payload.installments = updatedInstallments;
+    payload.qtdeParcela = receivable.qtdeParcela; // Ensure this is sent for proper calculation
+    payload.parcelas = true; // Ensure parcelas is true when updating installments
     // Server will auto-calculate the overall status
   } else {
     // Updating the whole receivable status

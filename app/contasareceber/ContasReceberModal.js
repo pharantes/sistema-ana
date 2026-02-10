@@ -214,6 +214,7 @@ export default function ContasReceberModal({
 
     // Include installments if qtdeParcela > 1
     if (payload.qtdeParcela && payload.qtdeParcela > 1 && installments.length > 0) {
+      payload.parcelas = true; // Auto-set parcelas to true
       payload.installments = installments.map(inst => ({
         number: inst.number,
         value: Number(inst.value),
@@ -221,6 +222,8 @@ export default function ContasReceberModal({
         status: inst.status,
         paidDate: inst.paidDate || undefined
       }));
+    } else {
+      payload.parcelas = false; // Single payment
     }
 
     const method = isCreateMode ? 'POST' : 'PATCH';

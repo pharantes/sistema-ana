@@ -1,6 +1,5 @@
 /* eslint-env node */
-import { getServerSession } from "next-auth/next";
-import baseOptions from "../../../lib/auth/authOptionsBase";
+import { getValidatedSession } from "@/lib/auth/session";
 import dbConnect from "../../../lib/db/connect.js";
 import Action from "../../../lib/db/models/Action.js";
 import ContasAPagar from "../../../lib/db/models/ContasAPagar.js";
@@ -16,6 +15,7 @@ import { ok, created, badRequest, unauthorized, serverError } from "../../../lib
 import { toPlainDocs, toPlainDoc } from "../../../lib/utils/mongo";
 import { rateLimit } from "../../../lib/utils/rateLimit";
 import { parseActionsQuery } from "../../../lib/validators/actionsQuery";
+import { logError } from "../../../lib/utils/logger";
 
 // Rate limiter configuration
 const getClientIdentifier = (request) =>
@@ -24,14 +24,6 @@ const getClientIdentifier = (request) =>
 const getLimiter = rateLimit({ windowMs: 10_000, limit: 40, idFn: getClientIdentifier });
 const postLimiter = rateLimit({ windowMs: 10_000, limit: 20, idFn: getClientIdentifier });
 
-function logError(message, error) {
-  try {
-    process.stderr.write(`${message}: ${String(error)}\n`);
-  } catch {
-    // Ignore logging errors
-  }
-}
-
 function getSearchParams(request) {
   return request.nextUrl?.searchParams ?? new globalThis.URL(request.url).searchParams;
 }
@@ -39,12 +31,8 @@ function getSearchParams(request) {
 /**
  * Retrieves and validates the user session.
  */
-async function getValidatedSession() {
-  const session = await getServerSession(baseOptions);
-  if (!session) {
-    return { error: unauthorized() };
-  }
-  return { session };
+async function getValidatedSessionLocal() {
+  return await getValidatedSession();
 }
 
 /**
@@ -70,7 +58,7 @@ async function fetchActionsWithFilters(searchParams) {
  */
 export async function GET(request) {
   try {
-    const { error } = await getValidatedSession();
+    const { error } = await getValidatedSessionLocal();
     if (error) return error;
 
     getLimiter.check(request);
@@ -228,7 +216,7 @@ async function createPaymentEntries(action) {
  */
 export async function POST(request) {
   try {
-    const { session, error } = await getValidatedSession();
+    const { session, error } = await getValidatedSessionLocal();
     if (error) return error;
     if (!session.user) return unauthorized();
 

@@ -1,13 +1,13 @@
 /* eslint-env node */
-import { getServerSession } from "next-auth/next";
-import baseOptions from "../../../../lib/auth/authOptionsBase";
+import { getValidatedSession } from "@/lib/auth/session";
 import dbConnect from "../../../../lib/db/connect.js";
 import Action from "../../../../lib/db/models/Action.js";
 import Cliente from "../../../../lib/db/models/Cliente.js";
 import ContasAPagar from "../../../../lib/db/models/ContasAPagar.js";
-import { ok, badRequest, notFound, unauthorized, forbidden, serverError } from "../../../../lib/api/responses";
+import { ok, badRequest, notFound, forbidden, serverError } from "../../../../lib/api/responses";
 import { toPlainDoc } from "../../../../lib/utils/mongo";
 import { rateLimit } from "../../../../lib/utils/rateLimit";
+import { logError } from "../../../../lib/utils/logger";
 
 // Rate limiter configuration
 const getClientIdentifier = (request) =>
@@ -15,14 +15,6 @@ const getClientIdentifier = (request) =>
 
 const getLimiter = rateLimit({ windowMs: 10_000, limit: 40, idFn: getClientIdentifier });
 const delLimiter = rateLimit({ windowMs: 10_000, limit: 20, idFn: getClientIdentifier });
-
-function logError(message, error) {
-  try {
-    process.stderr.write(`${message}: ${String(error)}\n`);
-  } catch {
-    // Ignore logging errors
-  }
-}
 
 function isValidObjectId(id) {
   return /^[0-9a-fA-F]{24}$/.test(String(id || ''));
@@ -49,14 +41,6 @@ async function enrichActionWithClientName(action) {
   } catch {
     // Ignore client resolution errors
   }
-}
-
-async function getValidatedSession() {
-  const session = await getServerSession(baseOptions);
-  if (!session || !session.user) {
-    return { error: unauthorized() };
-  }
-  return { session };
 }
 
 async function getActionParams(context) {

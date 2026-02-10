@@ -2,39 +2,14 @@
 import ContasAPagar from '@/lib/db/models/ContasAPagar';
 import Action from '@/lib/db/models/Action';
 import connect from '@/lib/db/connect';
-import { getServerSession } from 'next-auth';
-import baseOptions from '@/lib/auth/authOptionsBase';
+import { getValidatedAdminSession } from '@/lib/auth/session';
 import { attachClientNameFromActions, attachColaboradorLabel, linkStaffNameToColaborador } from '@/lib/helpers/contasapagar';
 import { validateContasAPagarCreate, validateContasAPagarUpdate } from '@/lib/validators/contasapagar';
-import { ok, created, badRequest, unauthorized, forbidden, notFound, serverError } from '@/lib/api/responses';
+import { ok, created, badRequest, notFound, serverError } from '@/lib/api/responses';
+import { logError } from '@/lib/utils/logger';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-/**
- * Logs error messages to stderr
- */
-function logError(message, error) {
-  try {
-    process.stderr.write(`${message}: ${String(error)}\n`);
-  } catch {
-    /* Ignore logging errors */
-  }
-}
-
-/**
- * Validates user session and checks for admin role
- */
-async function getValidatedAdminSession() {
-  const session = await getServerSession(baseOptions);
-  if (!session || !session.user) {
-    return { session: null, error: unauthorized() };
-  }
-  if (session.user.role !== 'admin') {
-    return { session: null, error: forbidden() };
-  }
-  return { session, error: null };
-}
 
 /**
  * Extracts date range filter from search params

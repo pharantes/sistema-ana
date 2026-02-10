@@ -1,14 +1,14 @@
 /* eslint-env node */
-import { getServerSession } from 'next-auth';
-import baseOptions from '@/lib/auth/authOptionsBase';
+import { getValidatedAdminSession } from '@/lib/auth/session';
 import connect from '@/lib/db/connect';
 import Action from '@/lib/db/models/Action';
 import Cliente from '@/lib/db/models/Cliente';
 import ContasAReceber from '@/lib/db/models/ContasAReceber';
-import { ok, badRequest, forbidden, serverError } from '@/lib/api/responses';
+import { ok, badRequest, serverError } from '@/lib/api/responses';
 import { toPlainDocs, toPlainDoc } from '@/lib/utils/mongo';
 import { rateLimit } from '@/lib/utils/rateLimit';
 import { validateContasAReceberUpsert } from '@/lib/validators/contasareceber';
+import { logError } from '@/lib/utils/logger';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -17,28 +17,6 @@ const getClientIdentifier = (request) =>
   request.headers?.get?.('x-forwarded-for')?.split(',')[0]?.trim() || request.ip || 'anon';
 const getLimiter = rateLimit({ windowMs: 10_000, limit: 60, idFn: getClientIdentifier });
 const patchLimiter = rateLimit({ windowMs: 10_000, limit: 30, idFn: getClientIdentifier });
-
-/**
- * Logs error messages to stderr
- */
-function logError(message, error) {
-  try {
-    process.stderr.write(`${message}: ${String(error)}\n`);
-  } catch {
-    /* Ignore logging errors */
-  }
-}
-
-/**
- * Validates admin session
- */
-async function getValidatedAdminSession() {
-  const session = await getServerSession(baseOptions);
-  if (!session || !session.user || session.user.role !== 'admin') {
-    return { session: null, error: forbidden() };
-  }
-  return { session, error: null };
-}
 
 /**
  * Escapes special regex characters in a string
@@ -182,6 +160,7 @@ async function buildReceivablesQuery(params) {
 
   // Text search - search in description or related actions/clients
   if (searchQuery) {
+    // eslint-disable-next-line security/detect-non-literal-regexp
     const searchRegex = new RegExp(escapeRegex(searchQuery), 'i');
     const orConditions = [];
 

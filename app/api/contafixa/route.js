@@ -1,36 +1,14 @@
 /* eslint-env node */
 import dbConnect from '@/lib/db/connect';
 import ContaFixa from '@/lib/db/models/ContaFixa';
-import { getServerSession } from 'next-auth';
-import baseOptions from '@/lib/auth/authOptionsBase';
+import { getValidatedSession } from '@/lib/auth/session';
 import { parseDateMaybe } from '@/lib/utils/dates';
 import { validateContaFixaCreate, validateContaFixaUpdate } from '@/lib/validators/contafixa';
-import { ok, created, badRequest, unauthorized, serverError, notFound } from '@/lib/api/responses';
+import { ok, created, badRequest, serverError, notFound } from '@/lib/api/responses';
+import { logError } from '@/lib/utils/logger';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-/**
- * Logs error messages to stderr
- */
-function logError(message, error) {
-  try {
-    process.stderr.write(`${message}: ${String(error)}\n`);
-  } catch {
-    /* Ignore logging errors */
-  }
-}
-
-/**
- * Validates user session and returns error if invalid
- */
-async function getValidatedSession() {
-  const session = await getServerSession(baseOptions);
-  if (!session || !session.user) {
-    return { session: null, error: unauthorized() };
-  }
-  return { session, error: null };
-}
 
 /**
  * Parses date value, converting null to null explicitly

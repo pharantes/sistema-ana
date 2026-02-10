@@ -435,12 +435,14 @@ export async function DELETE(request) {
     await connect();
 
     const { id } = await request.json();
+    console.log('DEBUG DELETE API: Received ID:', id);
 
     if (!id) {
       return badRequest('ID is required for deletion');
     }
 
     const deletedReceivable = await ContasAReceber.findByIdAndDelete(id);
+    console.log('DEBUG DELETE API: Deleted receivable:', deletedReceivable ? deletedReceivable._id : 'NOT FOUND');
 
     if (!deletedReceivable) {
       return badRequest('Receivable not found');
@@ -448,6 +450,7 @@ export async function DELETE(request) {
 
     return ok({ message: 'Conta a receber deleted successfully', id });
   } catch (error) {
+    console.error('DEBUG DELETE API: Error:', error);
     logError('DELETE /api/contasareceber error', error);
     return serverError('Failed to delete conta a receber');
   }

@@ -151,6 +151,7 @@ async function updateReceivableStatus(receivable, newStatus, installmentInfo = n
  * @throws {Error} If deletion fails
  */
 async function deleteReceivable(receivableId) {
+  console.log('DEBUG: deleteReceivable called with ID:', receivableId);
   const response = await fetch('/api/contasareceber', {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
@@ -159,10 +160,13 @@ async function deleteReceivable(receivableId) {
 
   if (!response.ok) {
     const error = await response.json();
+    console.error('DEBUG: Delete API error:', error);
     throw new Error(error.error || 'Falha ao excluir conta a receber');
   }
 
-  return await response.json();
+  const result = await response.json();
+  console.log('DEBUG: Delete API success:', result);
+  return result;
 }
 
 /**
@@ -262,6 +266,8 @@ export default function ContasAReceberPage() {
 
     setIsDeleting(true);
     try {
+      console.log('DEBUG: Deleting receivable with ID:', receivableToDelete._id);
+      console.log('DEBUG: Full receivable object:', receivableToDelete);
       await deleteReceivable(receivableToDelete._id);
       setDeleteModalOpen(false);
       setReceivableToDelete(null);

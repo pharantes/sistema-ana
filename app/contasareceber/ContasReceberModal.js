@@ -477,18 +477,21 @@ const ActionsSelector = styled.div`
   overflow-y: auto;
   border: 1px solid rgba(0, 0, 0, 0.2);
   border-radius: var(--radius-sm, 4px);
-  padding: var(--space-sm, 12px);
   background-color: #fff;
 `;
 
 const ActionCheckboxItem = styled.label`
   display: flex;
   align-items: center;
-  gap: var(--space-xs, 8px);
-  padding: var(--space-xs, 8px);
+  gap: 12px;
+  padding: 12px 16px;
   cursor: pointer;
-  border-radius: var(--radius-sm, 4px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   transition: background-color 0.2s;
+
+  &:last-child {
+    border-bottom: none;
+  }
 
   &:hover {
     background-color: rgba(108, 43, 176, 0.05);
@@ -496,11 +499,17 @@ const ActionCheckboxItem = styled.label`
 
   input[type="checkbox"] {
     cursor: pointer;
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    flex-shrink: 0;
   }
 
   span {
     flex: 1;
-    font-size: var(--font-size-sm, 0.875rem);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    color: #333;
   }
 `;
 

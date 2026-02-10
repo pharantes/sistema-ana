@@ -22,6 +22,7 @@ import { formatBRL } from "@/app/utils/currency";
  * @param {string} props.sortDir - Current sort direction ('asc' or 'desc')
  * @param {Function} props.onToggleSort - Handler for toggling sort
  * @param {Function} props.onChangeStatus - Handler for changing status or opening edit modal
+ * @param {Function} props.onDelete - Handler for deleting receivable
  */
 export default function AcoesTable({
   rows = [],
@@ -34,6 +35,7 @@ export default function AcoesTable({
   sortDir,
   onToggleSort,
   onChangeStatus,
+  onDelete,
 }) {
   // Expand receivables into installment rows
   const installmentRows = [];
@@ -152,6 +154,11 @@ export default function AcoesTable({
               onChangeStatus(row.receivable, null, { openModal: true });
             };
 
+            const handleDeleteClick = (event) => {
+              event.stopPropagation();
+              onDelete(row.receivable);
+            };
+
             const handleStatusChange = (event) => {
               event.stopPropagation();
               const newStatus = event.target.value;
@@ -191,9 +198,14 @@ export default function AcoesTable({
                   </RowInline>
                 </Td>
                 <Td>
-                  <ActionButton onClick={handleEditClick}>
-                    Editar
-                  </ActionButton>
+                  <ButtonGroup>
+                    <ActionButton onClick={handleEditClick}>
+                      Editar
+                    </ActionButton>
+                    <DeleteButton onClick={handleDeleteClick}>
+                      Excluir
+                    </DeleteButton>
+                  </ButtonGroup>
                 </Td>
               </tr>
             );
@@ -206,12 +218,33 @@ export default function AcoesTable({
 
 // Inline actions now use shared RowInline (default gap/alignment)
 
+const ButtonGroup = styled.div`
+  display: flex;
+  gap: var(--space-xs, 8px);
+`;
+
 const ActionButton = styled.button`
   background: none;
   border: 1px solid rgba(0,0,0,0.2);
   border-radius: var(--radius-sm, var(--gap-xs, var(--gap-xs, 6px)));
   padding: var(--space-xxs, var(--space-xxs, var(--space-xxs, 4px))) var(--space-xs, var(--space-xs, var(--space-xs, 8px)));
   cursor: pointer;
+  &:hover {
+    background-color: rgba(0,0,0,0.05);
+  }
+`;
+
+const DeleteButton = styled.button`
+  background: none;
+  border: 1px solid #dc3545;
+  color: #dc3545;
+  border-radius: var(--radius-sm, var(--gap-xs, var(--gap-xs, 6px)));
+  padding: var(--space-xxs, var(--space-xxs, var(--space-xxs, 4px))) var(--space-xs, var(--space-xs, var(--space-xs, 8px)));
+  cursor: pointer;
+  &:hover {
+    background-color: #dc3545;
+    color: white;
+  }
 `;
 
 const ActionsList = styled.span`

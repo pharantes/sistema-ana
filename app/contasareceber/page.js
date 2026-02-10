@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import styled from "styled-components";
 import Filters from "./Filters";
 import ContasReceberModal from "./ContasReceberModal";
+import DeleteModal from "../components/DeleteModal";
 import AcoesTable from "./components/AcoesTable";
 import { gerarContasAReceberPDF } from "./utils/pdf";
 import * as FE from '../components/FormElements';
@@ -144,6 +145,27 @@ async function updateReceivableStatus(receivable, newStatus, installmentInfo = n
 }
 
 /**
+ * Deletes a receivable via API
+ * @param {string} receivableId - ID of the receivable to delete
+ * @returns {Promise<void>}
+ * @throws {Error} If deletion fails
+ */
+async function deleteReceivable(receivableId) {
+  const response = await fetch('/api/contasareceber', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: receivableId })
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Falha ao excluir conta a receber');
+  }
+
+  return await response.json();
+}
+
+/**
  * Contas a receber page with filters and table
  */
 export default function ContasAReceberPage() {
@@ -163,6 +185,10 @@ export default function ContasAReceberPage() {
   const [selectedReceivable, setSelectedReceivable] = useState(null);
   const [total, setTotal] = useState(0);
   const [version, setVersion] = useState(0);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [receivableToDelete, setReceivableToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [confirmName, setConfirmName] = useState('');
 
   // Server-driven fetch on dependency changes
   useEffect(() => {
@@ -217,6 +243,42 @@ export default function ContasAReceberPage() {
     else { setSortKey(key); setSortDir(key === 'acao' || key === 'cliente' ? 'asc' : 'desc'); setPage(1); }
   };
   const clearFilters = () => { setQuery(''); setMode('venc'); setDateFrom(''); setDateTo(''); setStatusFilter('ALL'); };
+
+  const handleDeleteClick = (receivable) => {
+    setReceivableToDelete(receivable);
+    setConfirmName('');
+    setDeleteModalOpen(true);
+  };
+
+  const handleDeleteConfirm = async (e) => {
+    e.preventDefault();
+    if (!receivableToDelete) return;
+
+    const clientName = receivableToDelete.clienteDetails?.nome || '';
+    if (confirmName.trim().toLowerCase() !== clientName.trim().toLowerCase()) {
+      alert('O nome do cliente digitado não corresponde. Digite exatamente: ' + clientName);
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      await deleteReceivable(receivableToDelete._id);
+      setDeleteModalOpen(false);
+      setReceivableToDelete(null);
+      setConfirmName('');
+      setVersion(v => v + 1); // Refresh table
+    } catch (error) {
+      alert(error.message || 'Erro ao excluir conta a receber');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteModalOpen(false);
+    setReceivableToDelete(null);
+    setConfirmName('');
+  };
 
   if (status === "loading") return <div>Loading...</div>;
   if (!session || session.user.role !== "admin") {
@@ -275,6 +337,7 @@ export default function ContasAReceberPage() {
             alert(error.message || 'Erro ao atualizar status');
           }
         }}
+        onDelete={handleDeleteClick}
       />
       <ContasReceberModal
         open={modalOpen}
@@ -284,6 +347,21 @@ export default function ContasAReceberPage() {
         clienteDetails={selectedReceivable?.clienteDetails || null}
         onSaved={() => { setModalOpen(false); setVersion(v => v + 1); }}
       />
+      {deleteModalOpen && (
+        <DeleteModal
+          action={receivableToDelete ? {
+            codigo: receivableToDelete.clienteDetails?.nome || 'Cliente',
+            nome: 'conta',
+            entityType: "Conta a Receber"
+          } : null}
+          confirmName={confirmName}
+          setConfirmName={setConfirmName}
+          onCancel={handleDeleteCancel}
+          onConfirm={handleDeleteConfirm}
+          loading={isDeleting}
+          label="Digite o nome do cliente para confirmar a exclusão:"
+        />
+      )}
     </Wrapper>
   );
 }

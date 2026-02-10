@@ -444,3 +444,32 @@ export async function PATCH(request) {
     return serverError('Failed to update conta a receber');
   }
 }
+
+/**
+ * DELETE /api/contasareceber - Delete a receivable entry
+ */
+export async function DELETE(request) {
+  try {
+    const { error: sessionError } = await getValidatedAdminSession();
+    if (sessionError) return sessionError;
+
+    await connect();
+
+    const { id } = await request.json();
+
+    if (!id) {
+      return badRequest('ID is required for deletion');
+    }
+
+    const deletedReceivable = await ContasAReceber.findByIdAndDelete(id);
+
+    if (!deletedReceivable) {
+      return badRequest('Receivable not found');
+    }
+
+    return ok({ message: 'Conta a receber deleted successfully', id });
+  } catch (error) {
+    logError('DELETE /api/contasareceber error', error);
+    return serverError('Failed to delete conta a receber');
+  }
+}

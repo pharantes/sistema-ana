@@ -1,5 +1,4 @@
 "use client";
-/* eslint-env browser */
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import styled from "styled-components";
@@ -151,7 +150,6 @@ async function updateReceivableStatus(receivable, newStatus, installmentInfo = n
  * @throws {Error} If deletion fails
  */
 async function deleteReceivable(receivableId) {
-  console.log('DEBUG: deleteReceivable called with ID:', receivableId);
   const response = await fetch('/api/contasareceber', {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
@@ -160,12 +158,10 @@ async function deleteReceivable(receivableId) {
 
   if (!response.ok) {
     const error = await response.json();
-    console.error('DEBUG: Delete API error:', error);
     throw new Error(error.error || 'Falha ao excluir conta a receber');
   }
 
   const result = await response.json();
-  console.log('DEBUG: Delete API success:', result);
   return result;
 }
 
@@ -177,7 +173,6 @@ async function deleteReceivable(receivableId) {
  * @throws {Error} If deletion fails
  */
 async function deleteInstallment(receivableId, installmentNumber) {
-  console.log('DEBUG: deleteInstallment called with:', { receivableId, installmentNumber });
   const response = await fetch('/api/contasareceber', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -189,12 +184,10 @@ async function deleteInstallment(receivableId, installmentNumber) {
 
   if (!response.ok) {
     const error = await response.json();
-    console.error('DEBUG: Delete installment API error:', error);
     throw new Error(error.error || 'Falha ao excluir parcela');
   }
 
   const result = await response.json();
-  console.log('DEBUG: Delete installment API success:', result);
   return result;
 }
 
@@ -229,18 +222,6 @@ export default function ContasAReceberPage() {
   useEffect(() => {
     async function loadData() {
       setLoading(true);
-      console.log('DEBUG: Loading data with filters:', {
-        query,
-        mode,
-        dateFrom,
-        dateTo,
-        statusFilter,
-        sortKey,
-        sortDir,
-        page,
-        pageSize,
-        version
-      });
       const filters = {
         query,
         mode,
@@ -253,15 +234,6 @@ export default function ContasAReceberPage() {
         pageSize
       };
       const { items: fetchedItems, total: fetchedTotal } = await fetchContasReceber(filters);
-      console.log('DEBUG: Fetched data:', {
-        itemCount: fetchedItems.length,
-        total: fetchedTotal,
-        firstItem: fetchedItems[0] ? {
-          id: fetchedItems[0]._id,
-          clientName: fetchedItems[0].clientName,
-          descricao: fetchedItems[0].descricao
-        } : null
-      });
       setItems(fetchedItems);
       setTotal(fetchedTotal);
       setLoading(false);
@@ -306,23 +278,13 @@ export default function ContasAReceberPage() {
 
     // Prevent rapid consecutive deletes (within 2 seconds)
     if (timeSinceLastDelete < 2000) {
-      console.log('DEBUG: Preventing rapid delete, time since last:', timeSinceLastDelete);
       return;
     }
 
     // Prevent delete while another delete is in progress
     if (isDeleting) {
-      console.log('DEBUG: Delete already in progress, ignoring');
       return;
     }
-
-    console.log('DEBUG: handleDeleteClick called with receivable:', {
-      id: receivable._id,
-      clientName: receivable.clientName,
-      descricao: receivable.descricao,
-      valor: receivable.valor,
-      installmentInfo
-    });
 
     setLastDeleteTime(now);
     setReceivableToDelete(receivable);
@@ -343,10 +305,6 @@ export default function ContasAReceberPage() {
 
     setIsDeleting(true);
     try {
-      console.log('DEBUG: Deleting with:', {
-        receivableId: receivableToDelete._id,
-        installmentInfo: installmentToDelete
-      });
 
       if (installmentToDelete?.installmentNumber) {
         // Deleting a specific installment

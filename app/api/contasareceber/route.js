@@ -1,4 +1,3 @@
-/* eslint-env node */
 import { getValidatedAdminSession } from '@/lib/auth/session';
 import connect from '@/lib/db/connect';
 import Action from '@/lib/db/models/Action';
@@ -396,8 +395,6 @@ export async function PATCH(request) {
 
     // Handle installment deletion
     if (requestBody.deleteInstallment !== undefined) {
-      console.log('DEBUG PATCH: Deleting installment:', requestBody.deleteInstallment, 'from receivable:', requestBody.id);
-
       const { id, deleteInstallment } = requestBody;
       if (!id || deleteInstallment === undefined) {
         return badRequest('ID and deleteInstallment are required for installment deletion');
@@ -411,16 +408,9 @@ export async function PATCH(request) {
 
       // Remove the specific installment
       if (receivable.installments && Array.isArray(receivable.installments)) {
-        const originalLength = receivable.installments.length;
         receivable.installments = receivable.installments.filter(
           inst => inst.number !== deleteInstallment
         );
-
-        console.log('DEBUG PATCH: Filtered installments:', {
-          originalLength,
-          newLength: receivable.installments.length,
-          deletedInstallment: deleteInstallment
-        });
 
         // If no installments left, delete the entire receivable
         if (receivable.installments.length === 0) {
@@ -485,33 +475,13 @@ export async function DELETE(request) {
     await connect();
 
     const { id } = await request.json();
-    console.log('DEBUG DELETE API: Received ID:', id);
 
     if (!id) {
       return badRequest('ID is required for deletion');
     }
 
-    // Check total count before deletion
-    const totalCountBefore = await ContasAReceber.countDocuments();
-    console.log('DEBUG DELETE API: Total count BEFORE deletion:', totalCountBefore);
-
-    // Find the record to be deleted first
-    const recordToDelete = await ContasAReceber.findById(id);
-    console.log('DEBUG DELETE API: Record to delete:', recordToDelete ? {
-      _id: recordToDelete._id,
-      clientId: recordToDelete.clientId,
-      descricao: recordToDelete.descricao,
-      valor: recordToDelete.valor
-    } : 'NOT FOUND');
-
     // Actually delete it
     const deletedReceivable = await ContasAReceber.findByIdAndDelete(id);
-    console.log('DEBUG DELETE API: Deleted receivable:', deletedReceivable ? deletedReceivable._id : 'NOT FOUND');
-
-    // Check total count after deletion
-    const totalCountAfter = await ContasAReceber.countDocuments();
-    console.log('DEBUG DELETE API: Total count AFTER deletion:', totalCountAfter);
-    console.log('DEBUG DELETE API: Records deleted:', totalCountBefore - totalCountAfter);
 
     if (!deletedReceivable) {
       return badRequest('Receivable not found');
@@ -519,7 +489,6 @@ export async function DELETE(request) {
 
     return ok({ message: 'Conta a receber deleted successfully', id });
   } catch (error) {
-    console.error('DEBUG DELETE API: Error:', error);
     logError('DELETE /api/contasareceber error', error);
     return serverError('Failed to delete conta a receber');
   }

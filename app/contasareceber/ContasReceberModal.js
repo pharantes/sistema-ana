@@ -326,9 +326,6 @@ export default function ContasReceberModal({
 
       {/* Radios removidos conforme nova instrução */}
 
-      <label>Recebido pelo banco</label>
-      <input value={form.banco || ''} onChange={e => update({ banco: e.target.value })} />
-
       <TwoCol>
         <div>
           <label>Valor total</label>

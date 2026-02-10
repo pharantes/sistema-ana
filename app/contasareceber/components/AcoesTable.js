@@ -160,17 +160,8 @@ export default function AcoesTable({
               event.stopPropagation();
 
               if (isDeleting) {
-                console.log('DEBUG: Delete button clicked but deletion in progress, ignoring');
                 return;
               }
-
-              console.log('DEBUG: Delete button clicked for row:', {
-                rowId: row._id,
-                receivableId: row.receivable._id,
-                clientName: row.receivable.clientName,
-                isInstallment: row.isInstallment,
-                installmentNumber: row.installmentNumber
-              });
 
               // Pass installment info for installment-specific deletion
               if (row.isInstallment) {

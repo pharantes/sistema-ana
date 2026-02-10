@@ -2,6 +2,7 @@
 import { CompactTable as Table, ThClickable, Td } from "../../components/ui/Table";
 import styled from 'styled-components';
 import { RowInline } from '../../components/ui/primitives';
+import { ActionsRow, SmallSecondaryButton, SmallInlineButton } from '../../components/FormElements';
 import HeaderControls from "../../components/ui/HeaderControls";
 import StatusSelect from "../../components/ui/StatusSelect";
 import { formatDateBR } from "@/lib/utils/dates";
@@ -198,14 +199,14 @@ export default function AcoesTable({
                   </RowInline>
                 </Td>
                 <Td>
-                  <ButtonGroup>
-                    <ActionButton onClick={handleEditClick}>
+                  <ActionsRow>
+                    <SmallSecondaryButton onClick={handleEditClick}>
                       Editar
-                    </ActionButton>
-                    <DeleteButton onClick={handleDeleteClick}>
+                    </SmallSecondaryButton>
+                    <SmallInlineButton onClick={handleDeleteClick}>
                       Excluir
-                    </DeleteButton>
-                  </ButtonGroup>
+                    </SmallInlineButton>
+                  </ActionsRow>
                 </Td>
               </tr>
             );
@@ -217,35 +218,6 @@ export default function AcoesTable({
 }
 
 // Inline actions now use shared RowInline (default gap/alignment)
-
-const ButtonGroup = styled.div`
-  display: flex;
-  gap: var(--space-xs, 8px);
-`;
-
-const ActionButton = styled.button`
-  background: none;
-  border: 1px solid rgba(0,0,0,0.2);
-  border-radius: var(--radius-sm, var(--gap-xs, var(--gap-xs, 6px)));
-  padding: var(--space-xxs, var(--space-xxs, var(--space-xxs, 4px))) var(--space-xs, var(--space-xs, var(--space-xs, 8px)));
-  cursor: pointer;
-  &:hover {
-    background-color: rgba(0,0,0,0.05);
-  }
-`;
-
-const DeleteButton = styled.button`
-  background: none;
-  border: 1px solid #dc3545;
-  color: #dc3545;
-  border-radius: var(--radius-sm, var(--gap-xs, var(--gap-xs, 6px)));
-  padding: var(--space-xxs, var(--space-xxs, var(--space-xxs, 4px))) var(--space-xs, var(--space-xs, var(--space-xs, 8px)));
-  cursor: pointer;
-  &:hover {
-    background-color: #dc3545;
-    color: white;
-  }
-`;
 
 const ActionsList = styled.span`
   display: inline-block;

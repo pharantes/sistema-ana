@@ -170,6 +170,35 @@ async function deleteReceivable(receivableId) {
 }
 
 /**
+ * Deletes a specific installment from a receivable
+ * @param {string} receivableId - ID of the receivable
+ * @param {number} installmentNumber - Number of the installment to delete
+ * @returns {Promise<void>}
+ * @throws {Error} If deletion fails
+ */
+async function deleteInstallment(receivableId, installmentNumber) {
+  console.log('DEBUG: deleteInstallment called with:', { receivableId, installmentNumber });
+  const response = await fetch('/api/contasareceber', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      id: receivableId,
+      deleteInstallment: installmentNumber
+    })
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    console.error('DEBUG: Delete installment API error:', error);
+    throw new Error(error.error || 'Falha ao excluir parcela');
+  }
+
+  const result = await response.json();
+  console.log('DEBUG: Delete installment API success:', result);
+  return result;
+}
+
+/**
  * Contas a receber page with filters and table
  */
 export default function ContasAReceberPage() {
@@ -191,6 +220,7 @@ export default function ContasAReceberPage() {
   const [version, setVersion] = useState(0);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [receivableToDelete, setReceivableToDelete] = useState(null);
+  const [installmentToDelete, setInstallmentToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [confirmName, setConfirmName] = useState('');
   const [lastDeleteTime, setLastDeleteTime] = useState(0);
@@ -199,6 +229,18 @@ export default function ContasAReceberPage() {
   useEffect(() => {
     async function loadData() {
       setLoading(true);
+      console.log('DEBUG: Loading data with filters:', {
+        query,
+        mode,
+        dateFrom,
+        dateTo,
+        statusFilter,
+        sortKey,
+        sortDir,
+        page,
+        pageSize,
+        version
+      });
       const filters = {
         query,
         mode,
@@ -211,6 +253,15 @@ export default function ContasAReceberPage() {
         pageSize
       };
       const { items: fetchedItems, total: fetchedTotal } = await fetchContasReceber(filters);
+      console.log('DEBUG: Fetched data:', {
+        itemCount: fetchedItems.length,
+        total: fetchedTotal,
+        firstItem: fetchedItems[0] ? {
+          id: fetchedItems[0]._id,
+          clientName: fetchedItems[0].clientName,
+          descricao: fetchedItems[0].descricao
+        } : null
+      });
       setItems(fetchedItems);
       setTotal(fetchedTotal);
       setLoading(false);
@@ -249,7 +300,7 @@ export default function ContasAReceberPage() {
   };
   const clearFilters = () => { setQuery(''); setMode('venc'); setDateFrom(''); setDateTo(''); setStatusFilter('ALL'); };
 
-  const handleDeleteClick = (receivable) => {
+  const handleDeleteClick = (receivable, installmentInfo = null) => {
     const now = Date.now();
     const timeSinceLastDelete = now - lastDeleteTime;
 
@@ -269,11 +320,13 @@ export default function ContasAReceberPage() {
       id: receivable._id,
       clientName: receivable.clientName,
       descricao: receivable.descricao,
-      valor: receivable.valor
+      valor: receivable.valor,
+      installmentInfo
     });
 
     setLastDeleteTime(now);
     setReceivableToDelete(receivable);
+    setInstallmentToDelete(installmentInfo);
     setConfirmName('');
     setDeleteModalOpen(true);
   };
@@ -290,11 +343,22 @@ export default function ContasAReceberPage() {
 
     setIsDeleting(true);
     try {
-      console.log('DEBUG: Deleting receivable with ID:', receivableToDelete._id);
-      console.log('DEBUG: Full receivable object:', receivableToDelete);
-      await deleteReceivable(receivableToDelete._id);
+      console.log('DEBUG: Deleting with:', {
+        receivableId: receivableToDelete._id,
+        installmentInfo: installmentToDelete
+      });
+
+      if (installmentToDelete?.installmentNumber) {
+        // Deleting a specific installment
+        await deleteInstallment(receivableToDelete._id, installmentToDelete.installmentNumber);
+      } else {
+        // Deleting entire receivable
+        await deleteReceivable(receivableToDelete._id);
+      }
+
       setDeleteModalOpen(false);
       setReceivableToDelete(null);
+      setInstallmentToDelete(null);
       setConfirmName('');
       setVersion(v => v + 1); // Refresh table
     } catch (error) {
@@ -307,6 +371,7 @@ export default function ContasAReceberPage() {
   const handleDeleteCancel = () => {
     setDeleteModalOpen(false);
     setReceivableToDelete(null);
+    setInstallmentToDelete(null);
     setConfirmName('');
     setLastDeleteTime(0);
   };
@@ -384,14 +449,19 @@ export default function ContasAReceberPage() {
           action={receivableToDelete ? {
             codigo: receivableToDelete.clientName || 'Cliente não encontrado',
             nome: 'conta',
-            entityType: "Conta a Receber"
+            entityType: installmentToDelete ? 
+              `Parcela ${installmentToDelete.installmentNumber} da Conta a Receber` : 
+              "Conta a Receber"
           } : null}
           confirmName={confirmName}
           setConfirmName={setConfirmName}
           onCancel={handleDeleteCancel}
           onConfirm={handleDeleteConfirm}
           loading={isDeleting}
-          label="Digite o nome do cliente para confirmar a exclusão:"
+          label={installmentToDelete ? 
+            `Digite o nome do cliente para confirmar a exclusão da parcela ${installmentToDelete.installmentNumber}:` :
+            "Digite o nome do cliente para confirmar a exclusão:"
+          }
         />
       )}
     </Wrapper>

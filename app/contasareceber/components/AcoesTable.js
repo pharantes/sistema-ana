@@ -168,9 +168,16 @@ export default function AcoesTable({
                 rowId: row._id,
                 receivableId: row.receivable._id,
                 clientName: row.receivable.clientName,
-                isInstallment: row.isInstallment
+                isInstallment: row.isInstallment,
+                installmentNumber: row.installmentNumber
               });
-              onDelete(row.receivable);
+
+              // Pass installment info for installment-specific deletion
+              if (row.isInstallment) {
+                onDelete(row.receivable, { installmentNumber: row.installmentNumber });
+              } else {
+                onDelete(row.receivable, null);
+              }
             };
 
             const handleStatusChange = (event) => {

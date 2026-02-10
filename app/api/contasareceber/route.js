@@ -394,6 +394,56 @@ export async function PATCH(request) {
 
     const requestBody = await request.json();
 
+    // Handle installment deletion
+    if (requestBody.deleteInstallment !== undefined) {
+      console.log('DEBUG PATCH: Deleting installment:', requestBody.deleteInstallment, 'from receivable:', requestBody.id);
+
+      const { id, deleteInstallment } = requestBody;
+      if (!id || deleteInstallment === undefined) {
+        return badRequest('ID and deleteInstallment are required for installment deletion');
+      }
+
+      // Find the receivable
+      const receivable = await ContasAReceber.findById(id);
+      if (!receivable) {
+        return badRequest('Receivable not found');
+      }
+
+      // Remove the specific installment
+      if (receivable.installments && Array.isArray(receivable.installments)) {
+        const originalLength = receivable.installments.length;
+        receivable.installments = receivable.installments.filter(
+          inst => inst.number !== deleteInstallment
+        );
+
+        console.log('DEBUG PATCH: Filtered installments:', {
+          originalLength,
+          newLength: receivable.installments.length,
+          deletedInstallment: deleteInstallment
+        });
+
+        // If no installments left, delete the entire receivable
+        if (receivable.installments.length === 0) {
+          await ContasAReceber.findByIdAndDelete(id);
+          return ok({ message: 'Receivable deleted completely (no installments remaining)', id });
+        }
+
+        // Update qtdeParcela to reflect new installment count
+        receivable.qtdeParcela = receivable.installments.length;
+
+        // Recalculate overall status: RECEBIDO only if ALL remaining installments are RECEBIDO
+        const allPaid = receivable.installments.every(inst => inst.status === 'RECEBIDO');
+        receivable.status = allPaid ? 'RECEBIDO' : 'ABERTO';
+
+        // Save the updated receivable
+        const savedReceivable = await receivable.save();
+        return ok(toPlainDoc(savedReceivable));
+      }
+
+      return badRequest('No installments found to delete');
+    }
+
+    // Regular update logic
     try {
       validateContasAReceberUpsert(requestBody);
     } catch (validationError) {
@@ -441,8 +491,27 @@ export async function DELETE(request) {
       return badRequest('ID is required for deletion');
     }
 
+    // Check total count before deletion
+    const totalCountBefore = await ContasAReceber.countDocuments();
+    console.log('DEBUG DELETE API: Total count BEFORE deletion:', totalCountBefore);
+
+    // Find the record to be deleted first
+    const recordToDelete = await ContasAReceber.findById(id);
+    console.log('DEBUG DELETE API: Record to delete:', recordToDelete ? {
+      _id: recordToDelete._id,
+      clientId: recordToDelete.clientId,
+      descricao: recordToDelete.descricao,
+      valor: recordToDelete.valor
+    } : 'NOT FOUND');
+
+    // Actually delete it
     const deletedReceivable = await ContasAReceber.findByIdAndDelete(id);
     console.log('DEBUG DELETE API: Deleted receivable:', deletedReceivable ? deletedReceivable._id : 'NOT FOUND');
+
+    // Check total count after deletion
+    const totalCountAfter = await ContasAReceber.countDocuments();
+    console.log('DEBUG DELETE API: Total count AFTER deletion:', totalCountAfter);
+    console.log('DEBUG DELETE API: Records deleted:', totalCountBefore - totalCountAfter);
 
     if (!deletedReceivable) {
       return badRequest('Receivable not found');

@@ -9,6 +9,7 @@ import { validateActionUpdate } from "../../../../lib/validators/action.js";
 import { ok, badRequest, unauthorized, forbidden, serverError, notFound } from "../../../../lib/api/responses";
 import { rateLimit } from "../../../../lib/utils/rateLimit";
 import { toPlainDoc } from "../../../../lib/utils/mongo";
+import { logInfo, logError } from "../../../../lib/utils/logger";
 
 const getClientIdentifier = (request) =>
   request.headers?.get?.('x-forwarded-for')?.split(',')[0]?.trim() || request.ip || 'anon';
@@ -132,7 +133,7 @@ async function syncPaymentEntries(action) {
     const staffOperations = createStaffUpsertOperations(action, reportDate);
     if (staffOperations.length > 0) {
       const result = await ContasAPagar.bulkWrite(staffOperations);
-      console.log(`Synced ${result.upsertedCount || 0} staff payment entries for action ${action._id}`);
+      logInfo('syncPaymentEntries', `Synced ${result.upsertedCount || 0} staff payment entries for action ${action._id}`);
     }
 
     // Get valid staff names for cleanup (only staff with valid names)
@@ -147,7 +148,7 @@ async function syncPaymentEntries(action) {
     });
 
     if (deleteResult.deletedCount > 0) {
-      console.log(`Removed ${deleteResult.deletedCount} obsolete staff payment entries for action ${action._id}`);
+      logInfo('syncPaymentEntries', `Removed ${deleteResult.deletedCount} obsolete staff payment entries for action ${action._id}`);
     }
 
     // Upsert cost payment entries
@@ -157,7 +158,7 @@ async function syncPaymentEntries(action) {
 
     if (costOperations.length > 0) {
       const costResult = await ContasAPagar.bulkWrite(costOperations);
-      console.log(`Synced ${costResult.upsertedCount || 0} cost payment entries for action ${action._id}`);
+      logInfo('syncPaymentEntries', `Synced ${costResult.upsertedCount || 0} cost payment entries for action ${action._id}`);
     }
 
     // Remove entries for costs removed from action
@@ -167,10 +168,10 @@ async function syncPaymentEntries(action) {
     });
 
     if (deleteCostResult.deletedCount > 0) {
-      console.log(`Removed ${deleteCostResult.deletedCount} obsolete cost payment entries for action ${action._id}`);
+      logInfo('syncPaymentEntries', `Removed ${deleteCostResult.deletedCount} obsolete cost payment entries for action ${action._id}`);
     }
   } catch (error) {
-    console.error(`CRITICAL: Failed to sync ContasAPagar entries for action ${action._id}:`, error);
+    logError('syncPaymentEntries', error);
     // Re-throw error to prevent action update without payment sync
     throw new Error(`Failed to sync payment entries: ${error.message}`);
   }

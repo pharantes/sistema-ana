@@ -1,7 +1,5 @@
 "use client";
 /* eslint-env browser */
-// Removed global fetch directive as it is a built-in
-/* eslint-disable no-unused-vars */
 import { useEffect, useState, Fragment } from "react";
 import styled from "styled-components";
 import Modal from './Modal';
@@ -11,7 +9,7 @@ import ClienteDropdown from './ClienteDropdown';
 import ColaboradorDropdown from './ColaboradorDropdown';
 import CostModal from './CostModal';
 import BRDateInput from './BRDateInput';
-import { formatBRL, parseCurrency } from '../utils/currency';
+import { parseCurrency } from '../utils/currency';
 import BRCurrencyInput from './BRCurrencyInput';
 import { SmallInputWrap, Note as SmallNote, RowInline, Label } from './ui/primitives';
 
@@ -20,45 +18,15 @@ const FormGrid = styled.div`
   gap: var(--space-md);
 `;
 
-const Row = styled.div`
-  display: flex;
-  gap: var(--space-sm);
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-xs) var(--space-sm);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-  background-color: ${({ index }) => (index % 2 === 0 ? "#f9f9f9" : "#fff")};
-
-  .valor {
-    white-space: nowrap;
-    font-weight: bold;
-  }
-
-    button {
-    padding: var(--space-xs) var(--space-sm);
-    font-size: var(--font-size-sm);
-    border-radius: var(--radius-sm);
-    background-color: var(--color-primary, #6C2BB0);
-    color: var(--color-surface, #fff);
-    border: none;
-    cursor: pointer;
-    transition: background-color 0.3s;
-
-    &:hover {
-      background-color: var(--color-primary-700, #5a2390);
-    }
-  }
-`;
-
 const SelectedTable = styled.table`
-  width: 100%;
-  border-collapse: collapse;
-  border: 1px solid rgba(0,0,0,0.1);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  th, td { padding: var(--space-xs, var(--space-xs, var(--space-xs, 8px))); border-bottom: 1px solid #eee; }
-  thead th { background: #f7f7f7; text-align: left; font-weight: 600; }
-  tbody td { text-align: left; vertical-align: top; }
+width: 100 %;
+border - collapse: collapse;
+border: 1px solid rgba(0, 0, 0, 0.1);
+border - radius: var(--radius - sm);
+overflow: hidden;
+th, td { padding: var(--space - xs, var(--space - xs, var(--space - xs, 8px))); border - bottom: 1px solid #eee; }
+  thead th { background: #f7f7f7; text - align: left; font - weight: 600; }
+  tbody td { text - align: left; vertical - align: top; }
 `;
 const ThServ = styled.th``;
 const TdServ = styled.td``;
@@ -149,7 +117,7 @@ export default function ActionModal({ editing, form, onClose, onSubmit, loading 
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
+    return `${yyyy} -${mm} -${dd} `;
   }
 
   useEffect(() => {
@@ -182,7 +150,7 @@ export default function ActionModal({ editing, form, onClose, onSubmit, loading 
     if (selectedColaboradores.some(x => String(x.colaboradorId) === String(s._id))) return; // already added
 
     // Extract bank info from colaborador
-    const bankInfo = s.banco ? `${s.banco}${s.conta ? ` ${s.conta}` : ''}`.trim() : '';
+    const bankInfo = s.banco ? `${s.banco}${s.conta ? ` ${s.conta}` : ''} `.trim() : '';
     // Determine default payment method based on available info
     const defaultPgt = (s.pix && s.pix.trim()) ? 'PIX' : (bankInfo ? 'TED' : '');
 
@@ -313,8 +281,8 @@ export default function ActionModal({ editing, form, onClose, onSubmit, loading 
                   </thead>
                   <tbody>
                     {selectedColaboradores.map((s, idx) => (
-                      <tr key={`${s.colaboradorId || s.codigo || s.nome || ''}-${idx}`}>
-                        <TdServ>{`${s.codigo ? s.codigo + ' - ' : ''}${s.nome}`}</TdServ>
+                      <tr key={`${s.colaboradorId || s.codigo || s.nome || ''} -${idx} `}>
+                        <TdServ>{`${s.codigo ? s.codigo + ' - ' : ''}${s.nome} `}</TdServ>
                         <TdServ>
                           <BRCurrencyInput value={s.value} onChange={(val) => updateColaboradorAt(idx, { value: val })} />
                         </TdServ>
@@ -365,10 +333,6 @@ export default function ActionModal({ editing, form, onClose, onSubmit, loading 
                   </thead>
                   <tbody>
                     {selectedCosts.map((c, idx) => {
-                      const linkId = c.colaboradorId || '';
-                      const sel = linkId ? colaboradores.find(s => String(s._id) === String(linkId)) : null;
-                      const nome = sel?.nome || c.vendorName || '';
-                      const empresa = sel?.empresa || c.vendorEmpresa || '';
                       return (
                         <tr key={`cost-${idx}`}>
                           <TdServ>
@@ -380,7 +344,7 @@ export default function ActionModal({ editing, form, onClose, onSubmit, loading 
                                   const s = colaboradores.find(x => String(x._id) === String(sid));
                                   // Prefill payment details from Colaborador when linked
                                   const nextPix = s?.pix || '';
-                                  const nextBank = s ? `${s.banco || ''}${s.conta ? ` ${s.conta}` : ''}`.trim() : (c.bank || '');
+                                  const nextBank = s ? `${s.banco || ''}${s.conta ? ` ${s.conta}` : ''} `.trim() : (c.bank || '');
                                   const nextPgt = s ? ((s.pix && s.pix.trim()) ? 'PIX' : ((s.banco || s.conta) ? 'TED' : (c.pgt || ''))) : (c.pgt || '');
                                   updateCostAt(idx, {
                                     colaboradorId: sid || '',
@@ -394,7 +358,7 @@ export default function ActionModal({ editing, form, onClose, onSubmit, loading 
                               >
                                 <option value="">(Sem vínculo)</option>
                                 {colaboradores.map(s => (
-                                  <option key={s._id} value={s._id}>{`${s.codigo ? s.codigo + ' - ' : ''}${s.nome}${s.empresa ? ` (${s.empresa})` : ''}`}</option>
+                                  <option key={s._id} value={s._id}>{`${s.codigo ? s.codigo + ' - ' : ''}${s.nome}${s.empresa ? ` (${s.empresa})` : ''} `}</option>
                                 ))}
                               </select>
                               {!(c.colaboradorId) && (
@@ -467,21 +431,21 @@ export default function ActionModal({ editing, form, onClose, onSubmit, loading 
 
 // Styled additions
 const Title = styled.h3`
-  margin-top: 0;
-  font-size: var(--font-size-lg, 1.125rem);
-  color: var(--color-primary);
+margin - top: 0;
+font - size: var(--font - size - lg, 1.125rem);
+color: var(--color - primary);
 `;
 const DueDateDisplay = styled.input`
-  width: 100%;
-  background: var(--color-muted-surface, #f5f5f5);
-  margin-bottom: var(--space-xs);
-  border-radius: var(--radius-sm);
-  border: 1px solid rgba(0,0,0,0.08);
-  color: var(--color-text-muted);
-  font-size: var(--font-size-base);
+width: 100 %;
+background: var(--color - muted - surface, #f5f5f5);
+margin - bottom: var(--space - xs);
+border - radius: var(--radius - sm);
+border: 1px solid rgba(0, 0, 0, 0.08);
+color: var(--color - text - muted);
+font - size: var(--font - size - base);
 `;
 const SelectedTitle = styled(Label)`
-  margin-bottom: var(--space-xs);
+margin - bottom: var(--space - xs);
 `;
 // Removed old list layout styles (SelectedItem/SelectedLabel)
 // Use SmallInputWrap for compact inputs (ValueInput)

@@ -141,8 +141,6 @@ function getNextDueDate(fixedAccount) {
  * @returns {string} The display status ('ABERTO' or 'PAGO')
  */
 function getDisplayStatus(fixedAccount) {
-  // TODO: REVIEW - This logic assumes that if status is not 'PAGO', it is always 'ABERTO'.
-  // If new statuses are added in the future, this may break.
   const rawStatus = String(fixedAccount?.status || 'ABERTO').toUpperCase();
   if (rawStatus !== 'PAGO') return 'ABERTO';
   const nextDueDate = getNextDueDate(fixedAccount);
@@ -690,7 +688,6 @@ export default function ContasAPagarPage() {
       status: (fixaForm.status || 'ABERTO').toUpperCase(),
       vencimento: fixaForm.vencimento || undefined,
     };
-    // TODO: REVIEW - If valor is not a number, it will be undefined. Should this be allowed?
     try {
       let response;
       if (fixaEditing && fixaEditing._id) {

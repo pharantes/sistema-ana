@@ -25,24 +25,44 @@ const Grid = styled.div`
 `;
 const Label = styled.div` font-weight: 600; `;
 const Value = styled.div` color: #222; `;
-const ClientSection = styled.div`
-  margin-top: var(--space-sm);
+const Section = styled.div`
+  margin-top: var(--space-lg, 24px);
+  h3 {
+    font-size: 1.2rem;
+    margin-bottom: var(--space-sm, 12px);
+  }
 `;
-const ClientGrid = styled.div`
+const ActionsList = styled.ul`
+  list-style: none;
+  padding: 0;
+  li {
+    padding: var(--space-xs, 8px) 0;
+    border-bottom: 1px solid #eee;
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+`;
+const InstallmentsGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(2, minmax(220px, 1fr));
-  gap: var(--gap-sm) var(--space-lg);
+  gap: var(--space-sm, 12px);
+`;
+const InstallmentRow = styled.div`
+  padding: var(--space-sm, 12px);
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: ${props => props.$status === 'RECEBIDO' ? '#e8f5e9' : '#fff3e0'};
 `;
 
 /**
- * Fetches receivable data by action ID
- * @param {string} actionId - Action ID
- * @returns {Promise<Object|null>} Receivable row or null
+ * Fetches receivable data by receivable ID
+ * @param {string} id - Receivable ID
+ * @returns {Promise<Object|null>} Receivable object or null
  * @throws {Error} If fetch fails
  */
-async function fetchReceivableByActionId(actionId) {
+async function fetchReceivableById(id) {
   const url = new URL('/api/contasareceber', globalThis.location.origin);
-  url.searchParams.set('actionId', actionId);
+  url.searchParams.set('id', id);
 
   const response = await fetch(url.toString());
   if (!response.ok) throw new Error('Falha ao carregar recebível');
@@ -54,7 +74,7 @@ async function fetchReceivableByActionId(actionId) {
       ? data
       : [];
 
-  return itemsArray.find(r => String(r._id) === String(actionId)) || itemsArray[0] || null;
+  return itemsArray[0] || null;
 }
 
 /**
@@ -68,14 +88,14 @@ function formatCurrencyBRL(value) {
 }
 
 /**
- * Receivable detail page showing single action's receivable information
+ * Receivable detail page showing receivable information with multiple actions
  * @param {Object} props - Component props
  * @param {Object} props.params - Route parameters
  */
 export default function RecebivelDetailPage({ params }) {
-  const { actionId } = useUnwrap(params);
+  const { id } = useUnwrap(params);
   const router = useRouter();
-  const [row, setRow] = useState(null);
+  const [receivable, setReceivable] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
@@ -86,9 +106,9 @@ export default function RecebivelDetailPage({ params }) {
     async function loadReceivable() {
       setLoading(true);
       try {
-        const receivableData = await fetchReceivableByActionId(actionId);
+        const data = await fetchReceivableById(id);
         if (!isCancelled) {
-          setRow(receivableData);
+          setReceivable(data);
         }
       } catch (error) {
         if (!isCancelled) {
@@ -101,20 +121,20 @@ export default function RecebivelDetailPage({ params }) {
       }
     }
 
-    if (actionId) {
+    if (id) {
       loadReceivable();
     }
 
     return () => {
       isCancelled = true;
     };
-  }, [actionId]);
+  }, [id]);
 
   const handleSaved = async () => {
     setModalOpen(false);
     try {
-      const updatedData = await fetchReceivableByActionId(actionId);
-      setRow(updatedData);
+      const updatedData = await fetchReceivableById(id);
+      setReceivable(updatedData);
     } catch {
       // Silently fail - data will be stale but modal closed
     }
@@ -122,10 +142,8 @@ export default function RecebivelDetailPage({ params }) {
 
   if (loading) return <Wrapper><Loading /></Wrapper>;
   if (error) return <Wrapper>Erro: {error}</Wrapper>;
-  if (!row) return <Wrapper>Nada encontrado.</Wrapper>;
+  if (!receivable) return <Wrapper>Nada encontrado.</Wrapper>;
 
-  const receivable = row.receivable || {};
-  const actionDate = formatDateBR(row?.date);
   const dueDate = formatDateBR(receivable?.dataVencimento);
   const receivedDate = formatDateBR(receivable?.dataRecebimento);
   const documentDate = formatDateBR(receivable?.reportDate);
@@ -135,7 +153,7 @@ export default function RecebivelDetailPage({ params }) {
   return (
     <Wrapper>
       <HeaderRow>
-        <Title>Recebível</Title>
+        <Title>Conta a Receber</Title>
         <ActionButtons>
           <FE.SecondaryButton onClick={() => router.push('/contasareceber')}>
             Voltar
@@ -146,14 +164,12 @@ export default function RecebivelDetailPage({ params }) {
         </ActionButtons>
       </HeaderRow>
       <Grid>
-        <div><Label>ID</Label><Value>{row?._id || ''}</Value></div>
-        <div><Label>Data do documento</Label><Value>{documentDate}</Value></div>
-        <div><Label>Data</Label><Value>{actionDate}</Value></div>
+        <div><Label>ID</Label><Value>{receivable?._id || ''}</Value></div>
         <div><Label>Status</Label><Value>{receivable?.status || 'ABERTO'}</Value></div>
-        <div><Label>Ação</Label><Value>{row?.name || ''}</Value></div>
-        <div><Label>Cliente</Label><Value>{row?.clientName || ''}</Value></div>
+        <div><Label>Cliente</Label><Value>{receivable?.clientName || ''}</Value></div>
         <div><Label>Valor total</Label><Value>{formatCurrencyBRL(receivable?.valor)}</Value></div>
         <div><Label>Descrição</Label><Value>{receivable?.descricao || ''}</Value></div>
+        <div><Label>Data do documento</Label><Value>{documentDate}</Value></div>
         <div><Label>Qtde Parcela</Label><Value>{receivable?.qtdeParcela ?? ''}</Value></div>
         <div><Label>Valor Parcela</Label><Value>{formatCurrencyBRL(receivable?.valorParcela)}</Value></div>
         <div><Label>Data Vencimento</Label><Value>{dueDate}</Value></div>
@@ -161,24 +177,61 @@ export default function RecebivelDetailPage({ params }) {
         <div><Label>Banco (Recebido pelo banco)</Label><Value>{receivable?.banco || ''}</Value></div>
         <div><Label>Conta (Cliente no registro)</Label><Value>{receivable?.conta || ''}</Value></div>
         <div><Label>Forma Pgt (Cliente no registro)</Label><Value>{receivable?.formaPgt || ''}</Value></div>
+        <div><Label>Recorrente</Label><Value>{receivable?.recorrente ? 'Sim' : 'Não'}</Value></div>
+        <div><Label>Parcelado</Label><Value>{receivable?.parcelas ? 'Sim' : 'Não'}</Value></div>
         <div><Label>Criado em</Label><Value>{createdAt}</Value></div>
         <div><Label>Atualizado em</Label><Value>{updatedAt}</Value></div>
       </Grid>
-      <ClientSection>
-        <h3>Dados do Cliente (atual)</h3>
-        <ClientGrid>
-          <div><Label>PIX</Label><Value>{row?.clienteDetails?.pix || ''}</Value></div>
-          <div><Label>Banco</Label><Value>{row?.clienteDetails?.banco || ''}</Value></div>
-          <div><Label>Conta</Label><Value>{row?.clienteDetails?.conta || ''}</Value></div>
-          <div><Label>Forma Pgt</Label><Value>{row?.clienteDetails?.formaPgt || ''}</Value></div>
-        </ClientGrid>
-      </ClientSection>
+
+      <Section>
+        <h3>Ações Vinculadas</h3>
+        {Array.isArray(receivable.actions) && receivable.actions.length > 0 ? (
+          <ActionsList>
+            {receivable.actions.map(action => (
+              <li key={action._id}>
+                <strong>{action.name || action.event || 'Sem nome'}</strong>
+                {action.date && ` - ${formatDateBR(action.date)}`}
+              </li>
+            ))}
+          </ActionsList>
+        ) : (
+          <p>Nenhuma ação vinculada.</p>
+        )}
+      </Section>
+
+      {Array.isArray(receivable.installments) && receivable.installments.length > 0 && (
+        <Section>
+          <h3>Parcelas</h3>
+          <InstallmentsGrid>
+            {receivable.installments.map((inst, index) => (
+              <InstallmentRow key={index} $status={inst.status}>
+                <div><strong>Parcela {inst.number}</strong></div>
+                <div>Valor: {formatCurrencyBRL(inst.value)}</div>
+                <div>Vencimento: {formatDateBR(inst.dueDate)}</div>
+                <div>Status: {inst.status || 'ABERTO'}</div>
+                {inst.paidDate && <div>Pago em: {formatDateBR(inst.paidDate)}</div>}
+              </InstallmentRow>
+            ))}
+          </InstallmentsGrid>
+        </Section>
+      )}
+
+      <Section>
+        <h3>Dados do Cliente (cadastro atual)</h3>
+        <Grid>
+          <div><Label>PIX</Label><Value>{receivable?.clienteDetails?.pix || ''}</Value></div>
+          <div><Label>Banco</Label><Value>{receivable?.clienteDetails?.banco || ''}</Value></div>
+          <div><Label>Conta</Label><Value>{receivable?.clienteDetails?.conta || ''}</Value></div>
+          <div><Label>Forma Pgt</Label><Value>{receivable?.clienteDetails?.formaPgt || ''}</Value></div>
+        </Grid>
+      </Section>
+
       <ContasReceberModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        action={row}
-        receivable={row?.receivable || null}
-        clienteDetails={row?.clienteDetails || null}
+        action={null}
+        receivable={receivable}
+        clienteDetails={receivable?.clienteDetails || null}
         onSaved={handleSaved}
       />
     </Wrapper>

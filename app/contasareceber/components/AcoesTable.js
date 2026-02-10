@@ -8,10 +8,11 @@ import { formatDateBR } from "@/lib/utils/dates";
 import { formatBRL } from "@/app/utils/currency";
 
 /**
- * Table component for displaying accounts receivable (Contas a Receber) by action.
+ * Table component for displaying accounts receivable (Contas a Receber).
  * Shows sortable, paginated list with clickable rows and status management.
+ * Each row represents a receivable record (one budget covering multiple actions).
  * @param {object} props - Component props
- * @param {Array} props.rows - Array of action receivable objects
+ * @param {Array} props.rows - Array of receivable objects
  * @param {number} props.page - Current page number
  * @param {number} props.pageSize - Number of items per page
  * @param {number} props.total - Total number of items
@@ -49,11 +50,11 @@ export default function AcoesTable({
             <ThClickable onClick={() => onToggleSort('date')}>
               Data {sortKey === 'date' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
             </ThClickable>
-            <ThClickable onClick={() => onToggleSort('acao')}>
-              Ação {sortKey === 'acao' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
-            </ThClickable>
             <ThClickable onClick={() => onToggleSort('cliente')}>
               Cliente {sortKey === 'cliente' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
+            </ThClickable>
+            <ThClickable>
+              Ações
             </ThClickable>
             <ThClickable onClick={() => onToggleSort('descricao')}>
               Descrição {sortKey === 'descricao' ? (sortDir === 'asc' ? '▲' : '▼') : ''}
@@ -80,56 +81,61 @@ export default function AcoesTable({
           </tr>
         </thead>
         <tbody>
-          {rows.map((actionRow) => {
-            const receivableData = actionRow.receivable || {};
-
+          {rows.map((receivable) => {
             // Calculate the due date to display
-            let dueDateToShow = receivableData?.dataVencimento;
+            let dueDateToShow = receivable?.dataVencimento;
 
             // If there are installments, find the next open one
-            if (receivableData?.installments && Array.isArray(receivableData.installments) && receivableData.installments.length > 0) {
-              const nextOpenInstallment = receivableData.installments.find(inst => inst.status === 'ABERTO');
+            if (receivable?.installments && Array.isArray(receivable.installments) && receivable.installments.length > 0) {
+              const nextOpenInstallment = receivable.installments.find(inst => inst.status === 'ABERTO');
               if (nextOpenInstallment && nextOpenInstallment.dueDate) {
                 dueDateToShow = nextOpenInstallment.dueDate;
               }
             }
 
             const dueDate = formatDateBR(dueDateToShow);
-            const receivedDate = formatDateBR(receivableData?.dataRecebimento);
-            const actionDate = formatDateBR(actionRow?.date);
-            const currentStatus = receivableData?.status || 'ABERTO';
-            const installmentValue = receivableData?.valorParcela != null
-              ? `R$ ${formatBRL(Number(receivableData.valorParcela))}`
+            const receivedDate = formatDateBR(receivable?.dataRecebimento);
+            const reportDate = formatDateBR(receivable?.reportDate);
+            const currentStatus = receivable?.status || 'ABERTO';
+            const installmentValue = receivable?.valorParcela != null
+              ? `R$ ${formatBRL(Number(receivable.valorParcela))}`
               : '';
-            const totalValue = receivableData?.valor != null
-              ? `R$ ${formatBRL(Number(receivableData.valor))}`
+            const totalValue = receivable?.valor != null
+              ? `R$ ${formatBRL(Number(receivable.valor))}`
               : '';
 
+            // Format actions list
+            const actionNames = (receivable.actions || [])
+              .map(a => a.name || a.event || 'Sem nome')
+              .join(', ');
+
             const handleRowClick = () => {
-              globalThis.location.assign(`/contasareceber/${actionRow._id}`);
+              globalThis.location.assign(`/contasareceber/${receivable._id}`);
             };
 
             const handleEditClick = (event) => {
               event.stopPropagation();
-              onChangeStatus(actionRow, null, { openModal: true });
+              onChangeStatus(receivable, null, { openModal: true });
             };
 
             const handleStatusChange = (event) => {
               event.stopPropagation();
-              onChangeStatus(actionRow, event.target.value);
+              onChangeStatus(receivable, event.target.value);
             };
 
-            const hasInstallments = receivableData?.qtdeParcela && Number(receivableData.qtdeParcela) > 1;
+            const hasInstallments = receivable?.qtdeParcela && Number(receivable.qtdeParcela) > 1;
 
             return (
-              <tr key={actionRow._id} onClick={handleRowClick}>
-                <Td>{actionDate}</Td>
+              <tr key={receivable._id} onClick={handleRowClick}>
+                <Td>{reportDate}</Td>
+                <Td>{receivable.clientName || ''}</Td>
                 <Td>
-                  <TruncateName>{actionRow.name}</TruncateName>
+                  <ActionsList title={actionNames}>
+                    {actionNames || '-'}
+                  </ActionsList>
                 </Td>
-                <Td>{actionRow.clientName || ''}</Td>
-                <Td>{receivableData?.descricao || ''}</Td>
-                <Td>{receivableData?.qtdeParcela ?? ''}</Td>
+                <Td>{receivable?.descricao || ''}</Td>
+                <Td>{receivable?.qtdeParcela ?? ''}</Td>
                 <Td>{installmentValue}</Td>
                 <Td>{totalValue}</Td>
                 <Td>{dueDate}</Td>
@@ -177,8 +183,12 @@ const ActionButton = styled.button`
   cursor: pointer;
 `;
 
-const TruncateName = styled.span`
+const ActionsList = styled.span`
   display: inline-block;
+  max-width: 250px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 `;
 
 // Make rows visually indicate clickability on this page only
@@ -198,13 +208,10 @@ const ClickableTable = styled(Table)`
 `;
 
 const StatusBadge = styled.span`
-  display: inline-block;
-  padding: var(--space-xxs, 4px) var(--space-xs, 8px);
-  border-radius: var(--radius-sm, 4px);
-  font-size: var(--font-size-sm, 0.875rem);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.875rem;
   font-weight: 500;
   background-color: ${props => props.status === 'RECEBIDO' ? '#d4edda' : '#fff3cd'};
   color: ${props => props.status === 'RECEBIDO' ? '#155724' : '#856404'};
-  border: 1px solid ${props => props.status === 'RECEBIDO' ? '#c3e6cb' : '#ffeeba'};
-  cursor: help;
 `;

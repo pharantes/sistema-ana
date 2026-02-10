@@ -88,17 +88,16 @@ async function fetchContasReceber(filters) {
 
 /**
  * Updates receivable status via API
- * @param {Object} row - Row data
+ * @param {Object} receivable - Receivable object to update
  * @param {string} newStatus - New status value
  * @returns {Promise<void>}
  * @throws {Error} If update fails
  */
-async function updateReceivableStatus(row, newStatus) {
-  const receivable = row.receivable || {};
+async function updateReceivableStatus(receivable, newStatus) {
   const payload = {
-    id: receivable?._id,
-    actionId: row._id,
-    clientId: row.clientId,
+    id: receivable._id,
+    actionIds: receivable.actionIds || [],
+    clientId: receivable.clientId,
     status: newStatus
   };
 
@@ -130,7 +129,7 @@ export default function ContasAReceberPage() {
   const [dateTo, setDateTo] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL'); // ALL | ABERTO | RECEBIDO
   const [modalOpen, setModalOpen] = useState(false);
-  const [selectedAction, setSelectedAction] = useState(null);
+  const [selectedReceivable, setSelectedReceivable] = useState(null);
   const [total, setTotal] = useState(0);
   const [version, setVersion] = useState(0);
 
@@ -196,7 +195,7 @@ export default function ContasAReceberPage() {
     <Wrapper>
       <Title>Contas a Receber</Title>
       <ButtonRow>
-        <FE.TopButton onClick={() => { setSelectedAction(null); setModalOpen(true); }}>
+        <FE.TopButton onClick={() => { setSelectedReceivable(null); setModalOpen(true); }}>
           Nova Conta a Receber
         </FE.TopButton>
       </ButtonRow>
@@ -225,34 +224,33 @@ export default function ContasAReceberPage() {
         sortKey={sortKey}
         sortDir={sortDir}
         onToggleSort={toggleSort}
-        onChangeStatus={async (row, newStatus, options) => {
+        onChangeStatus={async (receivable, newStatus, options) => {
           if (options?.openModal) {
-            setSelectedAction(row);
+            setSelectedReceivable(receivable);
             setModalOpen(true);
             return;
           }
 
-          const originalReceivable = row.receivable || {};
-          const originalStatus = originalReceivable?.status || 'ABERTO';
+          const originalStatus = receivable?.status || 'ABERTO';
 
           // Optimistic UI update
           setItems(prevItems =>
             prevItems.map(item =>
-              item._id === row._id
-                ? { ...item, receivable: { ...(item.receivable || {}), status: newStatus } }
+              item._id === receivable._id
+                ? { ...item, status: newStatus }
                 : item
             )
           );
 
           try {
-            await updateReceivableStatus(row, newStatus);
+            await updateReceivableStatus(receivable, newStatus);
           } catch (error) {
             alert(error.message || 'Erro ao atualizar status');
             // Revert on error
             setItems(prevItems =>
               prevItems.map(item =>
-                item._id === row._id
-                  ? { ...item, receivable: { ...(item.receivable || {}), status: originalStatus } }
+                item._id === receivable._id
+                  ? { ...item, status: originalStatus }
                   : item
               )
             );
@@ -262,9 +260,9 @@ export default function ContasAReceberPage() {
       <ContasReceberModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        action={selectedAction}
-        receivable={selectedAction?.receivable || null}
-        clienteDetails={selectedAction?.clienteDetails || null}
+        action={null}
+        receivable={selectedReceivable}
+        clienteDetails={selectedReceivable?.clienteDetails || null}
         onSaved={() => { setModalOpen(false); setVersion(v => v + 1); }}
       />
     </Wrapper>

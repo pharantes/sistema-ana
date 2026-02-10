@@ -4,7 +4,6 @@ import baseOptions from '@/lib/auth/authOptionsBase';
 import connect from '@/lib/db/connect';
 import Action from '@/lib/db/models/Action';
 import Cliente from '@/lib/db/models/Cliente';
-import Colaborador from '@/lib/db/models/Colaborador';
 import ContasAReceber from '@/lib/db/models/ContasAReceber';
 import { ok, badRequest, forbidden, serverError } from '@/lib/api/responses';
 import { toPlainDocs, toPlainDoc } from '@/lib/utils/mongo';
@@ -62,6 +61,7 @@ function extractSearchParameters(request) {
   const searchParams = request.nextUrl?.searchParams ?? new globalThis.URL(request.url).searchParams;
 
   return {
+    id: (searchParams.get('id') || '').trim(), // Receivable ID for single fetch
     searchQuery: (searchParams.get('q') || '').trim(),
     actionId: (searchParams.get('actionId') || '').trim(),
     sortField: (searchParams.get('sort') || 'date').trim(),
@@ -74,272 +74,6 @@ function extractSearchParameters(request) {
     recebimentoTo: (searchParams.get('recTo') || '').trim(),
     statusFilter: (searchParams.get('status') || '').trim().toUpperCase(),
   };
-}
-
-/**
- * Builds the actions query with text search and client filters
- */
-async function buildActionsQuery(params) {
-  const { searchQuery, actionId } = params;
-  const query = {};
-  const orConditions = [];
-
-  if (actionId && isValidObjectId(actionId)) {
-    query._id = actionId;
-  }
-
-  if (searchQuery) {
-    // eslint-disable-next-line security/detect-non-literal-regexp -- input is escaped via escapeRegex
-    const searchRegex = new RegExp(escapeRegex(searchQuery), 'i');
-    orConditions.push({ name: searchRegex }, { event: searchRegex });
-
-    // Match by client name
-    const matchingClients = await Cliente.find({ nome: searchRegex }).select('_id').lean();
-    if (matchingClients.length) {
-      orConditions.push({ client: { $in: matchingClients.map(c => c._id) } });
-    }
-  }
-
-  if (orConditions.length) {
-    query.$or = orConditions;
-  }
-
-  return query;
-}
-
-/**
- * Builds date range filters for receivables
- */
-function buildReceivablesDateFilters(params) {
-  const { vencimentoFrom, vencimentoTo, recebimentoFrom, recebimentoTo, statusFilter } = params;
-  const filters = [];
-
-  if (vencimentoFrom || vencimentoTo) {
-    const vencimentoRange = {};
-    if (vencimentoFrom) vencimentoRange.$gte = new Date(vencimentoFrom);
-    if (vencimentoTo) vencimentoRange.$lte = new Date(`${vencimentoTo}T23:59:59.999Z`);
-    filters.push({ dataVencimento: vencimentoRange });
-  }
-
-  if (recebimentoFrom || recebimentoTo) {
-    const recebimentoRange = {};
-    if (recebimentoFrom) recebimentoRange.$gte = new Date(recebimentoFrom);
-    if (recebimentoTo) recebimentoRange.$lte = new Date(`${recebimentoTo}T23:59:59.999Z`);
-    filters.push({ dataRecebimento: recebimentoRange });
-  }
-
-  if (statusFilter === 'ABERTO' || statusFilter === 'RECEBIDO') {
-    filters.push({ status: statusFilter });
-  }
-
-  return filters;
-}
-
-/**
- * Filters actions by allowed receivables if date filters are present
- */
-async function filterActionsByReceivables(actionsQuery, dateFilters) {
-  if (dateFilters.length === 0) {
-    return actionsQuery;
-  }
-
-  const matchQuery = dateFilters.length === 1 ? dateFilters[0] : { $and: dateFilters };
-  const matchingReceivables = await ContasAReceber.find(matchQuery).select('actionId').lean();
-  const allowedActionIds = new Set(matchingReceivables.map(r => String(r.actionId)));
-
-  if (allowedActionIds.size === 0) {
-    return null; // No matches
-  }
-
-  actionsQuery._id = actionsQuery._id || { $in: Array.from(allowedActionIds) };
-  return actionsQuery;
-}
-
-/**
- * Fetches cliente map for given client IDs
- */
-async function fetchClientesMap(actions) {
-  const clientIds = Array.from(
-    new Set(
-      actions
-        .map(a => String(a.client || ''))
-        .filter(id => isValidObjectId(id))
-    )
-  );
-
-  if (clientIds.length === 0) {
-    return new Map();
-  }
-
-  const clientes = await Cliente.find({ _id: { $in: clientIds } })
-    .select('_id nome codigo pix banco conta formaPgt')
-    .lean();
-
-  return new Map(clientes.map(c => [String(c._id), c]));
-}
-
-/**
- * Formats client display name with codigo prefix if available
- */
-function formatClientName(cliente, clientId) {
-  if (cliente) {
-    const codigoPrefix = cliente.codigo ? `${cliente.codigo} ` : '';
-    return `${codigoPrefix}${cliente.nome}`;
-  }
-  return String(clientId || '');
-}
-
-/**
- * Enriches staff entries with colaborador data (PIX, banco, conta) by matching names
- */
-async function enrichStaffWithColaboradorData(actions) {
-  try {
-    // Collect all unique staff names from all actions
-    const staffNames = new Set();
-    for (const action of actions) {
-      if (Array.isArray(action.staff)) {
-        for (const staffMember of action.staff) {
-          if (staffMember.name) {
-            staffNames.add(String(staffMember.name).trim());
-          }
-        }
-      }
-    }
-
-    if (staffNames.size === 0) {
-      return;
-    }
-
-    // Fetch colaboradores by name
-    const colaboradores = await Colaborador.find({
-      nome: { $in: Array.from(staffNames) }
-    })
-      .select('_id nome pix banco conta')
-      .lean();
-
-    // Create a map of name -> colaborador data
-    const colaboradorMap = new Map(
-      colaboradores.map(c => [String(c.nome).trim(), c])
-    );
-
-    // Enrich each staff member with colaboradorData
-    for (const action of actions) {
-      if (Array.isArray(action.staff)) {
-        for (const staffMember of action.staff) {
-          const staffName = String(staffMember.name || '').trim();
-          const colaborador = colaboradorMap.get(staffName);
-          if (colaborador) {
-            // Fallback: use colaborador data if staff data is missing
-            if (!staffMember.pix && colaborador.pix) {
-              staffMember.pix = colaborador.pix;
-            }
-            if (!staffMember.bank && colaborador.banco) {
-              staffMember.bank = colaborador.banco;
-            }
-            // Attach full colaborador data for reference
-            staffMember.colaboradorData = {
-              _id: colaborador._id,
-              nome: colaborador.nome,
-              pix: colaborador.pix,
-              banco: colaborador.banco,
-              conta: colaborador.conta
-            };
-          }
-        }
-      }
-    }
-  } catch (error) {
-    logError('Error enriching staff with colaborador data', error);
-    // Continue without enrichment on error
-  }
-}
-
-/**
- * Builds row data for actions with receivables and client info
- */
-function buildRowsData(actions, receivablesMap, clientesMap) {
-  return actions.map(action => {
-    const receivable = receivablesMap.get(String(action._id));
-    const cliente = clientesMap.get(String(action.client || ''));
-
-    return {
-      _id: String(action._id),
-      name: action.name || action.event || '',
-      clientId: cliente?._id ? String(cliente._id) : String(action.client || ''),
-      clientName: formatClientName(cliente, action.client),
-      date: action.date || action.createdAt,
-      value: receivable?.valor ?? action.value ?? 0,
-      receivable: receivable ? toPlainDoc(receivable) : null,
-      clienteDetails: cliente ? {
-        pix: cliente.pix,
-        banco: cliente.banco,
-        conta: cliente.conta,
-        formaPgt: cliente.formaPgt
-      } : null,
-      staff: Array.isArray(action.staff) ? action.staff : [],
-    };
-  });
-}
-
-/**
- * Gets sort value for a row based on sort field
- */
-function getSortValue(row, sortField) {
-  switch (sortField) {
-    case 'acao':
-      return String(row?.name || '').toLowerCase();
-    case 'cliente':
-      return String(row?.clientName || '').toLowerCase();
-    case 'descricao':
-      return String(row?.description || '').toLowerCase();
-    case 'qtdeParcela':
-      return Number(row?.receivable?.qtdeParcela || 1);
-    case 'valorParcela':
-      return Number(row?.receivable?.valorParcela || row?.receivable?.valor || 0);
-    case 'valor':
-      return Number(row?.receivable?.valor || 0);
-    case 'status':
-      return String(row?.receivable?.status || 'ABERTO').toLowerCase();
-    case 'venc':
-      return row?.receivable?.dataVencimento
-        ? new Date(row.receivable.dataVencimento).getTime()
-        : 0;
-    case 'receb':
-      return row?.receivable?.dataRecebimento
-        ? new Date(row.receivable.dataRecebimento).getTime()
-        : 0;
-    case 'date':
-    default:
-      return row?.date ? new Date(row.date).getTime() : 0;
-  }
-}
-
-/**
- * Sorts rows based on sort field and direction
- */
-function sortRows(rows, sortField, sortDirection) {
-  rows.sort((rowA, rowB) => {
-    const valueA = getSortValue(rowA, sortField);
-    const valueB = getSortValue(rowB, sortField);
-
-    if (typeof valueA === 'number' && typeof valueB === 'number') {
-      return sortDirection === 'asc' ? valueA - valueB : valueB - valueA;
-    }
-
-    const stringA = String(valueA || '');
-    const stringB = String(valueB || '');
-    const comparison = stringA.localeCompare(stringB);
-
-    return sortDirection === 'asc' ? comparison : -comparison;
-  });
-}
-
-/**
- * Paginates rows based on page number and size
- */
-function paginateRows(rows, pageNumber, pageSize) {
-  const startIndex = (pageNumber - 1) * pageSize;
-  return rows.slice(startIndex, startIndex + pageSize);
 }
 
 /**
@@ -413,6 +147,128 @@ async function updateReceivable(receivableId, payload) {
 }
 
 /**
+ * Builds query filter for receivables based on search parameters
+ */
+async function buildReceivablesQuery(params) {
+  const { id, searchQuery, statusFilter, vencimentoFrom, vencimentoTo, recebimentoFrom, recebimentoTo } = params;
+  const query = {};
+
+  // Direct ID lookup for single receivable fetch
+  if (id && isValidObjectId(id)) {
+    query._id = id;
+    return query; // Skip other filters for direct ID lookup
+  }
+
+  // Status filter
+  if (statusFilter === 'ABERTO' || statusFilter === 'RECEBIDO') {
+    query.status = statusFilter;
+  }
+
+  // Date filters
+  if (vencimentoFrom || vencimentoTo) {
+    query.dataVencimento = {};
+    if (vencimentoFrom) query.dataVencimento.$gte = new Date(vencimentoFrom);
+    if (vencimentoTo) query.dataVencimento.$lte = new Date(`${vencimentoTo}T23:59:59.999Z`);
+  }
+
+  if (recebimentoFrom || recebimentoTo) {
+    query.dataRecebimento = {};
+    if (recebimentoFrom) query.dataRecebimento.$gte = new Date(recebimentoFrom);
+    if (recebimentoTo) query.dataRecebimento.$lte = new Date(`${recebimentoTo}T23:59:59.999Z`);
+  }
+
+  // Text search - search in description or related actions/clients
+  if (searchQuery) {
+    const searchRegex = new RegExp(escapeRegex(searchQuery), 'i');
+    const orConditions = [];
+
+    // Search in description
+    orConditions.push({ descricao: searchRegex });
+
+    // Search in client names
+    const matchingClients = await Cliente.find({ nome: searchRegex }).select('_id').lean();
+    if (matchingClients.length) {
+      orConditions.push({ clientId: { $in: matchingClients.map(c => c._id) } });
+    }
+
+    // Search in action names
+    const matchingActions = await Action.find({
+      $or: [
+        { name: searchRegex },
+        { event: searchRegex }
+      ]
+    }).select('_id').lean();
+    if (matchingActions.length) {
+      orConditions.push({ actionIds: { $in: matchingActions.map(a => a._id) } });
+    }
+
+    if (orConditions.length) {
+      query.$or = orConditions;
+    }
+  }
+
+  return query;
+}
+
+/**
+ * Enriches receivables with action and client details
+ */
+async function enrichReceivablesWithDetails(receivables) {
+  // Collect all unique action IDs and client IDs
+  const actionIdsSet = new Set();
+  const clientIdsSet = new Set();
+
+  for (const receivable of receivables) {
+    if (Array.isArray(receivable.actionIds)) {
+      receivable.actionIds.forEach(id => actionIdsSet.add(String(id)));
+    }
+    if (receivable.clientId) {
+      clientIdsSet.add(String(receivable.clientId));
+    }
+  }
+
+  // Fetch actions and clients
+  const [actions, clientes] = await Promise.all([
+    Action.find({ _id: { $in: Array.from(actionIdsSet) } })
+      .select('_id name event client')
+      .lean(),
+    Cliente.find({ _id: { $in: Array.from(clientIdsSet) } })
+      .select('_id nome codigo pix banco conta formaPgt')
+      .lean()
+  ]);
+
+  // Create maps for quick lookup
+  const actionsMap = new Map(actions.map(a => [String(a._id), a]));
+  const clientesMap = new Map(clientes.map(c => [String(c._id), c]));
+
+  // Enrich each receivable
+  for (const receivable of receivables) {
+    // Attach action details
+    receivable.actions = (receivable.actionIds || [])
+      .map(id => actionsMap.get(String(id)))
+      .filter(Boolean);
+
+    // Attach client details
+    if (receivable.clientId) {
+      const cliente = clientesMap.get(String(receivable.clientId));
+      if (cliente) {
+        receivable.clientName = cliente.codigo
+          ? `${cliente.codigo} ${cliente.nome}`.trim()
+          : cliente.nome;
+        receivable.clienteDetails = {
+          pix: cliente.pix,
+          banco: cliente.banco,
+          conta: cliente.conta,
+          formaPgt: cliente.formaPgt
+        };
+      }
+    }
+  }
+
+  return receivables;
+}
+
+/**
  * GET /api/contasareceber - Retrieve contas a receber with filtering, sorting, and pagination
  */
 export async function GET(request) {
@@ -425,47 +281,89 @@ export async function GET(request) {
 
     const searchParameters = extractSearchParameters(request);
 
-    let actionsQuery = await buildActionsQuery(searchParameters);
-    const dateFilters = buildReceivablesDateFilters(searchParameters);
+    // Build query for receivables (not actions!)
+    const query = await buildReceivablesQuery(searchParameters);
 
-    actionsQuery = await filterActionsByReceivables(actionsQuery, dateFilters);
-    if (actionsQuery === null) {
-      return ok({ items: [], total: 0 }); // No matches
-    }
+    // Fetch receivables
+    let receivables = await ContasAReceber.find(query)
+      .sort({ reportDate: -1, createdAt: -1 })
+      .lean();
 
-    const actions = await Action.find(actionsQuery).select('_id name event client date startDate endDate createdAt staff').sort({ createdAt: -1 }).lean();
+    // Enrich with action and client details
+    await enrichReceivablesWithDetails(receivables);
 
-    // Enrich staff with colaborador data (PIX, banco, conta)
-    await enrichStaffWithColaboradorData(actions);
+    // Sort receivables
+    receivables = sortReceivables(receivables, searchParameters.sortField, searchParameters.sortDirection);
 
-    // Fetch receivables for these actions
-    const actionIds = actions.map(action => action._id);
-    const receivablesQuery = { actionIds: { $in: actionIds } };
-    if (searchParameters.statusFilter === 'ABERTO' || searchParameters.statusFilter === 'RECEBIDO') {
-      receivablesQuery.status = searchParameters.statusFilter;
-    }
-    const receivables = await ContasAReceber.find(receivablesQuery).lean();
-    // Map receivables by actionId - a receivable can have multiple actionIds, so we need to map each
-    const receivablesMap = new Map();
-    for (const receivable of receivables) {
-      for (const actionId of receivable.actionIds) {
-        receivablesMap.set(String(actionId), receivable);
-      }
-    }
-
-    const clientesMap = await fetchClientesMap(actions);
-    let rows = buildRowsData(actions, receivablesMap, clientesMap);
-
-    sortRows(rows, searchParameters.sortField, searchParameters.sortDirection);
-
-    const totalRows = rows.length;
-    const paginatedItems = paginateRows(rows, searchParameters.pageNumber, searchParameters.pageSize);
+    // Pagination
+    const totalRows = receivables.length;
+    const startIndex = (searchParameters.pageNumber - 1) * searchParameters.pageSize;
+    const paginatedItems = receivables.slice(startIndex, startIndex + searchParameters.pageSize);
 
     return ok({ items: toPlainDocs(paginatedItems), total: totalRows });
   } catch (error) {
     logError('GET /api/contasareceber error', error);
     return serverError('Failed to fetch contas a receber');
   }
+}
+
+/**
+ * Sorts receivables based on field and direction
+ */
+function sortReceivables(receivables, sortField, sortDirection) {
+  const sorted = [...receivables];
+
+  sorted.sort((a, b) => {
+    let valueA, valueB;
+
+    switch (sortField) {
+      case 'cliente':
+        valueA = (a.clientName || '').toLowerCase();
+        valueB = (b.clientName || '').toLowerCase();
+        break;
+      case 'descricao':
+        valueA = (a.descricao || '').toLowerCase();
+        valueB = (b.descricao || '').toLowerCase();
+        break;
+      case 'qtdeParcela':
+        valueA = Number(a.qtdeParcela || 1);
+        valueB = Number(b.qtdeParcela || 1);
+        break;
+      case 'valorParcela':
+        valueA = Number(a.valorParcela || a.valor || 0);
+        valueB = Number(b.valorParcela || b.valor || 0);
+        break;
+      case 'valor':
+        valueA = Number(a.valor || 0);
+        valueB = Number(b.valor || 0);
+        break;
+      case 'status':
+        valueA = (a.status || 'ABERTO').toLowerCase();
+        valueB = (b.status || 'ABERTO').toLowerCase();
+        break;
+      case 'venc':
+        valueA = a.dataVencimento ? new Date(a.dataVencimento).getTime() : 0;
+        valueB = b.dataVencimento ? new Date(b.dataVencimento).getTime() : 0;
+        break;
+      case 'receb':
+        valueA = a.dataRecebimento ? new Date(a.dataRecebimento).getTime() : 0;
+        valueB = b.dataRecebimento ? new Date(b.dataRecebimento).getTime() : 0;
+        break;
+      case 'date':
+      default:
+        valueA = a.reportDate ? new Date(a.reportDate).getTime() : 0;
+        valueB = b.reportDate ? new Date(b.reportDate).getTime() : 0;
+    }
+
+    if (typeof valueA === 'number' && typeof valueB === 'number') {
+      return sortDirection === 'asc' ? valueA - valueB : valueB - valueA;
+    }
+
+    const comparison = String(valueA || '').localeCompare(String(valueB || ''));
+    return sortDirection === 'asc' ? comparison : -comparison;
+  });
+
+  return sorted;
 }
 
 /**

@@ -154,7 +154,12 @@ export default function AcoesTable({
 
             const handleStatusChange = (event) => {
               event.stopPropagation();
-              onChangeStatus(row.receivable, event.target.value);
+              const newStatus = event.target.value;
+              // Pass installment information if this is an installment row
+              const updateInfo = row.isInstallment
+                ? { installmentNumber: row.installmentNumber, newStatus }
+                : null;
+              onChangeStatus(row.receivable, newStatus, updateInfo);
             };
 
             return (
@@ -174,21 +179,15 @@ export default function AcoesTable({
                 <Td>{receivedDate}</Td>
                 <Td>
                   <RowInline>
-                    {row.isInstallment ? (
-                      <StatusBadge status={currentStatus}>
-                        {currentStatus}
-                      </StatusBadge>
-                    ) : (
-                      <StatusSelect
-                        value={currentStatus}
-                        options={[
-                          { value: 'ABERTO', label: 'ABERTO' },
-                          { value: 'RECEBIDO', label: 'RECEBIDO' }
-                        ]}
-                        onChange={handleStatusChange}
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    )}
+                    <StatusSelect
+                      value={currentStatus}
+                      options={[
+                        { value: 'ABERTO', label: 'ABERTO' },
+                        { value: 'RECEBIDO', label: 'RECEBIDO' }
+                      ]}
+                      onChange={handleStatusChange}
+                      onClick={(e) => e.stopPropagation()}
+                    />
                   </RowInline>
                 </Td>
                 <Td>
@@ -237,13 +236,4 @@ const ClickableTable = styled(Table)`
   tbody tr :is(button, select, input, a) {
     cursor: auto;
   }
-`;
-
-const StatusBadge = styled.span`
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 0.875rem;
-  font-weight: 500;
-  background-color: ${props => props.status === 'RECEBIDO' ? '#d4edda' : '#fff3cd'};
-  color: ${props => props.status === 'RECEBIDO' ? '#155724' : '#856404'};
 `;

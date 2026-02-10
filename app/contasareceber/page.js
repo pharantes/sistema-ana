@@ -90,16 +90,43 @@ async function fetchContasReceber(filters) {
  * Updates receivable status via API
  * @param {Object} receivable - Receivable object to update
  * @param {string} newStatus - New status value
+ * @param {Object} installmentInfo - Optional installment info {installmentNumber, newStatus}
  * @returns {Promise<void>}
  * @throws {Error} If update fails
  */
-async function updateReceivableStatus(receivable, newStatus) {
+async function updateReceivableStatus(receivable, newStatus, installmentInfo = null) {
   const payload = {
     id: receivable._id,
     actionIds: receivable.actionIds || [],
     clientId: receivable.clientId,
-    status: newStatus
+    reportDate: receivable.reportDate,
+    banco: receivable.banco,
+    conta: receivable.conta,
+    formaPgt: receivable.formaPgt,
+    descricao: receivable.descricao,
+    recorrente: receivable.recorrente,
+    parcelas: receivable.parcelas,
+    qtdeParcela: receivable.qtdeParcela,
+    valorParcela: receivable.valorParcela,
+    valor: receivable.valor,
+    dataVencimento: receivable.dataVencimento,
+    dataRecebimento: receivable.dataRecebimento,
   };
+
+  // If updating an installment, update only that installment
+  if (installmentInfo && receivable.installments) {
+    const updatedInstallments = receivable.installments.map(inst => {
+      if (inst.number === installmentInfo.installmentNumber) {
+        return { ...inst, status: installmentInfo.newStatus };
+      }
+      return inst;
+    });
+    payload.installments = updatedInstallments;
+    // Server will auto-calculate the overall status
+  } else {
+    // Updating the whole receivable status
+    payload.status = newStatus;
+  }
 
   const response = await fetch('/api/contasareceber', {
     method: 'PATCH',
@@ -110,6 +137,8 @@ async function updateReceivableStatus(receivable, newStatus) {
   if (!response.ok) {
     throw new Error('Falha ao atualizar status');
   }
+
+  return await response.json();
 }
 
 /**
@@ -224,36 +253,24 @@ export default function ContasAReceberPage() {
         sortKey={sortKey}
         sortDir={sortDir}
         onToggleSort={toggleSort}
-        onChangeStatus={async (receivable, newStatus, options) => {
-          if (options?.openModal) {
+        onChangeStatus={async (receivable, newStatus, updateInfo) => {
+          if (updateInfo?.openModal) {
             setSelectedReceivable(receivable);
             setModalOpen(true);
             return;
           }
 
-          const originalStatus = receivable?.status || 'ABERTO';
-
-          // Optimistic UI update
-          setItems(prevItems =>
-            prevItems.map(item =>
-              item._id === receivable._id
-                ? { ...item, status: newStatus }
-                : item
-            )
-          );
+          // Handle installment status update
+          const installmentInfo = updateInfo?.installmentNumber
+            ? { installmentNumber: updateInfo.installmentNumber, newStatus: updateInfo.newStatus }
+            : null;
 
           try {
-            await updateReceivableStatus(receivable, newStatus);
+            await updateReceivableStatus(receivable, newStatus, installmentInfo);
+            // Refresh data to show updated status
+            setVersion(v => v + 1);
           } catch (error) {
             alert(error.message || 'Erro ao atualizar status');
-            // Revert on error
-            setItems(prevItems =>
-              prevItems.map(item =>
-                item._id === receivable._id
-                  ? { ...item, status: originalStatus }
-                  : item
-              )
-            );
           }
         }}
       />

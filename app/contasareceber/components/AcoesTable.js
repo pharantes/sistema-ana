@@ -8,9 +8,9 @@ import { formatDateBR } from "@/lib/utils/dates";
 import { formatBRL } from "@/app/utils/currency";
 
 /**
- * Table component for displaying accounts receivable (Contas a Receber).
- * Shows sortable, paginated list with clickable rows and status management.
- * Each row represents a receivable record (one budget covering multiple actions).
+ * Table component for displaying accounts receivable installments.
+ * Shows one row per installment - if a receivable has 5 installments, it shows 5 rows.
+ * Each row displays the installment's specific due date and status.
  * @param {object} props - Component props
  * @param {Array} props.rows - Array of receivable objects
  * @param {number} props.page - Current page number
@@ -35,6 +35,56 @@ export default function AcoesTable({
   onToggleSort,
   onChangeStatus,
 }) {
+  // Expand receivables into installment rows
+  const installmentRows = [];
+  rows.forEach((receivable) => {
+    const actionNames = (receivable.actions || [])
+      .map(a => a.name || a.event || 'Sem nome')
+      .join(', ');
+
+    // If receivable has installments, create one row per installment
+    if (receivable?.installments && Array.isArray(receivable.installments) && receivable.installments.length > 0) {
+      receivable.installments.forEach((installment, idx) => {
+        installmentRows.push({
+          _id: `${receivable._id}-${idx}`,
+          receivableId: receivable._id,
+          installmentNumber: installment.number,
+          isInstallment: true,
+          reportDate: receivable.reportDate,
+          clientName: receivable.clientName,
+          actionNames,
+          descricao: receivable.descricao,
+          qtdeParcela: receivable.qtdeParcela,
+          valorParcela: installment.value,
+          valor: receivable.valor,
+          dataVencimento: installment.dueDate,
+          dataRecebimento: installment.paidDate,
+          status: installment.status,
+          receivable, // Keep reference for editing
+        });
+      });
+    } else {
+      // No installments - create single row for the receivable
+      installmentRows.push({
+        _id: receivable._id,
+        receivableId: receivable._id,
+        installmentNumber: null,
+        isInstallment: false,
+        reportDate: receivable.reportDate,
+        clientName: receivable.clientName,
+        actionNames,
+        descricao: receivable.descricao,
+        qtdeParcela: receivable.qtdeParcela,
+        valorParcela: receivable.valorParcela,
+        valor: receivable.valor,
+        dataVencimento: receivable.dataVencimento,
+        dataRecebimento: receivable.dataRecebimento,
+        status: receivable.status,
+        receivable,
+      });
+    }
+  });
+
   return (
     <>
       <HeaderControls
@@ -81,69 +131,51 @@ export default function AcoesTable({
           </tr>
         </thead>
         <tbody>
-          {rows.map((receivable) => {
-            // Calculate the due date to display
-            let dueDateToShow = receivable?.dataVencimento;
-
-            // If there are installments, find the next open one
-            if (receivable?.installments && Array.isArray(receivable.installments) && receivable.installments.length > 0) {
-              const nextOpenInstallment = receivable.installments.find(inst => inst.status === 'ABERTO');
-              if (nextOpenInstallment && nextOpenInstallment.dueDate) {
-                dueDateToShow = nextOpenInstallment.dueDate;
-              }
-            }
-
-            const dueDate = formatDateBR(dueDateToShow);
-            const receivedDate = formatDateBR(receivable?.dataRecebimento);
-            const reportDate = formatDateBR(receivable?.reportDate);
-            const currentStatus = receivable?.status || 'ABERTO';
-            const installmentValue = receivable?.valorParcela != null
-              ? `R$ ${formatBRL(Number(receivable.valorParcela))}`
+          {installmentRows.map((row) => {
+            const dueDate = formatDateBR(row.dataVencimento);
+            const receivedDate = formatDateBR(row.dataRecebimento);
+            const reportDate = formatDateBR(row.reportDate);
+            const currentStatus = row.status || 'ABERTO';
+            const installmentValue = row.valorParcela != null
+              ? `R$ ${formatBRL(Number(row.valorParcela))}`
               : '';
-            const totalValue = receivable?.valor != null
-              ? `R$ ${formatBRL(Number(receivable.valor))}`
+            const totalValue = row.valor != null
+              ? `R$ ${formatBRL(Number(row.valor))}`
               : '';
-
-            // Format actions list
-            const actionNames = (receivable.actions || [])
-              .map(a => a.name || a.event || 'Sem nome')
-              .join(', ');
 
             const handleRowClick = () => {
-              globalThis.location.assign(`/contasareceber/${receivable._id}`);
+              globalThis.location.assign(`/contasareceber/${row.receivableId}`);
             };
 
             const handleEditClick = (event) => {
               event.stopPropagation();
-              onChangeStatus(receivable, null, { openModal: true });
+              onChangeStatus(row.receivable, null, { openModal: true });
             };
 
             const handleStatusChange = (event) => {
               event.stopPropagation();
-              onChangeStatus(receivable, event.target.value);
+              onChangeStatus(row.receivable, event.target.value);
             };
 
-            const hasInstallments = receivable?.qtdeParcela && Number(receivable.qtdeParcela) > 1;
-
             return (
-              <tr key={receivable._id} onClick={handleRowClick}>
+              <tr key={row._id} onClick={handleRowClick}>
                 <Td>{reportDate}</Td>
-                <Td>{receivable.clientName || ''}</Td>
+                <Td>{row.clientName || ''}</Td>
                 <Td>
-                  <ActionsList title={actionNames}>
-                    {actionNames || '-'}
+                  <ActionsList title={row.actionNames}>
+                    {row.actionNames || '-'}
                   </ActionsList>
                 </Td>
-                <Td>{receivable?.descricao || ''}</Td>
-                <Td>{receivable?.qtdeParcela ?? ''}</Td>
+                <Td>{row.descricao || ''}</Td>
+                <Td>{row.qtdeParcela ?? ''}</Td>
                 <Td>{installmentValue}</Td>
                 <Td>{totalValue}</Td>
                 <Td>{dueDate}</Td>
                 <Td>{receivedDate}</Td>
                 <Td>
                   <RowInline>
-                    {hasInstallments ? (
-                      <StatusBadge status={currentStatus} title="Status calculado automaticamente pelas parcelas">
+                    {row.isInstallment ? (
+                      <StatusBadge status={currentStatus}>
                         {currentStatus}
                       </StatusBadge>
                     ) : (

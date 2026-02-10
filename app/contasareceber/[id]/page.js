@@ -43,16 +43,6 @@ const ActionsList = styled.ul`
     }
   }
 `;
-const InstallmentsGrid = styled.div`
-  display: grid;
-  gap: var(--space-sm, 12px);
-`;
-const InstallmentRow = styled.div`
-  padding: var(--space-sm, 12px);
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  background: ${props => props.$status === 'RECEBIDO' ? '#e8f5e9' : '#fff3e0'};
-`;
 
 /**
  * Fetches receivable data by receivable ID
@@ -145,10 +135,8 @@ export default function RecebivelDetailPage({ params }) {
   if (!receivable) return <Wrapper>Nada encontrado.</Wrapper>;
 
   const dueDate = formatDateBR(receivable?.dataVencimento);
-  const receivedDate = formatDateBR(receivable?.dataRecebimento);
-  const documentDate = formatDateBR(receivable?.reportDate);
   const createdAt = formatDateTimeBR(receivable?.createdAt);
-  const updatedAt = formatDateTimeBR(receivable?.updatedAt);
+  const hasInstallments = receivable?.qtdeParcela && Number(receivable.qtdeParcela) > 1;
 
   return (
     <Wrapper>
@@ -164,23 +152,13 @@ export default function RecebivelDetailPage({ params }) {
         </ActionButtons>
       </HeaderRow>
       <Grid>
-        <div><Label>ID</Label><Value>{receivable?._id || ''}</Value></div>
-        <div><Label>Status</Label><Value>{receivable?.status || 'ABERTO'}</Value></div>
         <div><Label>Cliente</Label><Value>{receivable?.clientName || ''}</Value></div>
-        <div><Label>Valor total</Label><Value>{formatCurrencyBRL(receivable?.valor)}</Value></div>
-        <div><Label>Descrição</Label><Value>{receivable?.descricao || ''}</Value></div>
-        <div><Label>Data do documento</Label><Value>{documentDate}</Value></div>
-        <div><Label>Qtde Parcela</Label><Value>{receivable?.qtdeParcela ?? ''}</Value></div>
-        <div><Label>Valor Parcela</Label><Value>{formatCurrencyBRL(receivable?.valorParcela)}</Value></div>
         <div><Label>Data Vencimento</Label><Value>{dueDate}</Value></div>
-        <div><Label>Data Recebimento</Label><Value>{receivedDate}</Value></div>
-        <div><Label>Banco (Recebido pelo banco)</Label><Value>{receivable?.banco || ''}</Value></div>
-        <div><Label>Conta (Cliente no registro)</Label><Value>{receivable?.conta || ''}</Value></div>
-        <div><Label>Forma Pgt (Cliente no registro)</Label><Value>{receivable?.formaPgt || ''}</Value></div>
-        <div><Label>Recorrente</Label><Value>{receivable?.recorrente ? 'Sim' : 'Não'}</Value></div>
-        <div><Label>Parcelado</Label><Value>{receivable?.parcelas ? 'Sim' : 'Não'}</Value></div>
+        <div><Label>Parcelado</Label><Value>{hasInstallments ? 'Sim' : 'Não'}</Value></div>
+        <div><Label>Valor total</Label><Value>{formatCurrencyBRL(receivable?.valor)}</Value></div>
+        <div><Label>Valor Parcela</Label><Value>{formatCurrencyBRL(receivable?.valorParcela)}</Value></div>
         <div><Label>Criado em</Label><Value>{createdAt}</Value></div>
-        <div><Label>Atualizado em</Label><Value>{updatedAt}</Value></div>
+        <div><Label>Status</Label><Value>{receivable?.status || 'ABERTO'}</Value></div>
       </Grid>
 
       <Section>
@@ -197,33 +175,6 @@ export default function RecebivelDetailPage({ params }) {
         ) : (
           <p>Nenhuma ação vinculada.</p>
         )}
-      </Section>
-
-      {Array.isArray(receivable.installments) && receivable.installments.length > 0 && (
-        <Section>
-          <h3>Parcelas</h3>
-          <InstallmentsGrid>
-            {receivable.installments.map((inst, index) => (
-              <InstallmentRow key={index} $status={inst.status}>
-                <div><strong>Parcela {inst.number}</strong></div>
-                <div>Valor: {formatCurrencyBRL(inst.value)}</div>
-                <div>Vencimento: {formatDateBR(inst.dueDate)}</div>
-                <div>Status: {inst.status || 'ABERTO'}</div>
-                {inst.paidDate && <div>Pago em: {formatDateBR(inst.paidDate)}</div>}
-              </InstallmentRow>
-            ))}
-          </InstallmentsGrid>
-        </Section>
-      )}
-
-      <Section>
-        <h3>Dados do Cliente (cadastro atual)</h3>
-        <Grid>
-          <div><Label>PIX</Label><Value>{receivable?.clienteDetails?.pix || ''}</Value></div>
-          <div><Label>Banco</Label><Value>{receivable?.clienteDetails?.banco || ''}</Value></div>
-          <div><Label>Conta</Label><Value>{receivable?.clienteDetails?.conta || ''}</Value></div>
-          <div><Label>Forma Pgt</Label><Value>{receivable?.clienteDetails?.formaPgt || ''}</Value></div>
-        </Grid>
       </Section>
 
       <ContasReceberModal

@@ -43,6 +43,7 @@ export default function ContasReceberModal({
   const [form, setForm] = useState({});
   const [installments, setInstallments] = useState([]);
   const [availableActions, setAvailableActions] = useState([]);
+  const [availableClients, setAvailableClients] = useState([]);
   const [selectedActionIds, setSelectedActionIds] = useState([]);
   const [isCreateMode, setIsCreateMode] = useState(false);
 
@@ -57,11 +58,19 @@ export default function ContasReceberModal({
     setIsCreateMode(createMode);
 
     if (createMode) {
-      // Fetch all actions for selection
-      fetch('/api/action')
-        .then(r => r.json())
-        .then(actions => setAvailableActions(actions || []))
-        .catch(() => setAvailableActions([]));
+      // Fetch all actions and clients for selection
+      Promise.all([
+        fetch('/api/action').then(r => r.json()),
+        fetch('/api/cliente').then(r => r.json())
+      ])
+        .then(([actions, clients]) => {
+          setAvailableActions(actions || []);
+          setAvailableClients(clients || []);
+        })
+        .catch(() => {
+          setAvailableActions([]);
+          setAvailableClients([]);
+        });
     }
   }, [open, action, receivable]);
 
@@ -195,6 +204,12 @@ export default function ContasReceberModal({
       return;
     }
 
+    // Ensure clientId is set in create mode
+    if (isCreateMode && (!payload.clientId || payload.clientId === '')) {
+      alert('Por favor, selecione um cliente');
+      return;
+    }
+
     // qtdeParcela should be a number >= 1 or undefined
     if (payload.qtdeParcela === '' || payload.qtdeParcela == null) delete payload.qtdeParcela;
     else payload.qtdeParcela = Number(payload.qtdeParcela);
@@ -237,6 +252,19 @@ export default function ContasReceberModal({
 
       {isCreateMode && (
         <>
+          <label>Cliente *</label>
+          <Select
+            value={form.clientId || ''}
+            onChange={e => update({ clientId: e.target.value })}
+          >
+            <option value="">Selecione um cliente</option>
+            {availableClients.map(client => (
+              <option key={client._id} value={client._id}>
+                {client.codigo ? `${client.codigo} - ` : ''}{client.nome}
+              </option>
+            ))}
+          </Select>
+
           <label>Ações (selecione uma ou mais) *</label>
           <ActionsSelector>
             {availableActions.map(act => (

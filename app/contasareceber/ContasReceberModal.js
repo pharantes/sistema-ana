@@ -138,17 +138,6 @@ export default function ContasReceberModal({
     }
   }, [open, action, receivable, clienteDetails, isCreateMode]);
 
-  // Auto-update clientId when actions are selected in create mode
-  useEffect(() => {
-    if (!isCreateMode || selectedActionIds.length === 0 || !availableActions.length) return;
-
-    // Find the first selected action and use its client
-    const firstAction = availableActions.find(a => a._id === selectedActionIds[0]);
-    if (firstAction && firstAction.client) {
-      setForm(prev => ({ ...prev, clientId: firstAction.client }));
-    }
-  }, [selectedActionIds, availableActions, isCreateMode]);
-
   // Auto-generate installments when qtdeParcela changes
   useEffect(() => {
     const qty = Number(form.qtdeParcela);
@@ -182,7 +171,13 @@ export default function ContasReceberModal({
 
   if (!open) return null;
 
-  const update = (patch) => setForm(f => ({ ...f, ...patch }));
+  const update = (patch) => {
+    // If clientId is being changed, clear selected actions
+    if ('clientId' in patch) {
+      setSelectedActionIds([]);
+    }
+    setForm(f => ({ ...f, ...patch }));
+  };
 
   const updateInstallment = (index, patch) => {
     setInstallments(prev => prev.map((inst, i) =>
@@ -263,22 +258,24 @@ export default function ContasReceberModal({
 
       <label>Ações (selecione uma ou mais) *</label>
       <ActionsSelector>
-        {availableActions.map(act => (
-          <ActionCheckboxItem key={act._id}>
-            <input
-              type="checkbox"
-              checked={selectedActionIds.includes(act._id)}
-              onChange={(e) => {
-                if (e.target.checked) {
-                  setSelectedActionIds(prev => [...prev, act._id]);
-                } else {
-                  setSelectedActionIds(prev => prev.filter(id => id !== act._id));
-                }
-              }}
-            />
-            <span>{act.name || act.event || 'Sem nome'} - {act.clientName || act.client || ''}</span>
-          </ActionCheckboxItem>
-        ))}
+        {availableActions
+          .filter(act => !form.clientId || act.client === form.clientId)
+          .map(act => (
+            <ActionCheckboxItem key={act._id}>
+              <input
+                type="checkbox"
+                checked={selectedActionIds.includes(act._id)}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedActionIds(prev => [...prev, act._id]);
+                  } else {
+                    setSelectedActionIds(prev => prev.filter(id => id !== act._id));
+                  }
+                }}
+              />
+              <span>{act.name || act.event || 'Sem nome'} - {act.clientName || act.client || ''}</span>
+            </ActionCheckboxItem>
+          ))}
       </ActionsSelector>
       {selectedActionIds.length > 0 && (
         <Note>{selectedActionIds.length} ação(ões) selecionada(s)</Note>

@@ -449,8 +449,8 @@ export default function ContasAReceberPage() {
           action={receivableToDelete ? {
             codigo: receivableToDelete.clientName || 'Cliente não encontrado',
             nome: 'conta',
-            entityType: installmentToDelete ? 
-              `Parcela ${installmentToDelete.installmentNumber} da Conta a Receber` : 
+            entityType: installmentToDelete ?
+              `Parcela ${installmentToDelete.installmentNumber} da Conta a Receber` :
               "Conta a Receber"
           } : null}
           confirmName={confirmName}
@@ -458,7 +458,7 @@ export default function ContasAReceberPage() {
           onCancel={handleDeleteCancel}
           onConfirm={handleDeleteConfirm}
           loading={isDeleting}
-          label={installmentToDelete ? 
+          label={installmentToDelete ?
             `Digite o nome do cliente para confirmar a exclusão da parcela ${installmentToDelete.installmentNumber}:` :
             "Digite o nome do cliente para confirmar a exclusão:"
           }

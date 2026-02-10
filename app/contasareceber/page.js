@@ -254,7 +254,7 @@ export default function ContasAReceberPage() {
     e.preventDefault();
     if (!receivableToDelete) return;
 
-    const clientName = receivableToDelete.clienteDetails?.nome || '';
+    const clientName = receivableToDelete.clientName || '';
     if (confirmName.trim().toLowerCase() !== clientName.trim().toLowerCase()) {
       alert('O nome do cliente digitado não corresponde. Digite exatamente: ' + clientName);
       return;
@@ -350,7 +350,7 @@ export default function ContasAReceberPage() {
       {deleteModalOpen && (
         <DeleteModal
           action={receivableToDelete ? {
-            codigo: receivableToDelete.clienteDetails?.nome || 'Cliente',
+            codigo: receivableToDelete.clientName || 'Cliente não encontrado',
             nome: 'conta',
             entityType: "Conta a Receber"
           } : null}

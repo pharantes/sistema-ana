@@ -49,7 +49,7 @@ export default function ContasReceberModal({
 
   // Currency formatting is handled via shared BRCurrencyInput
 
-  // Fetch available actions when in create mode
+  // Fetch available actions and clients for both create and edit modes
   useEffect(() => {
     if (!open) return;
 
@@ -57,21 +57,19 @@ export default function ContasReceberModal({
     const createMode = !action && !receivable;
     setIsCreateMode(createMode);
 
-    if (createMode) {
-      // Fetch all actions and clients for selection
-      Promise.all([
-        fetch('/api/action').then(r => r.json()),
-        fetch('/api/cliente').then(r => r.json())
-      ])
-        .then(([actions, clients]) => {
-          setAvailableActions(actions || []);
-          setAvailableClients(clients || []);
-        })
-        .catch(() => {
-          setAvailableActions([]);
-          setAvailableClients([]);
-        });
-    }
+    // Fetch all actions and clients for selection (needed in both modes)
+    Promise.all([
+      fetch('/api/action').then(r => r.json()),
+      fetch('/api/cliente').then(r => r.json())
+    ])
+      .then(([actions, clients]) => {
+        setAvailableActions(actions || []);
+        setAvailableClients(clients || []);
+      })
+      .catch(() => {
+        setAvailableActions([]);
+        setAvailableClients([]);
+      });
   }, [open, action, receivable]);
 
   useEffect(() => {
@@ -204,8 +202,8 @@ export default function ContasReceberModal({
       return;
     }
 
-    // Ensure clientId is set in create mode
-    if (isCreateMode && (!payload.clientId || payload.clientId === '')) {
+    // Ensure clientId is set
+    if (!payload.clientId || payload.clientId === '') {
       alert('Por favor, selecione um cliente');
       return;
     }
@@ -250,54 +248,40 @@ export default function ContasReceberModal({
     <Modal onClose={onClose} ariaLabel="Editar Conta a Receber">
       <Title>{isCreateMode ? 'Nova Conta a Receber' : 'Editar Conta a Receber'}</Title>
 
-      {isCreateMode && (
-        <>
-          <label>Cliente *</label>
-          <Select
-            value={form.clientId || ''}
-            onChange={e => update({ clientId: e.target.value })}
-          >
-            <option value="">Selecione um cliente</option>
-            {availableClients.map(client => (
-              <option key={client._id} value={client._id}>
-                {client.codigo ? `${client.codigo} - ` : ''}{client.nome}
-              </option>
-            ))}
-          </Select>
+      <label>Cliente *</label>
+      <Select
+        value={form.clientId || ''}
+        onChange={e => update({ clientId: e.target.value })}
+      >
+        <option value="">Selecione um cliente</option>
+        {availableClients.map(client => (
+          <option key={client._id} value={client._id}>
+            {client.codigo ? `${client.codigo} - ` : ''}{client.nome}
+          </option>
+        ))}
+      </Select>
 
-          <label>Ações (selecione uma ou mais) *</label>
-          <ActionsSelector>
-            {availableActions.map(act => (
-              <ActionCheckboxItem key={act._id}>
-                <input
-                  type="checkbox"
-                  checked={selectedActionIds.includes(act._id)}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      setSelectedActionIds(prev => [...prev, act._id]);
-                    } else {
-                      setSelectedActionIds(prev => prev.filter(id => id !== act._id));
-                    }
-                  }}
-                />
-                <span>{act.name || act.event || 'Sem nome'} - {act.clientName || act.client || ''}</span>
-              </ActionCheckboxItem>
-            ))}
-          </ActionsSelector>
-          {selectedActionIds.length > 0 && (
-            <Note>{selectedActionIds.length} ação(ões) selecionada(s)</Note>
-          )}
-        </>
-      )}
-
-      {!isCreateMode && (
-        <>
-          <label>Ação</label>
-          <input readOnly value={action?.name || ''} />
-
-          <label>Cliente</label>
-          <input readOnly value={action?.clientName || ''} />
-        </>
+      <label>Ações (selecione uma ou mais) *</label>
+      <ActionsSelector>
+        {availableActions.map(act => (
+          <ActionCheckboxItem key={act._id}>
+            <input
+              type="checkbox"
+              checked={selectedActionIds.includes(act._id)}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  setSelectedActionIds(prev => [...prev, act._id]);
+                } else {
+                  setSelectedActionIds(prev => prev.filter(id => id !== act._id));
+                }
+              }}
+            />
+            <span>{act.name || act.event || 'Sem nome'} - {act.clientName || act.client || ''}</span>
+          </ActionCheckboxItem>
+        ))}
+      </ActionsSelector>
+      {selectedActionIds.length > 0 && (
+        <Note>{selectedActionIds.length} ação(ões) selecionada(s)</Note>
       )}
 
       <label>Status {Number(form.qtdeParcela) > 1 && '(calculado automaticamente)'}</label>
